@@ -32,6 +32,30 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.rotate-hint { display: none; }
+
+/* Téléphone à l'horizontale (l'app est prévue pour la verticale). */
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  #root { display: none; }
+  .rotate-hint {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--cream);
+  }
+  .rotate-hint p { margin: 0; max-width: 320px; }
+  .rotate-hint-icon { font-size: 48px; display: inline-block; transform: rotate(90deg); }
+}
+
 button, input, select, textarea { font: inherit; }
 button { color: inherit; }
 

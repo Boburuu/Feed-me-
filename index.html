@@ -18,6 +18,11 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Téléphone tourné à l'horizontale : Android reste en portrait, mais Safari (iPhone) ne peut pas être bloqué. -->
+    <div class="rotate-hint" aria-hidden="true">
+      <span class="rotate-hint-icon">📱</span>
+      <p>Tournez le téléphone à la verticale pour utiliser Feed Me.</p>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
