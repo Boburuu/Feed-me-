@@ -1,0 +1,150 @@
+/* Ajout d'un repas par recherche d'aliments. Chargé après themes.css. */
+
+.meal-composer { display: grid; gap: 12px; }
+.meal-composer-when { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.meal-composer-when label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.meal-composer-when input, .meal-composer-when select { width: 100%; min-width: 0; padding: 11px 10px; border: 1px solid var(--line); border-radius: 12px; outline: 0; color: var(--ink); background: var(--cream); font-size: 14px; }
+
+/* Champ de recherche : un seul cadre, pas de contour natif en double. */
+.food-search { display: flex; align-items: center; gap: 10px; padding: 0 6px 0 14px; border: 2px solid var(--line); border-radius: 14px; color: var(--green-text); background: var(--white); transition: border-color .15s ease; }
+.food-search:focus-within { border-color: var(--green); box-shadow: 0 0 0 3px var(--mint); }
+.food-search input { flex: 1; min-width: 0; padding: 13px 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 16px; -webkit-appearance: none; appearance: none; }
+.food-search input:focus-visible { outline: 0; }
+.food-search-clear { display: grid; width: 34px; height: 34px; flex: none; padding: 0; place-items: center; border: 0; border-radius: 50%; color: var(--muted); background: var(--cream); cursor: pointer; }
+
+.food-results { display: grid; gap: 6px; }
+.food-section { margin: 10px 2px 2px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.food-section:first-child { margin-top: 0; }
+.food-hint { display: flex; align-items: center; gap: 8px; margin: 0; padding: 4px 2px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.food-hint .loader { width: 14px; height: 14px; margin: 0; }
+.food-more { justify-self: start; padding: 4px 2px; font-size: 13px; }
+
+/* Une ligne de résultat : icône · nom (1 ligne max) + précision · kcal. */
+.food-result { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 13px; text-align: left; color: var(--ink); background: var(--white); cursor: pointer; }
+.food-result-text { display: grid; gap: 2px; min-width: 0; }
+.food-result strong, .food-result small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.food-result strong { font-size: 14px; }
+.food-result small { color: var(--muted); font-size: 11px; }
+.food-result em { color: var(--green-text); font-size: 12px; font-style: normal; font-weight: 700; white-space: nowrap; }
+.food-icon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 10px; color: var(--green-text); background: var(--mint); }
+.food-icon.source-off { color: var(--coral); background: var(--peach); }
+.food-icon.source-recette, .food-icon.source-perso { color: var(--blue-strong); background: var(--blue); }
+
+/* Le repas en cours : nom + kcal sur une ligne, quantité dessous, précision en petit. */
+.meal-lines { display: grid; gap: 8px; padding: 10px; border-radius: 18px; background: var(--mint); }
+.meal-line { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: var(--white); }
+.meal-line-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; }
+.meal-line-top strong { overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.meal-line-top .icon-button { width: 30px; height: 30px; }
+.meal-line-kcal { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.meal-line-kcal b { color: var(--ink); font-family: "Manrope"; font-size: 17px; }
+.meal-line-amount { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.stepper { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--cream); }
+.stepper button { display: grid; width: 36px; height: 38px; padding: 0; place-items: center; border: 0; color: var(--green-text); background: transparent; cursor: pointer; }
+.stepper input { width: 52px; padding: 8px 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 16px; font-weight: 800; text-align: center; }
+.unit-toggle { display: flex; gap: 3px; padding: 3px; border-radius: 12px; background: var(--cream); }
+.unit-toggle button { max-width: 130px; overflow: hidden; padding: 8px 12px; border: 0; border-radius: 9px; color: var(--muted); background: transparent; cursor: pointer; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.unit-toggle button.selected { color: var(--on-accent); background: var(--green); }
+.unit-fixed { color: var(--muted); font-size: 13px; font-weight: 700; }
+.meal-line-detail { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.meal-total { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 4px 6px 2px; }
+.meal-total span { color: var(--ink); font-size: 13px; font-weight: 700; }
+.meal-total strong { color: var(--green-text); font-family: "Manrope"; font-size: 22px; }
+
+.custom-food { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--cream); }
+.custom-food .plan-label { margin: 0; }
+.custom-food > label:not(.awake-toggle) { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.custom-food > label input:not([type="checkbox"]) { width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; outline: 0; color: var(--ink); background: var(--white); font-size: 14px; }
+.custom-food .sex-selector button { font-size: 13px; }
+.custom-food .form-actions .submit-button { margin: 0; }
+.meal-composer > .submit-button { margin-top: 2px; }
+
+/* Champs intégrés dans un cadre (recherche, quantité) : le style général des champs
+   de la fenêtre (cadre, fond, halo au focus) dessinait un champ dans le champ. */
+.modal-card .food-search input,
+.modal-card .food-search input:focus,
+.modal-card .stepper input,
+.modal-card .stepper input:focus {
+  width: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.modal-card .food-search { padding: 0 6px 0 16px; }
+.modal-card .food-search input { padding: 14px 4px; font-size: 16px; }
+.modal-card .stepper input { width: 52px; padding: 8px 0; font-size: 16px; }
+
+/* --- Pas ------------------------------------------------------------------------- */
+.steps-panel { display: grid; gap: 14px; }
+.steps-today { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 18px; background: var(--mint); }
+.steps-today .metric-icon { margin: 0; color: var(--green-text); }
+.steps-today > div { display: grid; gap: 2px; }
+.steps-today strong { font-family: "Manrope"; font-size: 28px; }
+.steps-today small { color: var(--muted); font-size: 12px; }
+.steps-sync { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--white); }
+.steps-sync p { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: 13px; line-height: 1.5; }
+.steps-sync .submit-button { margin: 0; }
+.steps-sync .add-button { justify-self: start; }
+.steps-actions { display: flex; align-items: center; gap: 14px; }
+.steps-help { font-size: 12px; line-height: 1.5; }
+.steps-help summary { color: var(--green-text); cursor: pointer; font-weight: 700; }
+.steps-help p { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+.steps-manual { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 8px; }
+.steps-manual label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.steps-manual label > div { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--cream); }
+.modal-card .steps-manual input, .modal-card .steps-manual input:focus { min-width: 0; padding: 12px; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: 16px; font-weight: 700; }
+.steps-manual label > div:focus-within { border-color: var(--green); box-shadow: 0 0 0 3px var(--mint); }
+.steps-manual small { padding-right: 12px; color: var(--muted); font-size: 13px; }
+.steps-manual .add-button { height: 46px; }
+.steps-goal { display: grid; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.steps-goal small { font-weight: 500; line-height: 1.45; }
+.steps-note { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.steps-help .add-button { margin-top: 8px; }
+
+/* --- Photo du plat --------------------------------------------------------------- */
+.photo-analysis { display: grid; gap: 8px; padding: 12px; border-radius: 18px; background: var(--mint); }
+.photo-analysis-head { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.photo-analysis-head img { width: 64px; height: 64px; border-radius: 14px; object-fit: cover; }
+.photo-analysis-head > div { display: grid; gap: 2px; min-width: 0; }
+.photo-analysis-head strong { font-size: 15px; }
+.photo-analysis-head small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.photo-analysis-head .loader { width: 22px; height: 22px; margin: 0; }
+.photo-score { display: grid; min-width: 44px; height: 32px; place-items: center; border-radius: 10px; color: var(--on-accent); background: var(--green); font-size: 12px; font-weight: 800; }
+.photo-note { color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+/* --- Raccourci boissons ------------------------------------------------------------ */
+.drink-shortcuts { display: grid; gap: 6px; }
+.drink-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.drink-chips button { display: grid; gap: 2px; min-width: 0; padding: 9px 11px; border: 1px solid var(--line); border-radius: 12px; text-align: left; color: var(--ink); background: var(--white); cursor: pointer; }
+.drink-chips strong, .drink-chips small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drink-chips strong { font-size: 13px; }
+.drink-chips small { color: var(--muted); font-size: 11px; }
+.drink-chips .drink-more { border-style: dashed; color: var(--green-text); }
+
+/* --- Photo / code-barres, contenants des boissons ------------------------------------ */
+.capture-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.capture-actions .add-part { margin: 0; }
+.container-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.container-chips button { display: flex; align-items: baseline; gap: 4px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 99px; color: var(--ink); background: var(--cream); cursor: pointer; font-size: 12px; font-weight: 700; }
+.container-chips small { color: var(--muted); font-size: 11px; font-weight: 600; }
+.container-chips button.selected { color: var(--on-accent); border-color: var(--green); background: var(--green); }
+.container-chips button.selected small { color: inherit; opacity: .85; }
+.drink-total { margin-left: auto; color: var(--muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
+
+/* --- Assiette maison et restes ---------------------------------------------------- */
+.meal-mode button { padding: 11px; font-size: 13px; }
+.plate-intro { display: grid; gap: 6px; }
+.modal-card .plate-intro input { padding: 12px 14px; font-size: 15px; }
+.plate-intro small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.plate-share { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--white); }
+.share-row { display: grid; grid-template-columns: 1fr auto 74px; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; }
+.share-row > span:last-child { color: var(--muted); font-size: 12px; font-weight: 600; }
+.share-row .stepper strong { min-width: 52px; font-size: 16px; text-align: center; }
+.share-row .stepper button:disabled { opacity: .35; }
+.plate-mine { display: flex; align-items: baseline; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--line); }
+.plate-mine span { font-size: 14px; font-weight: 800; }
+.plate-mine strong { color: var(--green-text); font-family: "Manrope"; font-size: 24px; }
+.plate-share .awake-toggle { margin: 0; line-height: 1.45; }
+.leftover-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; }
+.fraction-chips button { min-width: 44px; justify-content: center; }

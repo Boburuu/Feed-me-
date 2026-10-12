@@ -1,0 +1,128 @@
+/* Navigation, activité et finitions des thèmes Warhammer. Chargé en dernier. */
+
+/* --- Lisibilité ------------------------------------------------------------------
+   L'accent sert de fond (boutons) et de couleur de texte (liens, valeurs). Sur fond
+   noir, la teinte de fond est trop sombre pour du texte : on prend sa version claire. */
+.phone { --green-text: var(--green); }
+.phone[data-theme="nuit"],
+.phone[data-theme="eshin"],
+.phone[data-theme="sororitas"] { --green-text: var(--green-deep); }
+
+/* --- Photo de profil = accès au profil --------------------------------------- */
+.avatar.active { box-shadow: 0 0 0 3px var(--cream), 0 0 0 5px var(--green); }
+
+/* --- Activité ------------------------------------------------------------------- */
+.activity-goal { display: block; margin-top: 8px; }
+.session-form { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 22px; background: var(--white); }
+.session-types { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.session-types button { display: grid; justify-items: center; gap: 5px; padding: 10px 4px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--cream); cursor: pointer; }
+.session-types svg { color: var(--green-text); }
+.session-types small { font-size: 10px; font-weight: 700; line-height: 1.2; text-align: center; }
+.session-types button.selected { color: var(--on-accent); border-color: var(--green); background: var(--green); }
+.session-types button.selected svg { color: inherit; }
+.session-fields { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; }
+.session-fields label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.session-fields input { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; outline: 0; color: var(--ink); background: var(--cream); font-size: 15px; }
+.session-fields label > div { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--cream); }
+.session-fields label > div input { border: 0; }
+.session-fields label > div small { padding-right: 12px; color: var(--muted); }
+.session-form .sex-selector button { padding: 11px 6px; font-size: 12px; }
+.session-form .submit-button { margin-top: 0; }
+.mark-sport { background: var(--green); }
+
+/* --- Thèmes sombres : textes actifs plus lumineux ------------------------------ */
+.phone[data-theme="eshin"] .bottom-nav button.active,
+.phone[data-theme="sororitas"] .bottom-nav button.active { color: var(--green-deep); }
+.phone[data-theme="eshin"] .bottom-nav button,
+.phone[data-theme="sororitas"] .bottom-nav button { color: var(--muted); }
+
+/* --- Clan Eshin : ombres et lueur de malepierre ------------------------------- */
+.phone[data-theme="eshin"] {
+  background:
+    radial-gradient(ellipse 120% 45% at 50% 105%, rgba(76, 240, 111, .14), transparent 70%),
+    radial-gradient(ellipse 80% 40% at 50% -10%, rgba(120, 160, 150, .10), transparent 70%),
+    var(--cream);
+}
+.phone[data-theme="eshin"] .hero-card,
+.phone[data-theme="eshin"] .weekly-card,
+.phone[data-theme="eshin"] .create-recipe {
+  border: 1px solid rgba(76, 240, 111, .3);
+  background:
+    radial-gradient(circle at 85% 115%, rgba(76, 240, 111, .42), transparent 55%),
+    linear-gradient(160deg, #13241a, #080e0b);
+  box-shadow: 0 0 32px rgba(76, 240, 111, .16);
+}
+.phone[data-theme="eshin"] .progress-ring::before { background: #0d1a12; }
+.phone[data-theme="eshin"] .progress-ring { box-shadow: 0 0 22px rgba(76, 240, 111, .35); }
+.phone[data-theme="eshin"] .submit-button,
+.phone[data-theme="eshin"] .bottom-nav button.primary-action > span { box-shadow: 0 0 18px rgba(76, 240, 111, .45); }
+.phone[data-theme="eshin"] .calorie-number,
+.phone[data-theme="eshin"] .plan-target strong { color: #9dffb1; text-shadow: 0 0 16px rgba(76, 240, 111, .55); }
+.phone[data-theme="eshin"] .avatar { box-shadow: 0 0 0 2px #e5483d, 0 0 14px rgba(229, 72, 61, .5); }
+
+/* --- Adepta Sororitas : cramoisi, or et vitrail ----------------------------- */
+.phone[data-theme="sororitas"] {
+  background:
+    radial-gradient(ellipse 90% 35% at 50% -5%, rgba(217, 169, 60, .12), transparent 70%),
+    var(--cream);
+}
+.phone[data-theme="sororitas"] h1,
+.phone[data-theme="sororitas"] h2,
+.phone[data-theme="sororitas"] .calorie-number,
+.phone[data-theme="sororitas"] .plan-target strong { font-family: Georgia, "Times New Roman", serif; letter-spacing: -.01em; }
+.phone[data-theme="sororitas"] .eyebrow { color: var(--mint-bright); }
+.phone[data-theme="sororitas"] .hero-card,
+.phone[data-theme="sororitas"] .weekly-card,
+.phone[data-theme="sororitas"] .create-recipe {
+  border: 1px solid #d9a93c;
+  background:
+    radial-gradient(circle at 90% 0, rgba(217, 169, 60, .25), transparent 40%),
+    linear-gradient(165deg, #8e1620, #3d070c);
+  box-shadow: inset 0 0 0 3px rgba(13, 10, 10, .55), inset 0 0 0 4px rgba(217, 169, 60, .45), 0 14px 34px rgba(0, 0, 0, .5);
+}
+.phone[data-theme="sororitas"] .progress-ring::before { background: #4d0a10; border: 1px solid #d9a93c; }
+.phone[data-theme="sororitas"] .status-pill { color: #f2d48a; background: rgba(217, 169, 60, .16); }
+.phone[data-theme="sororitas"] .submit-button { border-bottom: 2px solid #d9a93c; }
+.phone[data-theme="sororitas"] .plan-target strong { color: #e9c46a; }
+.phone[data-theme="sororitas"] .bottom-nav { border-top: 1px solid rgba(217, 169, 60, .45); }
+.phone[data-theme="sororitas"] .bottom-nav button.primary-action > span { box-shadow: 0 0 0 2px #d9a93c, 0 7px 18px rgba(0, 0, 0, .5); }
+.phone[data-theme="sororitas"] .avatar { box-shadow: 0 0 0 2px #d9a93c; }
+
+/* Pastilles d'icônes : le blanc translucide des thèmes clairs ressort trop sur fond sombre. */
+.phone:is([data-theme="nuit"], [data-theme="eshin"], [data-theme="sororitas"]) :is(.metric-icon, .water-icon, .round-button.soft, .camera-icon) { background: rgba(255, 255, 255, .1); }
+.phone:is([data-theme="eshin"], [data-theme="sororitas"]) .glass-row span:not(.filled) { background: rgba(255, 255, 255, .14); }
+.phone:is([data-theme="eshin"], [data-theme="sororitas"]) .goal-bar { background: rgba(255, 255, 255, .1); }
+.phone:is([data-theme="eshin"], [data-theme="sororitas"]) :is(small, .recipe-meta span, .metric-card small) { color: color-mix(in srgb, var(--muted) 80%, var(--ink)); }
+
+/* --- Recettes : éditeur par parties ---------------------------------------------- */
+.import-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.import-actions button { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 12px 8px; border: 0; border-radius: 12px; color: var(--on-accent); background: var(--green); cursor: pointer; font-size: 13px; font-weight: 700; }
+.import-actions button.secondary { color: var(--green-text); background: var(--mint); }
+.import-actions .loader { width: 15px; height: 15px; margin: 0; }
+.raw-text { display: grid; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.raw-text textarea { width: 100%; min-height: 170px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; outline: 0; color: var(--ink); background: var(--white); font-size: 13px; line-height: 1.45; resize: vertical; }
+.raw-text .add-button { justify-self: start; }
+.import-result { margin: 0; padding: 10px 12px; border-radius: 12px; color: var(--green-text); background: var(--mint); font-size: 13px; font-weight: 600; line-height: 1.45; }
+.editor-section { display: grid; gap: 10px; }
+.editor-section h3 { margin: 4px 0 0; font-family: "Manrope"; font-size: 17px; }
+.part-card { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--cream); }
+.part-head { display: flex; align-items: center; gap: 6px; }
+.part-title { flex: 1; min-width: 0; padding: 9px 11px; border: 1px dashed var(--mint-bright); border-radius: 10px; outline: 0; color: var(--ink); background: transparent; font-family: "Manrope"; font-size: 14px; font-weight: 800; }
+.ingredient-rows { display: grid; gap: 6px; }
+.ingredient-row { display: grid; grid-template-columns: 54px 78px 1fr 32px; gap: 5px; align-items: center; }
+.ingredient-row input, .step-editor input, .step-editor textarea { width: 100%; min-width: 0; padding: 10px 9px; border: 1px solid var(--line); border-radius: 10px; outline: 0; color: var(--ink); background: var(--white); font-size: 14px; }
+.ingredient-row input:first-child { text-align: center; }
+.ingredient-row .icon-button, .step-editor .icon-button { width: 32px; height: 32px; }
+.step-editor { display: grid; gap: 6px; padding: 10px; border-radius: 12px; background: var(--white); }
+.step-editor-head { display: grid; grid-template-columns: auto 1fr 32px; gap: 8px; align-items: center; }
+.step-editor input { font-weight: 700; }
+.step-editor textarea { min-height: 76px; line-height: 1.45; resize: vertical; background: var(--cream); }
+.add-line, .add-part { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: 700; }
+.add-line { border: 0; color: var(--green-text); background: var(--mint); }
+.add-part { border: 1px dashed var(--mint-bright); color: var(--green-text); background: transparent; }
+.ingredient-row input:focus, .step-editor input:focus, .step-editor textarea:focus, .part-title:focus, .raw-text textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px var(--mint); }
+
+/* --- Recettes : fiche à cuisiner par parties ----------------------------------- */
+.recipe-part + .recipe-part { margin-top: 14px; }
+.recipe-part h4 { margin: 0 0 8px; color: var(--green-text); font-family: "Manrope"; font-size: 14px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.step-title { display: block; margin-bottom: 3px; font-family: "Manrope"; font-size: 15px; }

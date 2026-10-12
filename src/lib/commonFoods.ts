@@ -1,0 +1,162 @@
+// Aliments courants, avec un nom simple.
+//
+// La table Ciqual emploie des noms techniques (« Banane, pulpe, crue ») et propose
+// souvent plusieurs variantes. Pour les aliments du quotidien, on choisit la variante
+// la plus courante et on l'affiche sous un nom simple, avec une portion habituelle.
+// `ciqual` doit correspondre exactement à un nom de la table (vérifié au développement).
+
+export type CommonFood = {
+  name: string;
+  ciqual: string;
+  /** Autres façons de le chercher (sans accents). */
+  aliases?: string[];
+  portion?: { label: string; grams: number };
+  /** Proposé dans le raccourci « Boissons ». */
+  drink?: boolean;
+  /** Conserve ou paquet usuel (« ½ boîte »). */
+  packageGrams?: number;
+};
+
+export const commonFoods: CommonFood[] = [
+  // Fruits
+  { name: "Banane", ciqual: "Banane, pulpe, crue", portion: { label: "1 banane", grams: 120 } },
+  { name: "Pomme", ciqual: "Pomme, pulpe et peau, crue", portion: { label: "1 pomme", grams: 150 } },
+  { name: "Poire", ciqual: "Poire, pulpe et peau, crue", portion: { label: "1 poire", grams: 150 } },
+  { name: "Orange", ciqual: "Orange, pulpe, crue", portion: { label: "1 orange", grams: 130 } },
+  { name: "Clémentine", ciqual: "Clémentine ou Mandarine, pulpe, crue", aliases: ["mandarine"], portion: { label: "1 clémentine", grams: 60 } },
+  { name: "Kiwi", ciqual: "Kiwi, pulpe et graines, cru", portion: { label: "1 kiwi", grams: 75 } },
+  { name: "Fraises", ciqual: "Fraise, crue", aliases: ["fraise"], portion: { label: "1 barquette", grams: 125 } },
+  { name: "Pêche", ciqual: "Pêche jaune, pulpe, crue", aliases: ["nectarine"], portion: { label: "1 pêche", grams: 130 } },
+  { name: "Ananas", ciqual: "Ananas, pulpe, cru", portion: { label: "1 tranche", grams: 80 } },
+  { name: "Mangue", ciqual: "Mangue, pulpe, crue", portion: { label: "½ mangue", grams: 150 } },
+  { name: "Melon", ciqual: "Melon cantaloup (par ex.: Charentais, de Cavaillon) pulpe, cru", portion: { label: "¼ de melon", grams: 150 } },
+  { name: "Pastèque", ciqual: "Pastèque, pulpe, crue", portion: { label: "1 tranche", grams: 200 } },
+  { name: "Cerises", ciqual: "Cerise, dénoyautée, crue", aliases: ["cerise"], portion: { label: "1 bol", grams: 150 } },
+  { name: "Raisin sec", ciqual: "Raisin, sec", portion: { label: "1 poignée", grams: 30 } },
+  { name: "Avocat", ciqual: "Avocat, pulpe, cru", portion: { label: "½ avocat", grams: 75 } },
+  { name: "Compote de pomme", ciqual: "Compote de pomme", aliases: ["compote"], portion: { label: "1 pot", grams: 100 } },
+  // Légumes
+  { name: "Tomate", ciqual: "Tomate ronde, crue", portion: { label: "1 tomate", grams: 120 } },
+  { name: "Carotte", ciqual: "Carotte, crue", portion: { label: "1 carotte", grams: 80 } },
+  { name: "Concombre", ciqual: "Concombre, pulpe et peau, cru", portion: { label: "½ concombre", grams: 150 } },
+  { name: "Salade verte", ciqual: "Laitue, crue", aliases: ["salade", "laitue"], portion: { label: "1 assiette", grams: 50 } },
+  { name: "Haricots verts", ciqual: "Haricot vert, cuit", aliases: ["haricot vert"], portion: { label: "1 assiette", grams: 150 } },
+  { name: "Brocoli", ciqual: "Brocoli, cuit", portion: { label: "1 assiette", grams: 150 } },
+  // Féculents
+  { name: "Pâtes (cuites)", ciqual: "Pâtes sèches standard, cuites, non salées", aliases: ["pates", "spaghetti", "coquillettes"], portion: { label: "1 assiette", grams: 200 } },
+  { name: "Riz (cuit)", ciqual: "Riz blanc, cuit, non salé", aliases: ["riz"], portion: { label: "1 assiette", grams: 200 } },
+  { name: "Semoule (cuite)", ciqual: "Semoule de blé dur, cuite, non salée", aliases: ["semoule"], portion: { label: "1 assiette", grams: 200 } },
+  { name: "Quinoa (cuit)", ciqual: "Quinoa, bouilli/cuit à l'eau, non salé", aliases: ["quinoa"], portion: { label: "1 assiette", grams: 200 } },
+  { name: "Pommes de terre", ciqual: "Pomme de terre, bouillie/cuite à l'eau", aliases: ["pomme de terre", "patate"], portion: { label: "1 pomme de terre", grams: 150 } },
+  { name: "Frites", ciqual: "Frites de pommes de terre, surgelées, cuites en friteuse", portion: { label: "1 portion", grams: 150 } },
+  { name: "Lentilles (cuites)", ciqual: "Lentille verte, bouillie/cuite à l'eau", aliases: ["lentille"], portion: { label: "1 assiette", grams: 200 } },
+  { name: "Pois chiches", ciqual: "Pois chiche, appertisé, égoutté", aliases: ["pois chiche"], portion: { label: "1 portion", grams: 150 } },
+  { name: "Baguette", ciqual: "Pain, baguette, courante", aliases: ["pain"], portion: { label: "¼ de baguette", grams: 60 } },
+  { name: "Pain complet", ciqual: "Pain complet ou intégral (à la farine T150)", portion: { label: "1 tranche", grams: 35 } },
+  { name: "Pain de mie", ciqual: "Pain de mie, courant", portion: { label: "1 tranche", grams: 25 } },
+  { name: "Croissant", ciqual: "Croissant au beurre, artisanal", portion: { label: "1 croissant", grams: 45 } },
+  { name: "Pain au chocolat", ciqual: "Pain au chocolat feuilleté, artisanal", aliases: ["chocolatine"], portion: { label: "1 pain au chocolat", grams: 60 } },
+  { name: "Céréales du petit-déjeuner", ciqual: "Céréales pour petit déjeuner (aliment moyen)", aliases: ["cereales"], portion: { label: "1 bol", grams: 40 } },
+  { name: "Muesli", ciqual: "Muesli (aliment moyen)", portion: { label: "1 bol", grams: 45 } },
+  { name: "Flocons d'avoine", ciqual: "Flocons d'avoine, bouillis/cuits à l'eau", aliases: ["porridge", "avoine"], portion: { label: "1 bol", grams: 200 } },
+  // Pour cuisiner (pesé cru, avant cuisson)
+  { name: "Riz (cru)", ciqual: "Riz blanc, cru", aliases: ["riz cru"], portion: { label: "1 portion", grams: 75 } },
+  { name: "Pâtes (crues)", ciqual: "Pâtes sèches standard, crues", aliases: ["pates crues"], portion: { label: "1 portion", grams: 80 } },
+  { name: "Oignon", ciqual: "Oignon jaune, cru", aliases: ["oignons", "echalote"], portion: { label: "1 oignon", grams: 100 } },
+  { name: "Concentré de tomate", ciqual: "Tomate, concentré, appertisé", aliases: ["concentre", "double concentre"], portion: { label: "1 c. à soupe", grams: 15 }, packageGrams: 140 },
+  { name: "Champignons en boîte", ciqual: "Champignon de Paris ou champignon de couche, appertisé, égoutté", aliases: ["champignon", "champignons de paris"], portion: { label: "1 portion", grams: 100 }, packageGrams: 230 },
+  { name: "Haricots verts en boîte", ciqual: "Haricot vert, appertisé, égoutté", portion: { label: "1 portion", grams: 150 }, packageGrams: 440 },
+  { name: "Maïs en boîte", ciqual: "Maïs doux, appertisé, égoutté", aliases: ["mais"], portion: { label: "1 portion", grams: 80 }, packageGrams: 285 },
+  { name: "Thon au naturel (boîte)", ciqual: "Thon, au naturel, appertisé, égoutté", portion: { label: "1 portion", grams: 100 }, packageGrams: 140 },
+  { name: "Colin d'Alaska", ciqual: "Lieu ou colin d'Alaska, cru", aliases: ["colin", "lieu"], portion: { label: "1 filet", grams: 110 } },
+  { name: "Lardons", ciqual: "Lardon nature, cru", portion: { label: "1 portion", grams: 50 }, packageGrams: 200 },
+  { name: "Crème fraîche légère", ciqual: "Crème de lait, 15 à 20% MG, légère, épaisse, rayon frais", aliases: ["creme legere"], portion: { label: "1 c. à soupe", grams: 15 }, packageGrams: 200 },
+  // Produits laitiers, œufs
+  { name: "Œuf", ciqual: "Oeuf, dur", aliases: ["oeuf", "oeufs"], portion: { label: "1 œuf", grams: 55 } },
+  { name: "Lait demi-écrémé", ciqual: "Lait demi-écrémé, UHT", aliases: ["lait"], portion: { label: "1 verre", grams: 200 } },
+  { name: "Yaourt nature", ciqual: "Yaourt ou spécialité laitière nature (aliment moyen)", aliases: ["yaourt", "yogourt"], portion: { label: "1 pot", grams: 125 } },
+  { name: "Yaourt aux fruits", ciqual: "Yaourt ou spécialité laitière aux fruits (aliment moyen)", portion: { label: "1 pot", grams: 125 } },
+  { name: "Yaourt à la grecque", ciqual: "Yaourt à la grecque, nature", aliases: ["yaourt grec"], portion: { label: "1 pot", grams: 150 } },
+  { name: "Fromage blanc", ciqual: "Fromage blanc nature, 3% MG environ", portion: { label: "1 portion", grams: 100 } },
+  { name: "Emmental", ciqual: "Emmental ou emmenthal", aliases: ["gruyere", "fromage rape"], portion: { label: "1 portion", grams: 30 } },
+  { name: "Camembert", ciqual: "Camembert, sans précision", portion: { label: "1 portion", grams: 30 } },
+  { name: "Comté", ciqual: "Comté", portion: { label: "1 portion", grams: 30 } },
+  { name: "Mozzarella", ciqual: "Mozzarella au lait de vache", portion: { label: "½ boule", grams: 60 } },
+  { name: "Beurre", ciqual: "Beurre à 82% MG, doux", portion: { label: "1 noisette", grams: 10 } },
+  { name: "Crème fraîche", ciqual: "Crème de lait, 30% MG, épaisse, rayon frais", aliases: ["creme"], portion: { label: "1 c. à soupe", grams: 15 } },
+  // Viandes, poissons
+  { name: "Poulet (blanc)", ciqual: "Poulet, filet, sans peau, sauté/poêlé", aliases: ["poulet", "blanc de poulet", "filet de poulet"], portion: { label: "1 filet", grams: 120 } },
+  { name: "Escalope de dinde", ciqual: "Dinde, escalope, sautée/poêlée", aliases: ["dinde"], portion: { label: "1 escalope", grams: 120 } },
+  { name: "Steak haché", ciqual: "Boeuf, steak haché 15% MG, cuit", aliases: ["steak", "hache"], portion: { label: "1 steak", grams: 100 } },
+  { name: "Jambon blanc", ciqual: "Jambon cuit, choix", aliases: ["jambon"], portion: { label: "1 tranche", grams: 45 } },
+  { name: "Côte de porc", ciqual: "Porc, côte, grillée", aliases: ["porc"], portion: { label: "1 côte", grams: 120 } },
+  { name: "Gigot d'agneau", ciqual: "Agneau, gigot, rôti/cuit au four", aliases: ["gigot", "agneau"], portion: { label: "1 portion", grams: 120 } },
+  { name: "Saumon", ciqual: "Saumon, cuit, sans précision (aliment moyen)", portion: { label: "1 pavé", grams: 120 } },
+  { name: "Saumon fumé", ciqual: "Saumon fumé", portion: { label: "1 tranche", grams: 30 } },
+  { name: "Thon en boîte", ciqual: "Thon albacore ou thon jaune, au naturel, appertisé, égoutté", aliases: ["thon"], portion: { label: "1 petite boîte", grams: 100 } },
+  { name: "Cabillaud", ciqual: "Cabillaud, cuit, sans précision (aliment moyen)", aliases: ["poisson blanc"], portion: { label: "1 filet", grams: 120 } },
+  // Plats
+  { name: "Bœuf bourguignon", ciqual: "Boeuf bourguignon", aliases: ["bourguignon"], portion: { label: "1 assiette", grams: 300 } },
+  { name: "Blanquette de veau", ciqual: "Blanquette de veau", aliases: ["blanquette"], portion: { label: "1 assiette", grams: 300 } },
+  { name: "Lasagnes", ciqual: "Lasagnes ou cannelloni à la viande (bolognaise)", portion: { label: "1 part", grams: 300 } },
+  { name: "Pâtes bolognaise", ciqual: "Pâtes à la bolognaise (spaghetti, tagliatelles)", aliases: ["bolognaise", "spaghetti bolognaise"], portion: { label: "1 assiette", grams: 300 } },
+  { name: "Pâtes carbonara", ciqual: "Pâtes à la carbonara (spaghetti, tagliatelles)", aliases: ["carbonara"], portion: { label: "1 assiette", grams: 300 } },
+  { name: "Pizza", ciqual: "Pizza (aliment moyen)", portion: { label: "1 part", grams: 120 } },
+  { name: "Quiche lorraine", ciqual: "Quiche lorraine, préemballée", aliases: ["quiche"], portion: { label: "1 part", grams: 130 } },
+  { name: "Hamburger", ciqual: "Hamburger, provenant de fast food", aliases: ["burger"], portion: { label: "1 hamburger", grams: 110 } },
+  { name: "Sandwich", ciqual: "Sandwich (aliment moyen)", portion: { label: "1 sandwich", grams: 200 } },
+  { name: "Sushis", ciqual: "Sushi ou Maki aux produits de la mer", aliases: ["sushi", "maki"], portion: { label: "1 pièce", grams: 30 } },
+  { name: "Soupe", ciqual: "Soupe (aliment moyen)", aliases: ["veloute", "potage"], portion: { label: "1 bol", grams: 250 } },
+  { name: "Ramen / nouilles", ciqual: "Nouilles asiatiques cuites, aromatisées", aliases: ["ramen", "nouilles"], portion: { label: "1 bol", grams: 300 } },
+  { name: "Couscous", ciqual: "Couscous au poulet", portion: { label: "1 assiette", grams: 350 } },
+  { name: "Houmous", ciqual: "Houmous, préemballé", aliases: ["hummus"], portion: { label: "1 c. à soupe", grams: 20 } },
+  // Sucré, grignotage
+  { name: "Chocolat noir", ciqual: "Chocolat noir à 70% cacao minimum, extra, dégustation, tablette", portion: { label: "1 carré", grams: 5 } },
+  { name: "Chocolat au lait", ciqual: "Chocolat au lait, tablette", portion: { label: "1 carré", grams: 5 } },
+  { name: "Pâte à tartiner", ciqual: "Pâte à tartiner chocolat et noisette", aliases: ["nutella"], portion: { label: "1 c. à soupe", grams: 15 } },
+  { name: "Confiture", ciqual: "Confiture ou Marmelade, tout type de fruits (aliment moyen)", portion: { label: "1 c. à soupe", grams: 20 } },
+  { name: "Miel", ciqual: "Miel", portion: { label: "1 c. à café", grams: 8 } },
+  { name: "Sucre", ciqual: "Sucre blanc", portion: { label: "1 morceau", grams: 5 } },
+  { name: "Cookie", ciqual: "Cookie aux pépites de chocolat", portion: { label: "1 cookie", grams: 25 } },
+  { name: "Gâteau au chocolat", ciqual: "Gâteau au chocolat", aliases: ["gateau"], portion: { label: "1 part", grams: 80 } },
+  { name: "Crêpe", ciqual: "Crêpe, nature, préemballée, rayon frais", portion: { label: "1 crêpe", grams: 50 } },
+  { name: "Glace", ciqual: "Glace ou crème glacée, bac ou pot (aliment moyen)", aliases: ["creme glacee"], portion: { label: "1 boule", grams: 50 } },
+  { name: "Barre de céréales", ciqual: "Barre céréalière chocolatée", portion: { label: "1 barre", grams: 25 } },
+  { name: "Chips", ciqual: "Chips de pommes de terre nature ou aromatisées, standard", portion: { label: "1 petit paquet", grams: 30 } },
+  { name: "Amandes", ciqual: "Amande (avec peau)", aliases: ["amande"], portion: { label: "1 poignée", grams: 30 } },
+  { name: "Noix", ciqual: "Noix, séchée, cerneaux", portion: { label: "1 poignée", grams: 30 } },
+  { name: "Cacahuètes", ciqual: "Cacahuète, grillée, salée", aliases: ["cacahuete", "arachide"], portion: { label: "1 poignée", grams: 30 } },
+  // Matières grasses, sauces
+  { name: "Huile d'olive", ciqual: "Huile d'olive vierge extra", aliases: ["huile"], portion: { label: "1 c. à soupe", grams: 10 } },
+  { name: "Mayonnaise", ciqual: "Mayonnaise (70% MG min.), préemballée", aliases: ["mayo"], portion: { label: "1 c. à soupe", grams: 15 } },
+  { name: "Ketchup", ciqual: "Ketchup, préemballé", portion: { label: "1 c. à soupe", grams: 15 } },
+  // Boissons (drink: true → raccourci « Boissons » de l'ajout de repas). 1 ml ≈ 1 g.
+  { name: "Eau", ciqual: "Eau du robinet", aliases: ["eau plate", "eau gazeuse", "perrier"], portion: { label: "1 verre", grams: 200 }, drink: true },
+  { name: "Café", ciqual: "Café expresso, non instantané, non sucré, prêt à boire", aliases: ["expresso", "cafe noir"], portion: { label: "1 tasse", grams: 50 }, drink: true },
+  { name: "Café au lait / cappuccino", ciqual: "Café au lait, café crème ou cappuccino, instantané ou non, non sucré, prêt à boire", aliases: ["cappuccino", "cafe creme", "latte"], portion: { label: "1 tasse", grams: 200 }, drink: true },
+  { name: "Thé", ciqual: "Thé infusé, non sucré", aliases: ["the", "infusion", "tisane"], portion: { label: "1 tasse", grams: 200 }, drink: true },
+  { name: "Chocolat chaud", ciqual: "Boisson cacaotée ou au chocolat, instantanée, sucrée, prête à boire (reconstituée avec du lait demi-écrémé standard)", aliases: ["chocolat au lait chaud", "cacao", "nesquik", "banania"], portion: { label: "1 tasse", grams: 250 }, drink: true },
+  { name: "Lait chocolaté", ciqual: "Boisson lactée aromatisée au chocolat, sucrée, au lait partiellement écrémé, enrichie et/ou restaurée en vitamines et/ou minéraux", aliases: ["lait chocolat", "candy up"], portion: { label: "1 bouteille", grams: 200 }, drink: true },
+  { name: "Coca / Pepsi", ciqual: "Cola, sucré", aliases: ["coca", "cola", "pepsi", "soda"], portion: { label: "1 canette", grams: 330 }, drink: true },
+  { name: "Coca zéro / light", ciqual: "Cola, non sucré, avec édulcorants", aliases: ["coca zero", "coca light", "cola zero"], portion: { label: "1 canette", grams: 330 }, drink: true },
+  { name: "Pepsi Max", ciqual: "Cola, non sucré, avec édulcorants", aliases: ["pepsi max", "pepsi zero"], portion: { label: "1 canette", grams: 330 }, drink: true },
+  { name: "Ice tea", ciqual: "Boisson au thé, aromatisée, sucrée", aliases: ["the glace", "lipton", "fuze tea"], portion: { label: "1 canette", grams: 330 }, drink: true },
+  { name: "Ice tea zéro", ciqual: "Boisson au thé, aromatisée, non sucrée, avec édulcorants", aliases: ["the glace zero"], portion: { label: "1 canette", grams: 330 }, drink: true },
+  { name: "Soda aux fruits", ciqual: "Boisson gazeuse aux fruits (à moins de 10% de jus), sucrée", aliases: ["orangina", "fanta", "oasis", "schweppes", "sprite"], portion: { label: "1 canette", grams: 330 }, drink: true },
+  { name: "Soda zéro aux fruits", ciqual: "Boisson gazeuse aux fruits (à moins de 10% de jus), non sucrée, avec édulcorants", aliases: ["fanta zero", "oasis zero", "schweppes zero"], portion: { label: "1 canette", grams: 330 }, drink: true },
+  { name: "Limonade", ciqual: "Limonade, sucrée", portion: { label: "1 verre", grams: 250 }, drink: true },
+  { name: "Sirop à l'eau", ciqual: "Boisson préparée à partir de sirop à diluer type menthe, fraise, etc, sucré, dilué dans l'eau", aliases: ["sirop", "diabolo"], portion: { label: "1 verre", grams: 250 }, drink: true },
+  { name: "Boisson énergisante", ciqual: "Boisson énergisante, sucrée", aliases: ["red bull", "monster", "energy drink"], portion: { label: "1 canette", grams: 250 }, drink: true },
+  { name: "Jus d'orange", ciqual: "Jus d'orange, pur jus", aliases: ["jus"], portion: { label: "1 verre", grams: 200 }, drink: true },
+  { name: "Jus de pomme", ciqual: "Jus de pomme, pur jus", portion: { label: "1 verre", grams: 200 }, drink: true },
+  { name: "Smoothie", ciqual: "Smoothie", portion: { label: "1 bouteille", grams: 250 }, drink: true },
+  { name: "Milk-shake", ciqual: "Milk-shake, provenant de fast food", aliases: ["milkshake"], portion: { label: "1 gobelet", grams: 300 }, drink: true },
+  { name: "Yaourt à boire", ciqual: "Boisson lactée, lait fermenté ou yaourt à boire, aromatisé, sucré", aliases: ["actimel", "danacol"], portion: { label: "1 bouteille", grams: 100 }, drink: true },
+  { name: "Boisson à l'avoine / soja", ciqual: "Boisson au soja, nature, enrichie en calcium, préemballée", aliases: ["lait de soja", "lait d'avoine", "boisson vegetale"], portion: { label: "1 verre", grams: 200 }, drink: true },
+  { name: "Vin rouge", ciqual: "Vin rouge", aliases: ["vin"], portion: { label: "1 verre", grams: 120 }, drink: true },
+  { name: "Vin rosé", ciqual: "Vin rosé", aliases: ["rose"], portion: { label: "1 verre", grams: 120 }, drink: true },
+  { name: "Champagne", ciqual: "Champagne", aliases: ["mousseux", "prosecco", "cremant"], portion: { label: "1 coupe", grams: 100 }, drink: true },
+  { name: "Bière", ciqual: "Bière \"coeur de marché\" (4-5° alcool)", aliases: ["biere", "demi"], portion: { label: "1 demi", grams: 250 }, drink: true },
+  { name: "Cidre", ciqual: "Cidre (aliment moyen)", portion: { label: "1 bolée", grams: 200 }, drink: true },
+  { name: "Cocktail sans alcool", ciqual: "Cocktail sans alcool (à base de jus de fruits et de sirop)", aliases: ["mocktail", "virgin"], portion: { label: "1 verre", grams: 250 }, drink: true },
+];

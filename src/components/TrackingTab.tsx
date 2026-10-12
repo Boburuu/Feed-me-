@@ -1,0 +1,220 @@
+import { useState } from "react";
+import Icon from "./Icon";
+import WeightTracker from "./WeightTracker";
+import { sessionLabel } from "../lib/activity";
+import { mealCategories, todayKey, type AppData, type GoalType, type Meal } from "../lib/storage";
+
+type TrackingTabProps = {
+  data: AppData;
+  update: (change: (data: AppData) => AppData) => void;
+  target: number;
+  goal: GoalType;
+  waterGoal: number;
+  onAddMeal: (date: string) => void;
+  onSaveWeight: (date: string, kg: number) => void;
+  onDeleteWeight: (id: number) => void;
+};
+
+type DayStatus = "none" | "partial" | "ok" | "over" | "under";
+
+const statusLabels: Record<DayStatus, string> = {
+  ok: "Dans l'objectif",
+  over: "Au-dessus",
+  under: "En dessous",
+  partial: "Journal incomplet",
+  none: "Rien de noté",
+};
+
+const keyOf = (date: Date) => todayKey(date);
+const parse = (key: string) => new Date(`${key}T12:00:00`);
+const addDays = (key: string, days: number) => { const date = parse(key); date.setDate(date.getDate() + days); return keyOf(date); };
+const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+const hours = (ms: number) => `${Math.floor(ms / 3_600_000)} h ${String(Math.floor((ms % 3_600_000) / 60_000)).padStart(2, "0")}`;
+
+export default function TrackingTab({ data, update, target, goal, waterGoal, onAddMeal, onSaveWeight, onDeleteWeight }: TrackingTabProps) {
+  const today = todayKey();
+  const [selected, setSelected] = useState(today);
+  const [month, setMonth] = useState(() => today.slice(0, 7));
+
+  const mealsByDay = new Map<string, Meal[]>();
+  data.meals.forEach((meal) => mealsByDay.set(meal.date, [...(mealsByDay.get(meal.date) ?? []), meal]));
+  const caloriesOf = (day: string) => (mealsByDay.get(day) ?? []).reduce((sum, meal) => sum + meal.calories, 0);
+
+  const statusOf = (day: string): DayStatus => {
+    const consumed = caloriesOf(day);
+    if (!consumed) return "none";
+    if (consumed < target * 0.5) return "partial";
+    if (consumed > target + 100) return "over";
+    if (goal === "prise" && consumed < target - 200) return "under";
+    return "ok";
+  };
+
+  // --- Calendrier du mois -------------------------------------------------------
+  const [year, monthIndex] = month.split("-").map(Number);
+  const first = new Date(year, monthIndex - 1, 1, 12);
+  const daysInMonth = new Date(year, monthIndex, 0).getDate();
+  const offset = (first.getDay() + 6) % 7; // lundi = 0
+  const cells = [...Array(offset).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => keyOf(new Date(year, monthIndex - 1, i + 1, 12)))];
+  const shiftMonth = (delta: number) => setMonth(keyOf(new Date(year, monthIndex - 1 + delta, 1, 12)).slice(0, 7));
+  const weighedDays = new Set(data.weights.map((entry) => entry.date));
+  const sportDays = new Set(data.sessions.map((session) => session.date));
+  const fastDays = new Set(data.fasts.filter((fast) => fast.end && new Date(fast.end).getTime() - new Date(fast.start).getTime() >= 16 * 3_600_000).map((fast) => keyOf(new Date(fast.end!))));
+
+  // --- Bilan de la semaine (lundi → dimanche) ----------------------------------------
+  const monday = addDays(today, -((parse(today).getDay() + 6) % 7));
+  const week = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+  const last7 = Array.from({ length: 7 }, (_, i) => addDays(today, -i));
+  const logged7 = last7.filter((day) => caloriesOf(day) >= target * 0.5);
+  const average = logged7.length ? Math.round(logged7.reduce((sum, day) => sum + caloriesOf(day), 0) / logged7.length) : null;
+  let streak = 0;
+  for (let day = caloriesOf(today) ? today : addDays(today, -1); caloriesOf(day) > 0; day = addDays(day, -1)) streak += 1;
+  const sortedWeights = [...data.weights].sort((a, b) => a.date.localeCompare(b.date));
+  const monthAgo = addDays(today, -30);
+  const weightStart = sortedWeights.find((entry) => entry.date >= monthAgo);
+  const weightEnd = sortedWeights.at(-1);
+  const weightChange = weightStart && weightEnd && weightStart !== weightEnd ? weightEnd.kg - weightStart.kg : null;
+
+  // --- Jour sélectionné -----------------------------------------------------------
+  const dayMeals = mealsByDay.get(selected) ?? [];
+  const dayCalories = caloriesOf(selected);
+  const dayProtein = dayMeals.reduce((sum, meal) => sum + (meal.protein ?? 0), 0);
+  const dayWater = data.water[selected] ?? 0;
+  const dayWeight = data.weights.find((entry) => entry.date === selected);
+  const dayFasts = data.fasts.filter((fast) => fast.end && keyOf(new Date(fast.end)) === selected);
+  const daySessions = data.sessions.filter((session) => session.date === selected);
+  const status = statusOf(selected);
+
+  const setWater = (value: number) =>
+    update((current) => ({ ...current, water: { ...current.water, [selected]: Math.max(0, Math.min(value, waterGoal)) } }));
+  const deleteMeal = (meal: Meal) => {
+    if (window.confirm(`Supprimer « ${meal.name} » (${meal.calories} kcal) ?`)) {
+      update((current) => ({ ...current, meals: current.meals.filter((item) => item.id !== meal.id) }));
+    }
+  };
+
+  const monthLabel = first.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+
+  return (
+    <div className="content page-content">
+      <section className="page-heading">
+        <span className="large-icon mint-icon"><Icon name="calendar" size={25} /></span>
+        <p className="eyebrow">Mon suivi</p>
+        <h2>Jour après jour</h2>
+        <p>Retrouvez chaque journée : repas, eau, poids, sport et jeûne. Touchez un jour du calendrier pour le détail.</p>
+      </section>
+
+      <section className="weekly-card">
+        <div>
+          <span>Moyenne sur 7 jours</span>
+          <strong>{average ? `${average.toLocaleString("fr-FR")} kcal` : "—"}</strong>
+          <small>{logged7.length}/7 jours notés · objectif {target.toLocaleString("fr-FR")}</small>
+        </div>
+        <div className="week-bars">
+          {week.map((day, index) => {
+            const ratio = Math.min(caloriesOf(day) / target, 1.3);
+            return (
+              <button type="button" key={day} onClick={() => { setSelected(day); setMonth(day.slice(0, 7)); }} aria-label={`${parse(day).toLocaleDateString("fr-FR", { weekday: "long" })} : ${caloriesOf(day)} kcal`}>
+                <i style={{ height: `${Math.max(4, (ratio / 1.3) * 100)}%` }} className={`${day === today ? "today" : ""} bar-${statusOf(day)}`} />
+                <small>{["L", "M", "M", "J", "V", "S", "D"][index]}</small>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="tracking-stats">
+        <span><Icon name="flame" /><strong>{streak} j</strong><small>d'affilée avec repas notés</small></span>
+        <span><Icon name="scale" /><strong>{weightChange === null ? "—" : `${weightChange > 0 ? "+" : weightChange < 0 ? "−" : ""}${n(Math.abs(weightChange))} kg`}</strong><small>sur 30 jours</small></span>
+        <span><Icon name="water" /><strong>{n(last7.reduce((sum, day) => sum + (data.water[day] ?? 0), 0) / 7)}</strong><small>verres / jour</small></span>
+      </section>
+
+      <section className="calendar-card">
+        <div className="calendar-head">
+          <button type="button" className="icon-button" onClick={() => shiftMonth(-1)} aria-label="Mois précédent"><span className="flip"><Icon name="chevron" /></span></button>
+          <strong>{monthLabel}</strong>
+          <button type="button" className="icon-button" onClick={() => shiftMonth(1)} disabled={month >= today.slice(0, 7)} aria-label="Mois suivant"><Icon name="chevron" /></button>
+        </div>
+        <div className="calendar-grid">
+          {["L", "M", "M", "J", "V", "S", "D"].map((day, index) => <span key={index} className="calendar-weekday">{day}</span>)}
+          {cells.map((day, index) => day ? (
+            <button
+              type="button"
+              key={day}
+              className={`calendar-day day-${statusOf(day)} ${day === selected ? "selected" : ""} ${day === today ? "today" : ""}`}
+              onClick={() => setSelected(day)}
+              disabled={day > today}
+              aria-label={`${parse(day).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} : ${statusLabels[statusOf(day)]}`}
+              aria-pressed={day === selected}
+            >
+              {Number(day.slice(8))}
+              <span className="calendar-marks">
+                {weighedDays.has(day) && <i className="mark-weight" />}
+                {fastDays.has(day) && <i className="mark-fast" />}
+                {sportDays.has(day) && <i className="mark-sport" />}
+              </span>
+            </button>
+          ) : <span key={`empty-${index}`} />)}
+        </div>
+        <div className="calendar-legend">
+          <span><i className="day-ok" />Objectif</span>
+          <span><i className="day-over" />Au-dessus</span>
+          {goal === "prise" && <span><i className="day-under" />En dessous</span>}
+          <span><i className="day-partial" />Incomplet</span>
+          <span><i className="mark-weight" />Pesée</span>
+          {data.fasts.length > 0 && <span><i className="mark-fast" />Jeûne réussi</span>}
+          {data.sessions.length > 0 && <span><i className="mark-sport" />Sport</span>}
+        </div>
+      </section>
+
+      <section className="day-card">
+        <div className="section-title">
+          <div>
+            <p className="eyebrow">{selected === today ? "Aujourd'hui" : statusLabels[status]}</p>
+            <h2>{parse(selected).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</h2>
+          </div>
+        </div>
+
+        <div className="day-calories">
+          <div><strong>{dayCalories.toLocaleString("fr-FR")}</strong><small> / {target.toLocaleString("fr-FR")} kcal</small></div>
+          <span className={`goal-bar status-${status}`}><span style={{ width: `${Math.min(100, (dayCalories / target) * 100)}%` }} /></span>
+          {dayProtein > 0 && <small>{dayProtein} g de protéines</small>}
+        </div>
+
+        <div className="day-facts">
+          <span className="day-water">
+            <Icon name="water" size={18} />
+            <span>{dayWater} verre{dayWater > 1 ? "s" : ""}</span>
+            <button type="button" onClick={() => setWater(dayWater - 1)} disabled={!dayWater} aria-label="Retirer un verre"><Icon name="minus" size={14} /></button>
+            <button type="button" onClick={() => setWater(dayWater + 1)} disabled={dayWater >= waterGoal} aria-label="Ajouter un verre"><Icon name="plus" size={14} /></button>
+          </span>
+          <span><Icon name="scale" size={18} /> {dayWeight ? `${n(dayWeight.kg)} kg` : "Pas de pesée"}</span>
+          {data.steps[selected] && (
+            <span><Icon name="shoe" size={18} /> {data.steps[selected].count.toLocaleString("fr-FR")} pas</span>
+          )}
+          {daySessions.map((session) => (
+            <span key={session.id}><Icon name="shoe" size={18} /> {sessionLabel(session.type)} · {session.minutes} min</span>
+          ))}
+          {dayFasts.map((fast) => (
+            <span key={fast.id}><Icon name="clock" size={18} /> Jeûne de {hours(new Date(fast.end!).getTime() - new Date(fast.start).getTime())}</span>
+          ))}
+        </div>
+
+        <div className="meal-list">
+          {dayMeals.length === 0 && <p className="day-empty">Aucun repas noté ce jour-là.</p>}
+          {mealCategories.flatMap((category) => dayMeals.filter((meal) => meal.category === category.id)).map((meal) => (
+            <div className="meal-row" key={meal.id}>
+              <span className="meal-icon breakfast"><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
+              <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small></span>
+              <span className="meal-calories"><strong>{meal.calories}</strong><small>kcal</small></span>
+              <button className="icon-button" onClick={() => deleteMeal(meal)} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
+            </div>
+          ))}
+        </div>
+        <button className="ghost-button day-add" onClick={() => onAddMeal(selected)}><Icon name="plus" size={17} /> Ajouter un repas {selected === today ? "aujourd'hui" : "à ce jour"}</button>
+      </section>
+
+      <WeightTracker weights={data.weights} onAdd={onSaveWeight} onDelete={onDeleteWeight} />
+
+    </div>
+  );
+}

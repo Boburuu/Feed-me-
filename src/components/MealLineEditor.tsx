@@ -1,0 +1,141 @@
+import Icon from "./Icon";
+import { itemCalories, itemGrams } from "../lib/foods";
+import type { MealItem } from "../lib/storage";
+
+type MealLineEditorProps = {
+  line: MealItem;
+  onChange: (change: Partial<MealItem>) => void;
+  onRemove: () => void;
+};
+
+const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma recette", perso: "Mon aliment" } as const;
+const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+/** « 1 banane » → « banane », « 1 portion (200 ml) » → « portion ». */
+const unitName = (label?: string) => (label ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, "").slice(0, 16);
+/** « 330 ml » → « 33 cl », « 1500 ml » → « 1,5 L ». */
+const volume = (ml: number) => (ml >= 1000 ? `${n(ml / 1000)} L` : ml % 10 === 0 ? `${n(ml / 10)} cl` : `${n(ml)} ml`);
+const amount = (grams: number, liquid?: boolean) => (liquid ? volume(grams) : `${n(Math.round(grams))} g`);
+
+/** Contenants proposés pour une boisson (1 ml ≈ 1 g). */
+const containers = [
+  { label: "canette", ml: 330 },
+  { label: "verre", ml: 200 },
+  { label: "bouteille", ml: 500 },
+  { label: "grande bouteille", ml: 1500 },
+  { label: "tasse", ml: 200 },
+  { label: "bol", ml: 300 },
+];
+/** Parts d'une boîte ou d'un paquet : on n'utilise pas toujours tout. */
+const fractions = [
+  { label: "¼", value: 0.25 },
+  { label: "⅓", value: 1 / 3 },
+  { label: "½", value: 0.5 },
+  { label: "¾", value: 0.75 },
+  { label: "entière", value: 1 },
+];
+const PACKAGE_LABEL = "1 boîte";
+
+/** Une ligne d'aliment : quantité et unité (portion, boîte, contenant, grammes ou ml). */
+export default function MealLineEditor({ line, onChange, onRemove }: MealLineEditorProps) {
+  const grams = itemGrams(line);
+  const perPortionOnly = line.unit === "portion" && !line.portionGrams;
+  const isPackage = line.unit === "portion" && line.portionLabel === PACKAGE_LABEL && !!line.packageGrams;
+  const massUnit = line.liquid ? "ml" : "g";
+
+  /** Changer d'unité en gardant la même quantité mangée. */
+  const useUnit = (unit: "g" | { label: string; grams: number }) => {
+    const total = grams ?? line.quantity;
+    if (unit === "g") onChange({ unit: "g", quantity: Math.round(total) });
+    else onChange({ unit: "portion", portionGrams: unit.grams, portionLabel: unit.label, quantity: Math.max(0.25, Math.round((total / unit.grams) * 4) / 4) });
+  };
+  const step = (direction: 1 | -1) => {
+    const size = line.unit === "g" ? (line.liquid ? 50 : 10) : isPackage ? 0.25 : line.liquid ? 1 : 0.5;
+    onChange({ quantity: Math.max(size, Math.round((line.quantity + direction * size) * 100) / 100) });
+  };
+
+  // Unités proposées pour un aliment solide : sa portion habituelle, la boîte, les grammes.
+  const options: { key: string; label: string; selected: boolean; pick: () => void }[] = [];
+  if (!perPortionOnly && !line.liquid) {
+    if (line.servingGrams) {
+      options.push({
+        key: "serving",
+        label: unitName(line.servingLabel),
+        selected: line.unit === "portion" && !isPackage,
+        pick: () => useUnit({ label: line.servingLabel ?? "1 portion", grams: line.servingGrams! }),
+      });
+    }
+    if (line.packageGrams) {
+      options.push({ key: "package", label: `boîte ${amount(line.packageGrams)}`, selected: isPackage, pick: () => useUnit({ label: PACKAGE_LABEL, grams: line.packageGrams! }) });
+    }
+    options.push({ key: "g", label: "g", selected: line.unit === "g", pick: () => useUnit("g") });
+  }
+
+  return (
+    <div className="meal-line">
+      <div className="meal-line-top">
+        <strong>{line.name}</strong>
+        <span className="meal-line-kcal"><b>{Math.round(itemCalories(line))}</b> kcal</span>
+        <button type="button" className="icon-button" onClick={onRemove} aria-label={`Retirer ${line.name}`}><Icon name="close" size={15} /></button>
+      </div>
+
+      <div className="meal-line-amount">
+        <div className="stepper">
+          <button type="button" onClick={() => step(-1)} aria-label="Moins"><Icon name="minus" size={15} /></button>
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            value={Math.round(line.quantity * 100) / 100}
+            onChange={(e) => onChange({ quantity: Math.max(0, Number(e.target.value)) })}
+            aria-label={`Quantité de ${line.name}`}
+          />
+          <button type="button" onClick={() => step(1)} aria-label="Plus"><Icon name="plus" size={15} /></button>
+        </div>
+        {(line.liquid || perPortionOnly || options.length < 2) && (
+          <span className="unit-fixed">
+            {line.unit === "g" ? massUnit : `${unitName(line.portionLabel)}${line.quantity > 1 && line.liquid ? "s" : ""}`}
+          </span>
+        )}
+        {line.unit === "portion" && grams ? <span className="drink-total">= {amount(grams, line.liquid)}</span> : null}
+      </div>
+
+      {options.length >= 2 && (
+        <div className="container-chips" role="radiogroup" aria-label="Unité">
+          {options.map((option) => (
+            <button type="button" role="radio" aria-checked={option.selected} key={option.key} className={option.selected ? "selected" : ""} onClick={option.pick}>{option.label}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Boîte entamée : la part utilisée dans le plat. */}
+      {isPackage && (
+        <div className="container-chips fraction-chips" role="radiogroup" aria-label="Part de la boîte">
+          {fractions.map((fraction) => {
+            const selected = Math.abs(line.quantity - fraction.value) < 0.01;
+            return (
+              <button type="button" role="radio" aria-checked={selected} key={fraction.label} className={selected ? "selected" : ""} onClick={() => onChange({ quantity: fraction.value })}>
+                {fraction.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {line.liquid && (
+        <div className="container-chips" role="radiogroup" aria-label="Contenant">
+          {[...(line.packageGrams ? [{ label: "emballage", ml: line.packageGrams }] : []), ...containers].map((container) => {
+            const selected = line.unit === "portion" && line.portionGrams === container.ml && unitName(line.portionLabel) === container.label;
+            return (
+              <button type="button" role="radio" aria-checked={selected} key={container.label} className={selected ? "selected" : ""} onClick={() => useUnit({ label: `1 ${container.label}`, grams: container.ml })}>
+                {container.label} <small>{volume(container.ml)}</small>
+              </button>
+            );
+          })}
+          <button type="button" role="radio" aria-checked={line.unit === "g"} className={line.unit === "g" ? "selected" : ""} onClick={() => useUnit("g")}>en ml</button>
+        </div>
+      )}
+
+      <small className="meal-line-detail">{sourceName[line.source]}</small>
+    </div>
+  );
+}

@@ -1,0 +1,3 @@
+Modèle « AIY Vision Classifier Food V1 » (Google), licence Apache 2.0.
+Source : https://www.kaggle.com/models/google/aiy/tfLite/vision-classifier-food-v1
+Étiquettes : https://www.gstatic.com/aihub/tfhub/labelmaps/aiy_food_V1_labelmap.csv

@@ -1,0 +1,93 @@
+apply plugin: 'com.android.application'
+
+// Signature de la version finale. La clé n'est jamais dans le dépôt :
+// - sur GitHub, elle vient des secrets du dépôt (variables FEEDME_KEYSTORE_*) ;
+// - sur le PC, du fichier ~/.feedme-signing/keystore.properties.
+// Sans clé, seule la version de test (debug) se compile.
+def signing = new Properties()
+def signingFile = new File(System.getProperty("user.home"), ".feedme-signing/keystore.properties")
+if (System.getenv("FEEDME_KEYSTORE_FILE")) {
+    signing.storeFile = System.getenv("FEEDME_KEYSTORE_FILE")
+    signing.storePassword = System.getenv("FEEDME_KEYSTORE_PASSWORD")
+    signing.keyAlias = System.getenv("FEEDME_KEY_ALIAS")
+    signing.keyPassword = System.getenv("FEEDME_KEY_PASSWORD")
+} else if (signingFile.exists()) {
+    signingFile.withInputStream { signing.load(it) }
+}
+
+android {
+    namespace = "app.feedme.duo"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "app.feedme.duo"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        // Une mise à jour doit avoir un numéro plus grand : GitHub le fournit à chaque version.
+        versionCode((System.getenv("FEEDME_VERSION_CODE") ?: "1") as Integer)
+        versionName(System.getenv("FEEDME_VERSION_NAME") ?: "1.0")
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // Téléphones Android récents uniquement (arm64) : les bibliothèques natives des autres
+        // processeurs (émulateurs, vieux téléphones 32 bits) doublaient la taille de l'appli.
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (signing.storeFile) {
+            release {
+                storeFile file(signing.storeFile)
+                storePassword signing.storePassword
+                keyAlias signing.keyAlias
+                keyPassword signing.keyPassword
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (signing.storeFile) signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    // Relevé du podomètre en arrière-plan.
+    implementation "androidx.work:work-runtime:2.10.1"
+    // ListenableFuture, utilisé par WorkManager (une autre dépendance en impose une version vide).
+    implementation "com.google.guava:guava:33.3.1-android"
+    // Reconnaissance de plats sur photo (modèle embarqué dans assets/food). LiteRT : successeur
+    // de TensorFlow Lite, même API, compatible avec les pages mémoire de 16 Ko (Android 15+).
+    implementation "com.google.ai.edge.litert:litert:1.4.2"
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

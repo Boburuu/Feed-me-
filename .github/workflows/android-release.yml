@@ -1,0 +1,77 @@
+# Fabrique l'APK Android signé et le publie dans les Releases du dépôt.
+# Déclenchement : un tag « v… » (ex. v1.2) poussé sur GitHub, ou à la main depuis l'onglet Actions
+# (dans ce cas, l'APK est seulement joint au résultat de l'exécution, sans Release).
+#
+# Secrets à créer une fois (Settings → Secrets and variables → Actions) :
+#   FEEDME_KEYSTORE_BASE64   contenu du fichier feedme-release.jks.base64.txt
+#   FEEDME_KEYSTORE_PASSWORD mot de passe de keystore.properties (storePassword)
+name: Version Android
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Application web
+        run: |
+          npm ci
+          npm run build
+          npx cap sync android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Clé de signature
+        env:
+          KEYSTORE_BASE64: ${{ secrets.FEEDME_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then echo "Secret FEEDME_KEYSTORE_BASE64 manquant" >&2; exit 1; fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/feedme-release.jks"
+
+      - name: Fabrication de l'APK
+        working-directory: android
+        env:
+          FEEDME_KEYSTORE_FILE: ${{ runner.temp }}/feedme-release.jks
+          FEEDME_KEYSTORE_PASSWORD: ${{ secrets.FEEDME_KEYSTORE_PASSWORD }}
+          FEEDME_KEY_ALIAS: feedme
+          FEEDME_KEY_PASSWORD: ${{ secrets.FEEDME_KEYSTORE_PASSWORD }}
+          # Chaque version doit avoir un numéro plus grand que la précédente pour s'installer par-dessus.
+          FEEDME_VERSION_CODE: ${{ github.run_number }}
+          FEEDME_VERSION_NAME: ${{ github.ref_type == 'tag' && github.ref_name || format('test-{0}', github.run_number) }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+          mv app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/feed-me.apk"
+
+      - name: Publication dans les Releases
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: feed-me.apk
+          body: |
+            **Installer sur Android** : téléchargez `feed-me.apk` ci-dessous depuis le téléphone, ouvrez-le,
+            puis autorisez « Installer des applis inconnues » si Android le demande.
+            Une nouvelle version s'installe par-dessus l'ancienne sans perdre les données.
+
+      - name: APK de test (lancement manuel)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-me-apk
+          path: feed-me.apk

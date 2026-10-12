@@ -1,0 +1,132 @@
+/* Styles des recettes à cuisiner et de l'onglet Suivi. Chargé après goals.css. */
+
+/* --- Recettes : liste ---------------------------------------------------------- */
+.recipe-search { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 0 14px; border: 1px solid var(--line); border-radius: 14px; color: var(--muted); background: var(--white); }
+.recipe-search input { flex: 1; min-width: 0; padding: 12px 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 14px; }
+.category-tabs { display: flex; gap: 6px; margin: 12px -16px 0; padding: 0 16px 4px; overflow-x: auto; scrollbar-width: none; }
+.category-tabs::-webkit-scrollbar { display: none; }
+.category-tabs button { flex: none; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 99px; color: var(--ink); background: var(--white); cursor: pointer; font-size: 13px; font-weight: 700; }
+.category-tabs small { padding: 1px 6px; border-radius: 99px; color: var(--muted); background: var(--cream); font-size: 10px; }
+.category-tabs button.selected { color: var(--on-accent); border-color: var(--green); background: var(--green); }
+.category-tabs button.selected small { color: var(--green-text); background: var(--mint); }
+.recipe-section { margin-top: 14px; }
+.recipe-empty { margin: 0; padding: 22px 12px; border: 1px dashed var(--line); border-radius: 18px; color: var(--muted); font-size: 13px; text-align: center; }
+.recipe-card-open { position: absolute; inset: 0; z-index: 1; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.recipe-card .recipe-actions { z-index: 2; }
+.recipe-category { margin: 0 0 3px !important; color: var(--green-text) !important; font-size: 10px !important; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.recipe-body h3 { font-size: 14px; }
+.recipe-body p { font-size: 11px; }
+.recipe-meta span { font-size: 10px; }
+
+/* --- Recettes : formulaire --------------------------------------------------- */
+.recipe-category-field { display: grid; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.field-hint { margin-left: 6px; color: var(--muted); font-size: 11px; font-style: normal; font-weight: 500; }
+.recipe-form textarea.tall { min-height: 130px; line-height: 1.5; }
+.recipe-estimate-note { margin: -4px 2px 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.recipe-form .form-actions { margin-top: 4px; }
+
+/* --- Recettes : fiche à cuisiner ---------------------------------------------- */
+.recipe-detail { position: fixed; inset: 0; z-index: 35; display: grid; grid-template-rows: auto 1fr auto; background: var(--cream); animation: rise .2s ease-out; }
+.recipe-detail-bar { display: flex; align-items: center; justify-content: space-between; padding: calc(12px + env(safe-area-inset-top)) 16px 8px; }
+.recipe-detail-bar .modal-close { position: static; background: var(--white); }
+.recipe-detail-bar > span { display: flex; gap: 4px; }
+.recipe-detail-bar .icon-button { background: var(--white); }
+.recipe-detail-scroll { overflow-y: auto; padding: 4px 18px 24px; }
+.recipe-detail-images { display: flex; gap: 8px; margin: 0 -18px 16px; padding: 0 18px; overflow-x: auto; scroll-snap-type: x mandatory; }
+.recipe-detail-images img { flex: none; width: 86%; max-height: 300px; border-radius: 18px; object-fit: cover; scroll-snap-align: center; }
+.recipe-detail-images img:only-child { width: 100%; }
+.recipe-detail-scroll > h2 { font-size: 26px; }
+.recipe-detail-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.recipe-detail-meta span { display: flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 99px; color: var(--ink); background: var(--white); font-size: 12px; font-weight: 600; }
+.recipe-detail-meta svg { color: var(--green-text); }
+.recipe-detail-section { margin-top: 22px; }
+.recipe-detail-section h3 { margin: 0; font-family: "Manrope"; font-size: 18px; letter-spacing: -.02em; }
+.recipe-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.recipe-detail-heading > small { color: var(--muted); font-size: 12px; font-weight: 600; }
+.recipe-detail-hint { margin: -4px 0 8px; color: var(--green-text); font-size: 12px; }
+.portion-stepper { display: flex; align-items: center; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: 99px; background: var(--white); }
+.portion-stepper button { display: grid; width: 30px; height: 30px; padding: 0; place-items: center; border: 0; border-radius: 50%; color: var(--green-text); background: var(--mint); cursor: pointer; }
+.portion-stepper strong { min-width: 58px; font-size: 13px; text-align: center; }
+.ingredient-list, .step-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.ingredient-list button, .step-list button { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 11px; width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; text-align: left; color: var(--ink); background: var(--white); cursor: pointer; font-size: 15px; line-height: 1.45; }
+.ingredient-list .check-circle { width: 22px; height: 22px; }
+.ingredient-list button.done, .step-list button.done { background: color-mix(in srgb, var(--mint) 45%, var(--white)); }
+.ingredient-list button.done > span:last-child, .step-list button.done > span:last-child { color: var(--muted); text-decoration: line-through; }
+.ingredient-list button.done .check-circle { color: var(--on-accent); border-color: var(--green); background: var(--green); }
+.step-number { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 50%; color: var(--green-text); background: var(--mint); font-family: "Manrope"; font-size: 13px; font-weight: 800; }
+.step-list button.current { border-color: var(--green); box-shadow: 0 0 0 3px var(--mint); }
+.step-list button.current .step-number, .step-list button.done .step-number { color: var(--on-accent); background: var(--green); }
+.recipe-detail-empty { margin: 0; color: var(--muted); font-size: 13px; }
+.recipe-detail-done { margin: 12px 0 0; color: var(--green-text); font-family: "Manrope"; font-size: 18px; font-weight: 800; text-align: center; }
+.recipe-detail-notes { margin: 8px 0 0; padding: 12px 14px; border-radius: 14px; background: var(--peach); font-size: 14px; line-height: 1.5; }
+.recipe-detail-scroll .recipe-link { margin-top: 18px; font-size: 13px; }
+.awake-toggle { display: flex; align-items: center; gap: 9px; margin-top: 18px; color: var(--muted); font-size: 12px; }
+.awake-toggle input { width: 18px; height: 18px; accent-color: var(--green); }
+.recipe-detail-footer { padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--cream); }
+.recipe-detail-footer .submit-button { margin: 0; }
+
+/* --- Suivi ------------------------------------------------------------------------ */
+.week-bars > button { display: grid; grid-template-rows: 1fr auto; align-items: end; justify-items: center; width: 18px; height: 100%; padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; }
+.week-bars > button i { width: 12px; }
+.week-bars i.bar-ok { background: var(--mint-bright); }
+.week-bars i.bar-over { background: var(--coral); }
+.week-bars i.bar-under { background: #9cc9db; }
+.week-bars i.bar-partial { background: rgba(255, 255, 255, .45); }
+.week-bars i.today { box-shadow: 0 0 0 2px rgba(255, 255, 255, .8); }
+.week-bars small { font-size: 9px; }
+.weekly-card { grid-template-columns: 1fr 1.25fr; }
+.weekly-card strong { font-size: 24px; white-space: nowrap; }
+.weekly-card small { font-size: 10px; }
+.weekly-card span { font-size: 11px; }
+
+.tracking-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.tracking-stats > span { display: grid; justify-items: start; gap: 2px; padding: 12px; border-radius: 16px; background: var(--white); }
+.tracking-stats svg { margin-bottom: 4px; color: var(--green-text); }
+.tracking-stats strong { font-family: "Manrope"; font-size: 17px; }
+.tracking-stats small { color: var(--muted); font-size: 10px; line-height: 1.3; }
+
+.calendar-card { margin-top: 16px; padding: 14px 12px; border: 1px solid var(--line); border-radius: 22px; background: var(--white); }
+.calendar-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.calendar-head strong { font-family: "Manrope"; font-size: 16px; text-transform: capitalize; }
+.flip { display: grid; transform: rotate(180deg); }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.calendar-weekday { padding: 4px 0; color: var(--muted); font-size: 11px; font-weight: 700; text-align: center; }
+.calendar-day { position: relative; display: grid; aspect-ratio: 1; place-items: center; padding: 0; border: 2px solid transparent; border-radius: 12px; color: var(--ink); background: var(--cream); cursor: pointer; font-size: 13px; font-weight: 700; }
+.calendar-day:disabled { opacity: .35; }
+.calendar-day.day-ok { color: var(--green-deep); background: var(--mint); }
+.calendar-day.day-over { color: #8a3a1c; background: var(--peach); }
+.calendar-day.day-under { background: var(--blue); }
+.calendar-day.day-partial { background: repeating-linear-gradient(135deg, var(--cream), var(--cream) 4px, var(--line) 4px, var(--line) 6px); }
+.calendar-day.today { border-color: var(--mint-bright); }
+.calendar-day.selected { color: var(--on-accent); border-color: var(--green); background: var(--green); }
+.calendar-marks { position: absolute; bottom: 4px; display: flex; gap: 3px; }
+.calendar-marks i, .calendar-legend i { width: 5px; height: 5px; border-radius: 50%; }
+.mark-weight { background: var(--coral); }
+.mark-fast { background: var(--blue-strong); }
+.calendar-day.selected .calendar-marks i { background: var(--on-accent); }
+.calendar-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 12px; padding: 0 4px; color: var(--muted); font-size: 11px; }
+.calendar-legend span { display: flex; align-items: center; gap: 5px; }
+.calendar-legend i[class^="day-"] { width: 12px; height: 12px; border-radius: 4px; }
+.calendar-legend .day-ok { background: var(--mint); }
+.calendar-legend .day-over { background: var(--peach); }
+.calendar-legend .day-under { background: var(--blue); }
+.calendar-legend .day-partial { background: repeating-linear-gradient(135deg, var(--cream), var(--cream) 2px, var(--line) 2px, var(--line) 4px); border: 1px solid var(--line); }
+
+.day-card { margin-top: 16px; padding: 16px; border-radius: 22px; background: var(--white); }
+.day-card .section-title { margin: 0 0 12px; }
+.day-card h2 { font-size: 19px; text-transform: capitalize; }
+.day-calories { display: grid; gap: 8px; }
+.day-calories strong { font-family: "Manrope"; font-size: 26px; }
+.day-calories small { color: var(--muted); font-size: 12px; }
+.goal-bar.status-over span { background: var(--coral); }
+.goal-bar.status-partial span, .goal-bar.status-none span { background: var(--mint-bright); }
+.day-facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.day-facts > span { display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 99px; background: var(--cream); font-size: 12px; font-weight: 600; }
+.day-facts svg { color: var(--green-text); }
+.day-water button { display: grid; width: 24px; height: 24px; padding: 0; place-items: center; border: 0; border-radius: 50%; color: var(--blue-strong); background: var(--white); cursor: pointer; }
+.day-empty { margin: 0; padding: 16px; color: var(--muted); font-size: 13px; text-align: center; }
+.day-add { margin-top: 10px; }
+
+@media (min-width: 520px) {
+  .recipe-detail { position: absolute; overflow: hidden; border-radius: 35px; }
+}

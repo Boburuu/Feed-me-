@@ -1,0 +1,19 @@
+# Dépendances et fichiers générés
+node_modules/
+dist/
+
+# Clé de signature : jamais dans le dépôt (elle reste dans ~/.feedme-signing)
+*.jks
+*.keystore
+keystore.properties
+*.base64.txt
+
+# Fichiers générés par « npx cap sync »
+android/app/src/main/assets/capacitor.plugins.json
+
+# Réglages propres à ce PC
+.vscode/
+
+# Fichiers personnels hors application
+Application.zip
+Projet jeu
