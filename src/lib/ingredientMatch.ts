@@ -54,6 +54,19 @@ export async function findFood(name: string): Promise<FoodResult | null> {
   return null;
 }
 
+/**
+ * Dans une recette, riz, pâtes, quinoa, semoule ou lentilles se pèsent crus : 120 g de
+ * quinoa cru donnent environ 3 fois plus de glucides que 120 g de quinoa cuit. On garde
+ * la version cuite seulement si la recette l'écrit (« riz cuit »).
+ */
+async function rawIfCooked(found: FoodResult, written: string) {
+  const name = normalize(found.name);
+  if (!/\bcuit/.test(name) || /\bcuit/.test(normalize(written))) return found;
+  const base = name.split(" ")[0];
+  const [raw] = await searchCiqual(`${base} cru`, 1);
+  return raw && normalize(raw.name).startsWith(base) && /\bcru/.test(normalize(raw.name)) ? raw : found;
+}
+
 /** Grammes par unité de poids ou de volume (1 ml ≈ 1 g). */
 const metric: Record<string, number> = { mg: 0.001, g: 1, kg: 1000, ml: 1, cl: 10, dl: 100, L: 1000 };
 /** Mesures de cuisine (cuillères rases) : gardées telles quelles, avec leur poids. */
@@ -67,8 +80,9 @@ export async function matchIngredient(item: Ingredient): Promise<MealItem | null
   if (item.quantity === null || !item.name.trim()) return null;
   // « 2 feuilles de riz » est lu « feuille » + « riz » : on cherche d'abord avec l'unité.
   const withUnit = item.unit && !metric[item.unit] && !measures[item.unit] ? await findFood(`${item.unit} de ${item.name}`) : null;
-  const found = withUnit ?? (await findFood(item.name));
-  if (!found) return null;
+  const matched = withUnit ?? (await findFood(item.name));
+  if (!matched) return null;
+  const found = await rawIfCooked(matched, item.name);
   // Le nom écrit reste (marque, précision) ; l'aliment retenu est affiché à côté pour vérifier.
   // « feuille » + « riz J.B » : l'unité fait partie du nom de l'aliment (« Feuille de riz J.B »).
   const unitInName = !!withUnit && normalize(found.name).startsWith(normalize(item.unit));

@@ -6,8 +6,9 @@
 
 import { energyDrinks } from "./energyDrinks";
 import { carbsOf, ciqualCarbs, normalize, openFoodFactsCarbs } from "./foods";
+import { matchIngredient } from "./ingredientMatch";
 import { ingredientsNutrition } from "./recipes";
-import type { AppData, MealItem } from "./storage";
+import type { AppData, Ingredient, MealItem } from "./storage";
 
 async function carbsFor(item: MealItem, data: AppData): Promise<number | null> {
   const ref = item.ref ?? "";
@@ -34,7 +35,7 @@ const needsCarbs = (items: MealItem[] | undefined) => !!items?.some((item) => it
 /** Repas et recettes à compléter ; null s'il n'y a rien à faire. */
 export async function backfillCarbs(data: AppData) {
   const meals = data.meals.filter((meal) => needsCarbs(meal.items));
-  const recipes = data.recipes.filter((recipe) => needsCarbs(recipe.ingredients.flatMap((group) => group.items.flatMap((item) => (item.food ? [item.food] : [])))));
+  const recipes = data.recipes.filter((recipe) => recipe.carbs === undefined || needsCarbs(recipe.ingredients.flatMap((group) => group.items.flatMap((item) => (item.food ? [item.food] : [])))));
   if (!meals.length && !recipes.length) return null;
   const cache = new Map<string, number | null>();
 
@@ -44,9 +45,8 @@ export async function backfillCarbs(data: AppData) {
       ...group,
       items: await Promise.all(group.items.map(async (item) => (item.food ? { ...item, food: await withCarbs(item.food, data, cache) } : item))),
     })));
-    const known = ingredientsNutrition(ingredients.flatMap((group) => group.items));
     // Glucides par personne, seulement si la recette n'en avait pas déjà (saisis à la main).
-    recipeUpdates.set(recipe.id, { ingredients, carbs: recipe.carbs ?? (known.known ? Math.round(known.carbs / (recipe.portions || 1)) : undefined) });
+    recipeUpdates.set(recipe.id, { ingredients, carbs: recipe.carbs ?? (await estimateCarbs(ingredients.flatMap((group) => group.items), recipe.portions)) });
   }
 
   // Les repas « Ma recette » lisent les glucides des recettes qu'on vient de compléter.
@@ -70,4 +70,18 @@ export async function backfillCarbs(data: AppData) {
       return update ? { ...recipe, ingredients: update.ingredients, ...(update.carbs !== undefined ? { carbs: update.carbs } : {}) } : recipe;
     }),
   });
+}
+
+/**
+ * Glucides par personne d'une recette : ingrédients choisis dans les bases, et ingrédients
+ * écrits retrouvés comme avec « Calculer avec les ingrédients écrits ». Rien si moins de
+ * 60 % des ingrédients mesurés sont retrouvés : l'estimation serait trop incomplète.
+ */
+async function estimateCarbs(items: Ingredient[], portions: number) {
+  const measured = items.filter((item) => item.food || item.quantity !== null);
+  if (!measured.length) return undefined;
+  const foods = await Promise.all(measured.map((item) => (item.food ? Promise.resolve(item.food) : matchIngredient(item).catch(() => null))));
+  const found = foods.filter((food): food is MealItem => !!food);
+  if (found.length < measured.length * 0.6) return undefined;
+  return Math.round(ingredientsNutrition(found.map((food) => ({ name: food.name, quantity: null, unit: "", food }))).carbs / (portions || 1));
 }
