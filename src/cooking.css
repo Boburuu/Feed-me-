@@ -130,3 +130,6 @@
 @media (min-width: 520px) {
   .recipe-detail { position: absolute; overflow: hidden; border-radius: 35px; }
 }
+
+/* Ingrédient « au choix » sur la fiche de la recette. */
+.ingredient-list .choice-chips { margin: 6px 0 2px 42px; }

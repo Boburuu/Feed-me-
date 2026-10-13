@@ -4,6 +4,7 @@ import RecipeDetail from "./RecipeDetail";
 import RecipeForm from "./RecipeForm";
 import StoredImage from "./StoredImage";
 import { deleteImage } from "../lib/images";
+import { applyChoice } from "../lib/recipeChoice";
 import { allSteps, categoryLabel, categoryOf, ingredientSummary, recipeCategories } from "../lib/recipes";
 import type { AppData, Recipe, RecipeCategory } from "../lib/storage";
 
@@ -200,6 +201,13 @@ export default function RecipesTab({ recipes, update, onAddToJournal, flash }: R
           onEdit={() => { setOpenId(null); setEditingId(opened.id); }}
           onDelete={() => remove(opened)}
           onAddToJournal={() => { setOpenId(null); onAddToJournal(opened); }}
+          onChoose={(group, index, choice) => {
+            applyChoice(opened, group, index, choice).then((next) => {
+              if (!next) { flash(`« ${choice} » introuvable : modifiez la recette pour le chercher.`); return; }
+              update((current) => ({ ...current, recipes: current.recipes.map((item) => (item.id === next.id ? next : item)) }));
+              flash(`${choice} : ${next.calories} kcal / pers.`);
+            }).catch(() => flash("Le changement n'a pas pu être calculé"));
+          }}
         />
       )}
     </div>

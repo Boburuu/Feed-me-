@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Icon from "./Icon";
 import StoredImage from "./StoredImage";
+import { choicesOf } from "../lib/ingredientMatch";
 import { allIngredients, categoryLabel, categoryOf, formatIngredient } from "../lib/recipes";
 import type { Recipe } from "../lib/storage";
 
@@ -10,6 +11,8 @@ type RecipeDetailProps = {
   onEdit: () => void;
   onDelete: () => void;
   onAddToJournal: () => void;
+  /** Ingrédient « au choix » : prendre une autre option (partie, ligne, choix). */
+  onChoose: (group: number, index: number, choice: string) => void;
 };
 
 const hostOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } };
@@ -36,7 +39,7 @@ function useWakeLock(active: boolean) {
   }, [active]);
 }
 
-export default function RecipeDetail({ recipe, onClose, onEdit, onDelete, onAddToJournal }: RecipeDetailProps) {
+export default function RecipeDetail({ recipe, onClose, onEdit, onDelete, onAddToJournal, onChoose }: RecipeDetailProps) {
   const [portions, setPortions] = useState(recipe.portions);
   // Clés « partie-ligne » des ingrédients cochés et des étapes faites.
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -103,12 +106,24 @@ export default function RecipeDetail({ recipe, onClose, onEdit, onDelete, onAddT
               <ul className="ingredient-list">
                 {group.items.map((item, i) => {
                   const key = `${g}-${i}`;
+                  const choices = item.food ? choicesOf(item.food.name) : [];
+                  const current = item.food?.choice ?? choices[0];
                   return (
                     <li key={key}>
                       <button type="button" className={checked.has(key) ? "done" : ""} onClick={() => setChecked((set) => toggle(set, key))} aria-pressed={checked.has(key)}>
                         <span className="check-circle">{checked.has(key) && <Icon name="check" size={14} />}</span>
                         <span>{formatIngredient(item, factor)}</span>
                       </button>
+                      {choices.length > 1 && (
+                        <div className="container-chips choice-chips" role="radiogroup" aria-label="Au choix">
+                          <small>Au choix :</small>
+                          {choices.map((choice) => (
+                            <button type="button" role="radio" aria-checked={choice === current} key={choice} className={choice === current ? "selected" : ""} onClick={() => choice !== current && onChoose(g, i, choice)}>
+                              {choice.length > 28 ? `${choice.slice(0, 27)}…` : choice}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </li>
                   );
                 })}
