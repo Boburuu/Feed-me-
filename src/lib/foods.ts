@@ -145,6 +145,9 @@ function commonScore(food: CommonFood, query: string) {
     else if (key.split(" ").some((word) => word.startsWith(query))) best = Math.max(best, 50);
     // Chaque mot cherché doit commencer un mot du nom : « oeuf » ne trouve pas « boeuf ».
     else if (query.split(" ").every((word) => key.split(" ").some((part) => part.startsWith(word)))) best = Math.max(best, 40);
+    // Nom tapé plus précis que l'aliment courant : « monster ultra rosa » contient « monster ultra ».
+    // Le nom le plus long l'emporte (« monster ultra » avant « monster »).
+    else if (key.length >= 4 && ` ${query} `.includes(` ${key} `)) best = Math.max(best, 55 + key.length / 2);
   }
   return best;
 }

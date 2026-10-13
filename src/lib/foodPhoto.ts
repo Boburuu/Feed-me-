@@ -5,7 +5,8 @@
 // habituelle. Le modèle ne voit pas les quantités : l'utilisateur les corrige.
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
-import { openFoodFactsByBarcode, searchCiqual, searchCommon, searchOpenFoodFacts, type FoodResult } from "./foods";
+import { commonFoods } from "./commonFoods";
+import { normalize as simplify, openFoodFactsByBarcode, searchCiqual, searchCommon, searchOpenFoodFacts, type FoodResult } from "./foods";
 import { readTextLines } from "./ocr";
 
 type FoodClassifierPlugin = {
@@ -96,7 +97,10 @@ export function frenchQuery(label: string) {
   return rules.find(([pattern]) => pattern.test(key))?.[1] ?? key;
 }
 
-/** Réduit la photo et l'écrit dans le cache de l'app, où le module natif la lit. */
+/**
+ * Réduit la photo et l'écrit dans le cache de l'app, où le module natif la lit. On garde
+ * 2048 px : en dessous, le code-barres d'une photo prise de loin devient illisible.
+ */
 async function writePhoto(file: File) {
   const { Directory, Filesystem } = await import("@capacitor/filesystem");
   const url = URL.createObjectURL(file);
@@ -107,7 +111,7 @@ async function writePhoto(file: File) {
       img.onerror = () => reject(new Error("Image illisible"));
       img.src = url;
     });
-    const scale = Math.min(1, 1024 / Math.max(image.width, image.height));
+    const scale = Math.min(1, 2048 / Math.max(image.width, image.height));
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(image.width * scale);
     canvas.height = Math.round(image.height * scale);
@@ -155,8 +159,13 @@ const packagingNoise = /^(net|poids|ingredients?|nutri|score|valeurs?|energie|kc
  * « Country »), puis recherche dans Open Food Facts.
  */
 async function packagingProducts(uri: string): Promise<FoodResult[]> {
-  if (!navigator.onLine) return [];
-  const lines = (await readTextLines(uri))
+  const read = await readTextLines(uri);
+  // Nom d'un aliment courant écrit sur l'emballage (« Monster … Ultra Rosá ») : fiable,
+  // et disponible hors ligne. Le nom le plus long l'emporte (« ultra rosa » avant « monster »).
+  const known = commonInText(read.map((line) => line.text).join(" "));
+  const common = known ? await searchCommon(known, 1) : [];
+  if (!navigator.onLine) return common;
+  const lines = read
     .map((line) => ({ ...line, text: line.text.replace(/[^\p{L}\p{N}' -]/gu, " ").replace(/\s+/g, " ").trim() }))
     .filter((line) => line.text.length >= 3 && /\p{L}{3}/u.test(line.text))
     .sort((a, b) => b.height - a.height);
@@ -164,8 +173,40 @@ async function packagingProducts(uri: string): Promise<FoodResult[]> {
   const big = lines.filter((line) => line.height >= (lines[0]?.height ?? 0) * 0.6).slice(0, 2);
   const words = big.flatMap((line) => line.text.split(" ")).filter((word) => word.length >= 2 && !packagingNoise.test(word));
   const query = [...new Set(words.map((word) => word.toLowerCase()))].slice(0, 4).join(" ");
-  if (query.length < 3) return [];
-  return (await searchOpenFoodFacts(query)).slice(0, 3);
+  const brands = query.length < 3 ? [] : await searchOpenFoodFacts(query).catch(() => []);
+  return [...common, ...brands.slice(0, 3)];
+}
+
+/** Une lettre de différence au plus (« utra » ≈ « ultra », « monstar » ≈ « monster »). */
+function nearlyEqual(a: string, b: string) {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1 || Math.min(a.length, b.length) < 4) return false;
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i += 1;
+  // Après la première différence : lettre remplacée, en trop ou manquante.
+  return a.slice(i + 1) === b.slice(i + 1) || a.slice(i + 1) === b.slice(i) || a.slice(i) === b.slice(i + 1);
+}
+
+/** Un mot lu correspond au mot cherché, malgré une lettre mal lue ou des mots collés (« monsterenergy »). */
+const wordMatches = (read: string, wanted: string) => nearlyEqual(read, wanted) || (wanted.length >= 6 && read.startsWith(wanted));
+
+/**
+ * Aliment courant dont le nom (ou un synonyme) est écrit sur l'emballage. La lecture des
+ * logos est approximative (« MNSTER », « Utra Rosá ») : une lettre de différence est
+ * tolérée. Le nom le plus long l'emporte (« ultra rosa » avant « monster »).
+ */
+function commonInText(text: string) {
+  const read = simplify(text).split(" ");
+  let best = { name: "", length: 0 };
+  for (const food of commonFoods) {
+    for (const name of [food.name, ...(food.aliases ?? [])].map(simplify)) {
+      if (name.length < 5 || name.length <= best.length) continue;
+      const wanted = name.split(" ");
+      const found = read.some((_, start) => wanted.every((word, offset) => read[start + offset] !== undefined && wordMatches(read[start + offset], word)));
+      if (found) best = { name: food.name, length: name.length };
+    }
+  }
+  return best.name;
 }
 
 export type PhotoAnalysis = {

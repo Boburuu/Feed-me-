@@ -157,6 +157,9 @@ export const commonFoods: CommonFood[] = [
   { name: "Coca / Pepsi", ciqual: "Cola, sucré", aliases: ["coca", "cola", "pepsi", "soda"], portion: { label: "1 canette", grams: 330 }, drink: true },
   { name: "Coca zéro / light", ciqual: "Cola, non sucré, avec édulcorants", aliases: ["coca zero", "coca light", "cola zero"], portion: { label: "1 canette", grams: 330 }, drink: true },
   { name: "Pepsi Max", ciqual: "Cola, non sucré, avec édulcorants", aliases: ["pepsi max", "pepsi zero"], portion: { label: "1 canette", grams: 330 }, drink: true },
+  // Boissons énergisantes : canette de 500 ml (Monster), 250 ml pour Red Bull (choix « canette »).
+  { name: "Boisson énergisante zéro sucre", ciqual: "Boisson énergisante, non sucrée, avec édulcorants", aliases: ["monster ultra", "monster zero", "ultra rosa", "ultra white", "ultra paradise", "ultra watermelon", "ultra fiesta", "absolutely zero", "red bull zero", "red bull sugar free", "sugarfree", "boisson energisante zero", "energy drink zero"], portion: { label: "1 grande canette", grams: 500 }, drink: true },
+  { name: "Boisson énergisante", ciqual: "Boisson énergisante, sucrée", aliases: ["monster", "monster energy", "red bull", "redbull", "burn", "rockstar", "mango loco", "boisson energisante", "energy drink"], portion: { label: "1 grande canette", grams: 500 }, drink: true },
   { name: "Ice tea", ciqual: "Boisson au thé, aromatisée, sucrée", aliases: ["the glace", "lipton", "fuze tea"], portion: { label: "1 canette", grams: 330 }, drink: true },
   { name: "Ice tea zéro", ciqual: "Boisson au thé, aromatisée, non sucrée, avec édulcorants", aliases: ["the glace zero"], portion: { label: "1 canette", grams: 330 }, drink: true },
   { name: "Soda aux fruits", ciqual: "Boisson gazeuse aux fruits (à moins de 10% de jus), sucrée", aliases: ["orangina", "fanta", "oasis", "schweppes", "sprite"], portion: { label: "1 canette", grams: 330 }, drink: true },
