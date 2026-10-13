@@ -122,15 +122,8 @@
 .add-part { border: 1px dashed var(--mint-bright); color: var(--green-text); background: transparent; }
 .ingredient-row input:focus, .step-editor input:focus, .step-editor textarea:focus, .part-title:focus, .raw-text textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px var(--mint); }
 
-/* Ingrédient choisi dans Ciqual / Open Food Facts : ses calories sous la ligne. */
-.ingredient-item { display: grid; gap: 3px; }
-.ingredient-kcal { overflow: hidden; padding-left: 4px; color: var(--green-text); font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.ingredient-kcal.warn { color: var(--coral); }
-.ingredient-add { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
-.ingredient-add .add-line.secondary { padding: 10px 14px; color: var(--green-text); background: transparent; border: 1px dashed var(--mint-bright); }
-.food-picker { display: grid; gap: 8px; padding: 10px; border: 2px solid var(--mint-bright); border-radius: 14px; background: var(--white); }
-.food-picker-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.food-picker-head strong { font-size: 13px; }
+/* Ingrédients : recherche, photo et code-barres comme dans un repas. */
+.food-picker { display: grid; gap: 8px; }
 .food-picker .food-search input,
 .food-picker .food-search input:focus { width: auto; padding: 12px 4px; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: 16px; }
 .recipe-computed { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: var(--mint); }

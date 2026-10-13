@@ -49,6 +49,9 @@ export default function MealLineEditor({ line, onChange, onRemove }: MealLineEdi
   // La pièce n'est un choix à part que si elle diffère de la portion (« 1 portion (80 g) » ≠ « 1 tranche »).
   const hasPiece = !!line.pieceGrams && line.pieceGrams !== line.servingGrams;
   const massUnit = line.liquid ? "ml" : "g";
+  /** Recette du carnet : on choisit le nombre de parts mangées sur le plat entier. */
+  const servings = line.source === "recette" ? line.recipePortions : undefined;
+  const plural = (count: number) => (count > 1 ? "s" : "");
 
   /** Changer d'unité en gardant la même quantité mangée. */
   const useUnit = (unit: "g" | { label: string; grams: number }) => {
@@ -58,7 +61,7 @@ export default function MealLineEditor({ line, onChange, onRemove }: MealLineEdi
   };
   const step = (direction: 1 | -1) => {
     // Les pièces se comptent une à une (« 10 tranches ») ; en dessous de 1, par moitié.
-    const size = line.unit === "g" ? (line.liquid ? 50 : 10) : isPackage ? 0.25 : line.liquid || (direction > 0 ? line.quantity >= 1 : line.quantity > 1) ? 1 : 0.5;
+    const size = line.unit === "g" ? (line.liquid ? 50 : 10) : isPackage || servings ? (servings && line.quantity >= 1 ? 0.5 : 0.25) : line.liquid || (direction > 0 ? line.quantity >= 1 : line.quantity > 1) ? 1 : 0.5;
     onChange({ quantity: Math.max(size, Math.round((line.quantity + direction * size) * 100) / 100) });
   };
 
@@ -105,7 +108,7 @@ export default function MealLineEditor({ line, onChange, onRemove }: MealLineEdi
         </div>
         {(line.liquid || perPortionOnly || options.length < 2) && (
           <span className="unit-fixed">
-            {line.unit === "g" ? massUnit : `${unitName(line.portionLabel)}${line.quantity > 1 && line.liquid ? "s" : ""}`}
+            {line.unit === "g" ? massUnit : servings ? `part${plural(line.quantity)} sur ${servings}` : `${unitName(line.portionLabel)}${line.quantity > 1 && line.liquid ? "s" : ""}`}
           </span>
         )}
         {line.unit === "portion" && grams ? <span className="drink-total">= {amount(grams, line.liquid)}</span> : null}
@@ -116,6 +119,20 @@ export default function MealLineEditor({ line, onChange, onRemove }: MealLineEdi
           {options.map((option) => (
             <button type="button" role="radio" aria-checked={option.selected} key={option.key} className={option.selected ? "selected" : ""} onClick={option.pick}>{option.label}</button>
           ))}
+        </div>
+      )}
+
+      {/* Recette pour plusieurs : parts mangées, jusqu'au plat entier. */}
+      {servings && (
+        <div className="container-chips fraction-chips" role="radiogroup" aria-label="Parts mangées">
+          {[...[0.5, 1, 2, 3].filter((value) => value < servings), servings].map((value) => {
+            const selected = Math.abs(line.quantity - value) < 0.01;
+            return (
+              <button type="button" role="radio" aria-checked={selected} key={value} className={selected ? "selected" : ""} onClick={() => onChange({ quantity: value })}>
+                {value === servings && servings > 1 ? `tout (${servings})` : value === 0.5 ? "½ part" : `${value} part${plural(value)}`}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -147,7 +164,9 @@ export default function MealLineEditor({ line, onChange, onRemove }: MealLineEdi
         </div>
       )}
 
-      <small className="meal-line-detail">{sourceName[line.source]}</small>
+      <small className="meal-line-detail">
+        {servings ? `Ma recette pour ${servings} pers. · ${Math.round(line.kcal100)} kcal la part` : sourceName[line.source]}
+      </small>
     </div>
   );
 }

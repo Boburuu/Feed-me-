@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import FoodPicker from "./FoodPicker";
 import Icon from "./Icon";
-import type { FoodResult } from "../lib/foods";
+import MealLineEditor from "./MealLineEditor";
+import { openFoodFactsPortion, toMealItem, type FoodResult } from "../lib/foods";
 import { deleteImage, getImage, putImage, shrinkImage } from "../lib/images";
 import { mergeTexts, ocrAvailable, readImageText } from "../lib/ocr";
-import { categoryOf, commonUnits, formatQuantity, ingredientFromFood, ingredientGrams, ingredientsNutrition, parseQuantity, recipeCategories } from "../lib/recipes";
+import { categoryOf, commonUnits, formatQuantity, ingredientFromItem, ingredientsNutrition, parseQuantity, recipeCategories } from "../lib/recipes";
 import { parseRecipeText, summarize } from "../lib/recipeText";
-import type { Ingredient, IngredientNutrition, Recipe, RecipeCategory, RecipeStep, StepGroup } from "../lib/storage";
+import type { Ingredient, MealItem, Recipe, RecipeCategory, RecipeStep, StepGroup } from "../lib/storage";
 
 type RecipeFormProps = {
   /** Recette à modifier ; absente pour une création. */
@@ -18,8 +19,12 @@ type RecipeFormProps = {
 
 /** Image du formulaire : déjà enregistrée (id) ou nouvelle (data URL seulement). */
 type DraftImage = { id?: string; src: string };
-/** La quantité reste du texte pendant la saisie (« 1,5 », « ½ »). */
-type DraftItem = { quantity: string; unit: string; name: string; nutrition?: IngredientNutrition };
+/**
+ * Ingrédient en cours de saisie. Trouvé dans les bases (`food`) : il se règle comme dans
+ * un repas (+ / −, tranche, boîte, g). Écrit à la main : la quantité reste du texte (« ½ »).
+ * `key` : identifiant stable de la ligne pour React.
+ */
+type DraftItem = { key: number; quantity: string; unit: string; name: string; food?: MealItem };
 type DraftGroup = { title: string; items: DraftItem[] };
 
 type Draft = {
@@ -36,15 +41,14 @@ type Draft = {
   images: DraftImage[];
 };
 
-const emptyItem = (): DraftItem => ({ quantity: "", unit: "", name: "" });
-const toDraftItem = (item: Ingredient): DraftItem => ({ quantity: item.quantity === null ? "" : formatQuantity(item.quantity), unit: item.unit, name: item.name, nutrition: item.nutrition });
-const toIngredient = (item: DraftItem): Ingredient => ({
-  name: item.name.trim(),
-  unit: item.unit.trim(),
-  quantity: item.quantity.trim() ? parseQuantity(item.quantity.replace(",", ".")) : null,
-  ...(item.nutrition ? { nutrition: item.nutrition } : {}),
-});
-const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma recette", perso: "Mon aliment" } as const;
+let nextKey = 1;
+const emptyItem = (): DraftItem => ({ key: nextKey++, quantity: "", unit: "", name: "" });
+const toDraftItem = (item: Ingredient): DraftItem => ({ key: nextKey++, quantity: item.quantity === null ? "" : formatQuantity(item.quantity), unit: item.unit, name: item.name, food: item.food });
+const toIngredient = (item: DraftItem): Ingredient =>
+  item.food
+    ? ingredientFromItem(item.food)
+    : { name: item.name.trim(), unit: item.unit.trim(), quantity: item.quantity.trim() ? parseQuantity(item.quantity.replace(",", ".")) : null };
+const hasContent = (item: DraftItem) => !!item.food || !!item.name.trim();
 const emptyStep = (): RecipeStep => ({ title: "", text: "" });
 
 function draftFrom(recipe?: Recipe): Draft {
@@ -56,7 +60,7 @@ function draftFrom(recipe?: Recipe): Draft {
         title: group.title,
         items: group.items.map(toDraftItem),
       }))
-      : [{ title: "", items: [emptyItem()] }],
+      : [{ title: "", items: [] }],
     steps: recipe?.steps.length ? recipe.steps : [{ title: "", steps: [emptyStep()] }],
     time: recipe ? String(recipe.time) : "",
     portions: recipe ? String(recipe.portions) : "",
@@ -69,7 +73,7 @@ function draftFrom(recipe?: Recipe): Draft {
 }
 
 const isBlank = (draft: Draft) =>
-  draft.ingredients.every((group) => group.items.every((item) => !item.name.trim())) &&
+  draft.ingredients.every((group) => !group.items.some(hasContent)) &&
   draft.steps.every((group) => group.steps.every((step) => !step.text.trim() && !step.title.trim()));
 
 export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeFormProps) {
@@ -81,8 +85,8 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
   const [shots, setShots] = useState<string[]>([]);
   const screenshotInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
-  /** Partie d'ingrédients où l'on cherche un aliment (recherche, photo, code-barres). */
-  const [picking, setPicking] = useState<number | null>(null);
+  /** Partie d'ingrédients où l'on ajoute des aliments (recherche, photo, code-barres). */
+  const [picking, setPicking] = useState(0);
   const set = (change: Partial<Draft>) => setDraft((current) => ({ ...current, ...change }));
 
   // En modification, on charge les images déjà enregistrées pour les afficher.
@@ -152,17 +156,34 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
   const setItem = (groupIndex: number, itemIndex: number, change: Partial<DraftItem>) =>
     setGroup(groupIndex, { items: draft.ingredients[groupIndex].items.map((item, i) => (i === itemIndex ? { ...item, ...change } : item)) });
 
-  /** Aliment trouvé : il remplace la ligne vide du bas, ou s'ajoute à la partie. */
-  const pickFood = (groupIndex: number, food: FoodResult) => {
-    const item = toDraftItem(ingredientFromFood(food));
-    const items = draft.ingredients[groupIndex].items;
-    const last = items.at(-1);
-    setGroup(groupIndex, { items: last && !last.name.trim() ? [...items.slice(0, -1), item] : [...items, item] });
-    setPicking(null);
+  /** Change un ingrédient sans dépendre d'un état périmé (la portion d'Open Food Facts arrive plus tard). */
+  const updateItem = (key: number, change: (item: DraftItem) => DraftItem) =>
+    setDraft((current) => ({
+      ...current,
+      ingredients: current.ingredients.map((group) => ({ ...group, items: group.items.map((item) => (item.key === key ? change(item) : item)) })),
+    }));
+  const removeItem = (key: number) =>
+    setDraft((current) => ({ ...current, ingredients: current.ingredients.map((group) => ({ ...group, items: group.items.filter((item) => item.key !== key) })) }));
+
+  /** Aliment trouvé : il s'ajoute à la partie, réglable comme dans un repas. */
+  const pickFood = (groupIndex: number, result: FoodResult) => {
+    const food = toMealItem(result);
+    const item: DraftItem = { key: nextKey++, quantity: "", unit: "", name: food.name, food };
+    setDraft((current) => ({
+      ...current,
+      ingredients: current.ingredients.map((group, i) => (i === groupIndex ? { ...group, items: [...group.items.filter(hasContent), item] } : group)),
+    }));
+    // Produit de marque : la portion indiquée sur l'emballage arrive ensuite (comme dans un repas).
+    if (result.source === "off" && result.ref && !food.pieceGrams) {
+      openFoodFactsPortion(result.ref).then((portion) => {
+        if (!portion) return;
+        updateItem(item.key, (line) => line.food ? { ...line, food: { ...line.food, servingGrams: portion.grams, servingLabel: portion.label, ...(line.food.unit === "g" && line.food.quantity === 100 ? { unit: "portion" as const, quantity: 1, portionGrams: portion.grams, portionLabel: portion.label } : {}) } } : line);
+      }).catch(() => undefined);
+    }
   };
 
-  // Calories calculées d'après les ingrédients dont on connaît les valeurs.
-  const draftIngredients = draft.ingredients.flatMap((group) => group.items.filter((item) => item.name.trim()).map(toIngredient));
+  // Calories calculées d'après les ingrédients trouvés dans les bases.
+  const draftIngredients = draft.ingredients.flatMap((group) => group.items.filter(hasContent).map(toIngredient));
   const computed = ingredientsNutrition(draftIngredients);
   const portionCount = Number(draft.portions) || 2;
   const perPerson = { kcal: Math.round(computed.kcal / portionCount), protein: Math.round(computed.protein / portionCount) };
@@ -198,7 +219,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
     const ingredients = draft.ingredients
       .map((group) => ({
         title: group.title.trim(),
-        items: group.items.filter((item) => item.name.trim()).map(toIngredient),
+        items: group.items.filter(hasContent).map(toIngredient),
       }))
       .filter((group) => group.items.length);
     const steps = draft.steps
@@ -298,42 +319,46 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
             <div className="part-head">
               <input className="part-title" value={group.title} onChange={(e) => setGroup(groupIndex, { title: e.target.value })} placeholder={draft.ingredients.length > 1 ? "Nom de la partie (ex. Garniture)" : "Partie (ex. Pâte) — facultatif"} aria-label="Nom de la partie" />
               {draft.ingredients.length > 1 && (
-                <button type="button" className="icon-button" onClick={() => set({ ingredients: draft.ingredients.filter((_, i) => i !== groupIndex) })} aria-label="Supprimer cette partie"><Icon name="trash" size={16} /></button>
+                <button type="button" className="icon-button" onClick={() => { set({ ingredients: draft.ingredients.filter((_, i) => i !== groupIndex) }); setPicking(0); }} aria-label="Supprimer cette partie"><Icon name="trash" size={16} /></button>
               )}
             </div>
-            <div className="ingredient-rows">
-              {group.items.map((item, itemIndex) => {
-                const grams = item.nutrition ? ingredientGrams(toIngredient(item)) : null;
-                return (
-                  <div className="ingredient-item" key={itemIndex}>
-                    <div className="ingredient-row">
+            {(() => {
+              // Les lignes de la partie : réglables comme dans un repas, ou écrites à la main.
+              const lines = (group.items.length > 0 || picking !== groupIndex) && (
+                <div className="ingredient-rows">
+                  {group.items.map((item, itemIndex) => item.food ? (
+                    <MealLineEditor
+                      key={item.key}
+                      line={item.food}
+                      onChange={(change) => updateItem(item.key, (current) => ({ ...current, food: { ...current.food!, ...change } }))}
+                      onRemove={() => removeItem(item.key)}
+                    />
+                  ) : (
+                    <div className="ingredient-row" key={item.key}>
                       <input value={item.quantity} onChange={(e) => setItem(groupIndex, itemIndex, { quantity: e.target.value })} inputMode="decimal" placeholder="Qté" aria-label="Quantité" />
                       <input value={item.unit} onChange={(e) => setItem(groupIndex, itemIndex, { unit: e.target.value })} list="unit-options" placeholder="unité" aria-label="Unité" />
-                      <input value={item.name} onChange={(e) => setItem(groupIndex, itemIndex, { name: e.target.value })} placeholder="Ingrédient" aria-label="Ingrédient" />
-                      <button type="button" className="icon-button" onClick={() => setGroup(groupIndex, { items: group.items.filter((_, i) => i !== itemIndex) })} aria-label="Retirer cet ingrédient"><Icon name="close" size={15} /></button>
+                      <input value={item.name} onChange={(e) => setItem(groupIndex, itemIndex, { name: e.target.value })} placeholder="Ingrédient (sel, poivre…)" aria-label="Ingrédient" />
+                      <button type="button" className="icon-button" onClick={() => removeItem(item.key)} aria-label="Retirer cet ingrédient"><Icon name="close" size={15} /></button>
                     </div>
-                    {item.nutrition && (
-                      <small className={`ingredient-kcal${grams === null ? " warn" : ""}`}>
-                        {grams === null
-                          ? `${sourceName[item.nutrition.source]} · indiquez la quantité en g ou ml pour le calcul`
-                          : `${sourceName[item.nutrition.source]} · ${Math.round((grams * item.nutrition.kcal100) / 100)} kcal`}
-                      </small>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            {picking === groupIndex ? (
-              <FoodPicker title="Ajouter un ingrédient" onPick={(food) => pickFood(groupIndex, food)} onClose={() => setPicking(null)} />
-            ) : (
-              <div className="ingredient-add">
-                <button type="button" className="add-line" onClick={() => setPicking(groupIndex)}><Icon name="camera" size={15} /> Chercher ou scanner</button>
-                <button type="button" className="add-line secondary" onClick={() => setGroup(groupIndex, { items: [...group.items, emptyItem()] })}><Icon name="plus" size={15} /> Écrire</button>
-              </div>
-            )}
+                  ))}
+                </div>
+              );
+              const write = <button type="button" className="add-part" onClick={() => setGroup(groupIndex, { items: [...group.items, emptyItem()] })}><Icon name="edit" size={15} /> Écrire un ingrédient à la main</button>;
+              return picking === groupIndex ? (
+                <FoodPicker onPick={(food) => pickFood(groupIndex, food)}>
+                  {lines}
+                  {write}
+                </FoodPicker>
+              ) : (
+                <>
+                  {lines}
+                  <button type="button" className="add-line" onClick={() => setPicking(groupIndex)}><Icon name="camera" size={15} /> Ajouter des ingrédients ici</button>
+                </>
+              );
+            })()}
           </div>
         ))}
-        <button type="button" className="add-part" onClick={() => set({ ingredients: [...draft.ingredients, { title: "", items: [emptyItem()] }] })}><Icon name="plus" size={15} /> Ajouter une partie (ex. Garniture)</button>
+        <button type="button" className="add-part" onClick={() => { set({ ingredients: [...draft.ingredients, { title: "", items: [] }] }); setPicking(draft.ingredients.length); }}><Icon name="plus" size={15} /> Ajouter une partie (ex. Garniture)</button>
       </section>
 
       <section className="editor-section">
@@ -393,7 +418,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
           )}
         </div>
       ) : (
-        <p className="recipe-estimate-note">Champs « auto » laissés vides : estimation très approximative. Ajoutez les ingrédients avec « Chercher ou scanner » pour un vrai calcul.</p>
+        <p className="recipe-estimate-note">Champs « auto » laissés vides : estimation très approximative. Ajoutez les ingrédients avec la recherche, la photo ou le code-barres pour un vrai calcul.</p>
       )}
       <label><span>Notes</span><textarea value={draft.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Ex. moins de crème, ajouter des épinards…" /></label>
       <label><span>Lien de la source (facultatif)</span><input value={draft.url} onChange={(e) => set({ url: e.target.value })} placeholder="https://www.instagram.com/p/…" inputMode="url" /></label>

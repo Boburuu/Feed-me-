@@ -87,6 +87,8 @@ export type MealItem = {
   /** Paquet vendu à la pièce (« 10 tranches », « 4 feuilles ») : poids d'une pièce. */
   pieceGrams?: number;
   pieceLabel?: string;
+  /** Recette du carnet : nombre de parts de la recette entière (valeurs = 1 part). */
+  recipePortions?: number;
 };
 
 export type StepEntry = { count: number; source: "manuel" | "auto"; updatedAt: string };
@@ -105,20 +107,11 @@ export type CustomFood = {
 export type WeightEntry = { id: number; date: string; kg: number };
 export type SportTask = { id: number; label: string; detail: string; done: boolean };
 /** « 200 g de farine » → { quantity: 200, unit: "g", name: "farine" }. Quantité nulle : « Sel, poivre ». */
-export type Ingredient = { name: string; quantity: number | null; unit: string; nutrition?: IngredientNutrition };
 /**
- * Valeurs d'un ingrédient choisi dans Ciqual ou Open Food Facts (pour 100 g), pour
- * calculer les calories de la recette. `unitGrams` : poids d'une pièce (« feuille »).
+ * `food` : ingrédient choisi dans Ciqual ou Open Food Facts (comme dans un repas), avec
+ * sa quantité exacte ; il sert à calculer les calories de la recette.
  */
-export type IngredientNutrition = {
-  kcal100: number;
-  protein100: number | null;
-  source: FoodSource;
-  ref?: string;
-  unitGrams?: number;
-  /** Mot de la pièce (« feuille ») ; vide quand on compte l'aliment lui-même (« 2 œufs »). */
-  unitLabel?: string;
-};
+export type Ingredient = { name: string; quantity: number | null; unit: string; food?: MealItem };
 /** Une partie de la recette (« Pâte », « Garniture »…). Titre vide : partie unique. */
 export type IngredientGroup = { title: string; items: Ingredient[] };
 export type RecipeStep = { title: string; text: string };

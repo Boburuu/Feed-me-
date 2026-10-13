@@ -11,7 +11,8 @@ export const kcalLabel = (result: FoodResult) => {
 /** « 1 banane ≈ 120 g · 91 kcal/100 g · Ciqual (ANSES) » */
 export const resultDetail = (result: FoodResult) => {
   const parts: string[] = [];
-  if (result.perPortionOnly) parts.push("par portion");
+  if (result.recipePortions) parts.push("1 part");
+  else if (result.perPortionOnly) parts.push("par portion");
   else if (result.portionLabel && result.portionGrams) parts.push(`${result.portionLabel} ≈ ${Math.round(result.portionGrams)} ${result.liquid ? "ml" : "g"}`, `${Math.round(result.kcal100)} kcal/100 ${result.liquid ? "ml" : "g"}`);
   parts.push(result.detail);
   return parts.join(" · ");

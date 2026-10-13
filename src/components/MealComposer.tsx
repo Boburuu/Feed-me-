@@ -12,6 +12,7 @@ import {
   searchCommon,
   drinkShortcuts,
   searchOpenFoodFacts,
+  recipeResult,
   searchOwn,
   toMealItem,
   type FoodResult,
@@ -35,6 +36,8 @@ type MealComposerProps = {
   onCreateFood: (food: CustomFood) => void;
   /** Photo prise depuis l'accueil, à analyser dès l'ouverture. */
   initialPhoto?: File;
+  /** Aliments déjà ajoutés à l'ouverture (recette choisie dans le carnet). */
+  initialItems?: MealItem[];
 };
 
 type Line = MealItem & { key: number };
@@ -47,12 +50,15 @@ const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma rece
 const unitName = (label?: string) => (label ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, "").slice(0, 14);
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 
-export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, leftovers, onDiscardLeftover }: MealComposerProps) {
+export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, leftovers, onDiscardLeftover }: MealComposerProps) {
   const today = todayKey();
   const [date, setDate] = useState(initialDate);
   const [category, setCategory] = useState(initialCategory);
   const [query, setQuery] = useState("");
-  const [lines, setLines] = useState<Line[]>([]);
+  const [lines, setLines] = useState<Line[]>(() => (initialItems ?? []).map((item, index) => ({ ...item, key: index + 1 })));
+  const [showAllRecipes, setShowAllRecipes] = useState(false);
+  // Recettes du carnet, les plus récentes d'abord.
+  const myRecipes = useMemo(() => [...recipes].sort((a, b) => b.id - a.id), [recipes]);
   const [common, setCommon] = useState<FoodResult[]>([]);
   const [ciqual, setCiqual] = useState<FoodResult[]>([]);
   const [brands, setBrands] = useState<FoodResult[]>([]);
@@ -480,6 +486,18 @@ export default function MealComposer({ date: initialDate, category: initialCateg
                   <button type="button" className="icon-button" onClick={() => onDiscardLeftover(item.id)} aria-label="Jeter ce reste"><Icon name="trash" size={15} /></button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {!isPlate && myRecipes.length > 0 && (
+            <div className="food-results">
+              <p className="food-section">Mes recettes</p>
+              {(showAllRecipes ? myRecipes : myRecipes.slice(0, 3)).map((recipe) => (
+                <FoodResultRow key={`recette-${recipe.id}`} result={recipeResult(recipe)} onPick={add} />
+              ))}
+              {!showAllRecipes && myRecipes.length > 3 && (
+                <button type="button" className="text-button food-more" onClick={() => setShowAllRecipes(true)}>Voir {myRecipes.length - 3} de plus</button>
+              )}
             </div>
           )}
 

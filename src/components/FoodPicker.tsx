@@ -5,16 +5,16 @@ import { normalize, searchCiqual, searchCommon, searchOpenFoodFacts, type FoodRe
 import { analyzeMealPhoto, photoRecognitionAvailable, scanBarcode, type PhotoAnalysis } from "../lib/foodPhoto";
 
 type FoodPickerProps = {
-  title: string;
   onPick: (food: FoodResult) => void;
-  onClose: () => void;
+  /** Affiché sous la recherche quand on ne cherche pas (les aliments déjà choisis). */
+  children?: React.ReactNode;
 };
 
 /**
  * Trouver un aliment avec ses valeurs nutritionnelles : recherche (Ciqual, puis
  * Open Food Facts), photo du produit ou scan du code-barres.
  */
-export default function FoodPicker({ title, onPick, onClose }: FoodPickerProps) {
+export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FoodResult[]>([]);
   const [brands, setBrands] = useState<FoodResult[] | null>(null);
@@ -23,6 +23,8 @@ export default function FoodPicker({ title, onPick, onClose }: FoodPickerProps) 
   const [note, setNote] = useState("");
   const photoInput = useRef<HTMLInputElement>(null);
   const native = photoRecognitionAvailable();
+  /** Aliment choisi : la recherche se vide pour revoir la liste, comme dans un repas. */
+  const onPick = (food: FoodResult) => { setQuery(""); setPhoto(null); pick(food); };
 
   // Aliments courants sous leur nom simple, puis les autres lignes de Ciqual.
   useEffect(() => {
@@ -70,11 +72,6 @@ export default function FoodPicker({ title, onPick, onClose }: FoodPickerProps) 
 
   return (
     <div className="food-picker">
-      <div className="food-picker-head">
-        <strong>{title}</strong>
-        <button type="button" className="icon-button" onClick={onClose} aria-label="Fermer"><Icon name="close" size={15} /></button>
-      </div>
-
       <div className="food-search">
         <Icon name="apple" size={18} />
         <input
@@ -83,7 +80,7 @@ export default function FoodPicker({ title, onPick, onClose }: FoodPickerProps) 
           autoComplete="off"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Farine, jambon, feuille de riz…"
+          placeholder="Ajouter un ingrédient : farine, jambon…"
           aria-label="Rechercher un ingrédient"
         />
       </div>
@@ -132,6 +129,9 @@ export default function FoodPicker({ title, onPick, onClose }: FoodPickerProps) 
           )}
         </div>
       )}
+
+      {/* Pendant la recherche : uniquement les résultats, rien ne se superpose. */}
+      {!query.trim() && children}
     </div>
   );
 }

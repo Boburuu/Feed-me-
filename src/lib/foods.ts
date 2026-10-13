@@ -341,21 +341,26 @@ export function shortServing(text: string, grams: number) {
 
 // --- Recettes et aliments perso ----------------------------------------------------------
 
+/** Une recette du carnet, connue par part : on stocke les valeurs d'une part. */
+export function recipeResult(recipe: Recipe): FoodResult {
+  return {
+    name: recipe.name,
+    source: "recette",
+    ref: String(recipe.id),
+    kcal100: recipe.calories,
+    protein100: recipe.protein,
+    portionLabel: "1 part",
+    perPortionOnly: true,
+    recipePortions: recipe.portions,
+    detail: `Ma recette pour ${recipe.portions} pers.`,
+  };
+}
+
 export function searchOwn(query: string, recipes: Recipe[], customFoods: CustomFood[]): FoodResult[] {
   const normalized = normalize(query);
   const matches = (name: string) => !normalized || normalized.split(" ").every((word) => normalize(name).includes(word));
   return [
-    ...recipes.filter((recipe) => matches(recipe.name)).map((recipe) => ({
-      name: recipe.name,
-      source: "recette" as const,
-      ref: String(recipe.id),
-      // Une recette est connue par portion : on stocke les valeurs d'une portion.
-      kcal100: recipe.calories,
-      protein100: recipe.protein,
-      portionLabel: "1 portion",
-      perPortionOnly: true,
-      detail: "Ma recette · par portion",
-    })),
+    ...recipes.filter((recipe) => matches(recipe.name)).map(recipeResult),
     ...customFoods.filter((food) => matches(food.name)).map((food) => ({
       name: food.name,
       source: "perso" as const,
@@ -396,7 +401,7 @@ export function itemProtein(item: MealItem) {
 
 /** Aliment prêt à ajouter : une portion si on la connaît, sinon 100 g. */
 export function toMealItem(result: FoodResult): MealItem {
-  const { source, ref, kcal100, protein100, brand, liquid, packageGrams, pieceGrams, pieceLabel } = result;
+  const { source, ref, kcal100, protein100, brand, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions } = result;
   // Sans portion indiquée, un paquet vendu à la pièce se compte en pièces (« 1 tranche »).
   const portionGrams = result.portionGrams ?? pieceGrams;
   const portionLabel = result.portionGrams ? result.portionLabel : pieceLabel ?? result.portionLabel;
@@ -404,7 +409,7 @@ export function toMealItem(result: FoodResult): MealItem {
   const name = brand && !normalize(result.name).includes(normalize(brand)) ? `${result.name} · ${brand}` : result.name;
   const byPortion = result.perPortionOnly || !!portionGrams;
   return {
-    name, source, ref, kcal100, protein100, portionGrams, portionLabel, liquid, packageGrams, pieceGrams, pieceLabel,
+    name, source, ref, kcal100, protein100, portionGrams, portionLabel, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions,
     servingGrams: portionGrams, servingLabel: portionLabel,
     quantity: byPortion ? 1 : 100, unit: byPortion ? "portion" : "g",
   };

@@ -14,6 +14,7 @@ import { exportBackup } from "../lib/backup";
 import { programFor, tipOfTheDay } from "../lib/goals";
 import { restoreImages } from "../lib/images";
 import { readPhoneSteps, readSteps } from "../lib/steps";
+import { recipeResult, toMealItem } from "../lib/foods";
 import { formatWater, WATER_MAX, waterAmounts, waterGoal } from "../lib/water";
 import { computePlan, observedMaintenance } from "../lib/nutrition";
 import { bodyErrors, draftFrom, goalErrors, parseDraft } from "../lib/planDraft";
@@ -28,7 +29,6 @@ import {
   type Meal,
   type MealCategory,
   type Recipe,
-  type SourceType,
   type StepsSource,
 } from "../lib/storage";
 
@@ -66,7 +66,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   /** Photo à analyser dans la fenêtre d'ajout de repas. */
   const [mealPhoto, setMealPhoto] = useState<File | null>(null);
   // La photo ne sert qu'à l'ouverture de cette fenêtre-là.
-  useEffect(() => { if (modal !== "meal") setMealPhoto(null); }, [modal]);
+  /** Recette ouverte depuis le carnet : ajoutée au repas, on choisit les parts mangées. */
+  const [mealRecipe, setMealRecipe] = useState<Recipe | null>(null);
+  useEffect(() => { if (modal !== "meal") { setMealPhoto(null); setMealRecipe(null); } }, [modal]);
   const [editingIdentity, setEditingIdentity] = useState(false);
   const [notice, setNotice] = useState("");
   const [planDraft, setPlanDraft] = useState(() => draftFrom(profile, data.plan));
@@ -140,11 +142,6 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     return () => document.removeEventListener("visibilitychange", onVisible);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.stepsSource]);
-
-  const addMealEntry = (name: string, calories: number, source: SourceType, category = defaultCategory(), protein?: number, date = today) => {
-    const meal: Meal = { id: Date.now(), date, category, name, calories, source, ...(protein ? { protein } : {}) };
-    update((current) => ({ ...current, meals: [...current.meals, meal] }));
-  };
 
   const deleteMeal = (meal: Meal) => {
     if (window.confirm(`Supprimer « ${meal.name} » (${meal.calories} kcal) du journal ?`)) {
@@ -282,8 +279,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     update((current) => ({ ...current, fasts: current.fasts.map((fast) => (fast.end ? fast : { ...fast, end: new Date().toISOString() })) }));
 
   const addRecipeToJournal = (recipe: Recipe) => {
-    addMealEntry(recipe.name, recipe.calories, "recipe", defaultCategory(), recipe.protein);
-    flash(`${recipe.name} ajouté au journal`);
+    setMealRecipe(recipe);
+    openMealForm();
   };
 
   const importBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -608,6 +605,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 <h2>Ajouter un repas</h2>
                 <MealComposer
                   initialPhoto={mealPhoto ?? undefined}
+                  initialItems={mealRecipe ? [toMealItem(recipeResult(mealRecipe))] : undefined}
                   date={mealDate}
                   category={defaultCategory()}
                   recipes={data.recipes}

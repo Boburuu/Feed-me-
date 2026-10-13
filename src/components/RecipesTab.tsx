@@ -151,7 +151,7 @@ export default function RecipesTab({ recipes, update, onAddToJournal, flash }: R
           onClose={() => setOpenId(null)}
           onEdit={() => { setOpenId(null); setEditingId(opened.id); }}
           onDelete={() => remove(opened)}
-          onAddToJournal={() => onAddToJournal(opened)}
+          onAddToJournal={() => { setOpenId(null); onAddToJournal(opened); }}
         />
       )}
     </div>
