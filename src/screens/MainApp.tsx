@@ -11,6 +11,7 @@ import RecipesTab from "../components/RecipesTab";
 import StepsPanel from "../components/StepsPanel";
 import TrackingTab from "../components/TrackingTab";
 import { exportBackup } from "../lib/backup";
+import { backfillCarbs } from "../lib/carbsBackfill";
 import { programFor, tipOfTheDay } from "../lib/goals";
 import { restoreImages } from "../lib/images";
 import { readPhoneSteps, readSteps } from "../lib/steps";
@@ -71,6 +72,14 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   /** Repas déjà noté qu'on corrige (moment, jour, aliments). */
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   useEffect(() => { if (modal !== "meal") { setMealPhoto(null); setMealRecipe(null); setEditingMeal(null); } }, [modal]);
+
+  // Repas et recettes notés avant le suivi des glucides : complétés une fois, en arrière-plan.
+  useEffect(() => {
+    let alive = true;
+    backfillCarbs(data).then((apply) => { if (alive && apply) update(apply); }).catch(() => undefined);
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const editMeal = (meal: Meal) => {
     setEditingMeal(meal);
     setMealDate(meal.date);

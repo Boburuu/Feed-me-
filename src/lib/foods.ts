@@ -352,6 +352,19 @@ export async function openFoodFactsByBarcode(code: string): Promise<FoodResult |
   };
 }
 
+/** Glucides pour 100 g d'un aliment Ciqual, par son code (null : non renseignés). */
+export async function ciqualCarbs(code: number) {
+  const { rows } = await loadCiqual();
+  return rows.find((row) => row[0] === code)?.[4] ?? null;
+}
+
+/** Glucides pour 100 g d'un produit Open Food Facts, par son code-barres. */
+export async function openFoodFactsCarbs(code: string): Promise<number | null> {
+  const data = await getJson(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}?fields=nutriments`);
+  const carbs = data.product?.nutriments?.carbohydrates_100g;
+  return typeof carbs === "number" ? carbs : null;
+}
+
 /** Taille d'une portion indiquée sur l'emballage (« 1 barre (23,5 g) »). */
 export async function openFoodFactsPortion(code: string) {
   const data = await getJson(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}?fields=serving_size,serving_quantity`);
