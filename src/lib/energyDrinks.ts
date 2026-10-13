@@ -23,7 +23,8 @@ export const energyDrinks: EnergyDrink[] = [
   monster("Energy (original, vert)", 47, ["monster", "monster energy", "monster vert", "monster original"]),
   monster("Zero Sugar", 3, ["monster zero", "monster zero sugar", "monster sans sucre", "absolutely zero"]),
   monster("Ultra White", 2, ["monster ultra", "ultra white", "monster blanc", "monster ultra blanc"]),
-  monster("Ultra Rosá", 3, ["ultra rosa", "monster rose", "monster rosa"]),
+  // Étiquette de la canette : 12 kJ/100 ml (affiché « 3 kcal » arrondi), 14 kcal les 500 ml.
+  monster("Ultra Rosá", 2.8, ["ultra rosa", "monster rose", "monster rosa"]),
   monster("Ultra Paradise", 3, ["ultra paradise"]),
   monster("Ultra Watermelon", 3, ["ultra watermelon", "monster pasteque"]),
   monster("Ultra Fiesta Mango", 3, ["ultra fiesta", "fiesta mango"]),
