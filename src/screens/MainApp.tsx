@@ -68,7 +68,14 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   // La photo ne sert qu'à l'ouverture de cette fenêtre-là.
   /** Recette ouverte depuis le carnet : ajoutée au repas, on choisit les parts mangées. */
   const [mealRecipe, setMealRecipe] = useState<Recipe | null>(null);
-  useEffect(() => { if (modal !== "meal") { setMealPhoto(null); setMealRecipe(null); } }, [modal]);
+  /** Repas déjà noté qu'on corrige (moment, jour, aliments). */
+  const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
+  useEffect(() => { if (modal !== "meal") { setMealPhoto(null); setMealRecipe(null); setEditingMeal(null); } }, [modal]);
+  const editMeal = (meal: Meal) => {
+    setEditingMeal(meal);
+    setMealDate(meal.date);
+    setModal("meal");
+  };
   const [editingIdentity, setEditingIdentity] = useState(false);
   const [notice, setNotice] = useState("");
   const [planDraft, setPlanDraft] = useState(() => draftFrom(profile, data.plan));
@@ -163,10 +170,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
         // On oublie les restes finis ou trop vieux.
         .filter((item) => item.partsLeft > 0 && item.date >= leftoverLimit);
       if (extras.leftover) leftovers.push({ ...extras.leftover, id: Date.now() + 1 });
-      return { ...current, meals: [...current.meals, { ...meal, id: Date.now() }], leftovers };
+      const meals = editingMeal
+        ? current.meals.map((item) => (item.id === editingMeal.id ? { ...meal, id: item.id } : item))
+        : [...current.meals, { ...meal, id: Date.now() }];
+      return { ...current, meals, leftovers };
     });
     setModal(null);
-    flash(extras.leftover ? `Ma part : ${meal.calories} kcal · reste gardé` : `Repas enregistré · ${meal.calories} kcal`);
+    flash(editingMeal ? `Repas modifié · ${meal.calories} kcal` : extras.leftover ? `Ma part : ${meal.calories} kcal · reste gardé` : `Repas enregistré · ${meal.calories} kcal`);
   };
 
   const discardLeftover = (id: number) => {
@@ -442,11 +452,12 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 </button>
               )}
               {todayMeals.map((meal) => (
-                <div className="meal-row" key={meal.id}>
+                <div className="meal-row editable" key={meal.id} onClick={() => editMeal(meal)}>
                   <span className={`meal-icon ${categoryStyle[meal.category]}`}><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
                   <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small></span>
                   <span className="meal-calories"><strong>{meal.calories}</strong><small>kcal</small></span>
-                  <button className="icon-button" onClick={() => deleteMeal(meal)} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
+                  <button className="icon-button" onClick={(event) => { event.stopPropagation(); editMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
+                  <button className="icon-button" onClick={(event) => { event.stopPropagation(); deleteMeal(meal); }} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
                 </div>
               ))}
             </div>
@@ -466,6 +477,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           onAddMeal={openMealForm}
           onSaveWeight={saveWeight}
           onDeleteWeight={deleteWeight}
+          onEditMeal={editMeal}
         />
       )}
 
@@ -602,8 +614,10 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             {modal === "meal" && (
               <>
                 <p className="eyebrow">Journal alimentaire</p>
-                <h2>Ajouter un repas</h2>
+                <h2>{editingMeal ? "Modifier le repas" : "Ajouter un repas"}</h2>
                 <MealComposer
+                  key={editingMeal?.id ?? "nouveau"}
+                  editing={editingMeal ?? undefined}
                   initialPhoto={mealPhoto ?? undefined}
                   initialItems={mealRecipe ? [toMealItem(recipeResult(mealRecipe))] : undefined}
                   date={mealDate}

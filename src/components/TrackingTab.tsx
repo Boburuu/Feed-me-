@@ -14,6 +14,7 @@ type TrackingTabProps = {
   onAddMeal: (date: string) => void;
   onSaveWeight: (date: string, kg: number) => void;
   onDeleteWeight: (id: number) => void;
+  onEditMeal: (meal: Meal) => void;
 };
 
 type DayStatus = "none" | "partial" | "ok" | "over" | "under";
@@ -34,7 +35,7 @@ const WATER_STEP = 200;
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const hours = (ms: number) => `${Math.floor(ms / 3_600_000)} h ${String(Math.floor((ms % 3_600_000) / 60_000)).padStart(2, "0")}`;
 
-export default function TrackingTab({ data, update, target, goal, waterGoal, onAddMeal, onSaveWeight, onDeleteWeight }: TrackingTabProps) {
+export default function TrackingTab({ data, update, target, goal, waterGoal, onAddMeal, onSaveWeight, onDeleteWeight, onEditMeal }: TrackingTabProps) {
   const today = todayKey();
   const [selected, setSelected] = useState(today);
   const [month, setMonth] = useState(() => today.slice(0, 7));
@@ -205,11 +206,12 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
         <div className="meal-list">
           {dayMeals.length === 0 && <p className="day-empty">Aucun repas noté ce jour-là.</p>}
           {mealCategories.flatMap((category) => dayMeals.filter((meal) => meal.category === category.id)).map((meal) => (
-            <div className="meal-row" key={meal.id}>
+            <div className="meal-row editable" key={meal.id} onClick={() => onEditMeal(meal)}>
               <span className="meal-icon breakfast"><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
               <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small></span>
               <span className="meal-calories"><strong>{meal.calories}</strong><small>kcal</small></span>
-              <button className="icon-button" onClick={() => deleteMeal(meal)} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
+              <button className="icon-button" onClick={(event) => { event.stopPropagation(); onEditMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
+              <button className="icon-button" onClick={(event) => { event.stopPropagation(); deleteMeal(meal); }} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
             </div>
           ))}
         </div>

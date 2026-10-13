@@ -38,9 +38,20 @@ type MealComposerProps = {
   initialPhoto?: File;
   /** Aliments déjà ajoutés à l'ouverture (recette choisie dans le carnet). */
   initialItems?: MealItem[];
+  /** Repas déjà noté, à modifier (moment, jour, aliments, quantités). */
+  editing?: Meal;
 };
 
 type Line = MealItem & { key: number };
+
+/**
+ * Aliments d'un repas noté. Les repas sans détail (photo, recette ajoutée en un geste,
+ * anciennes versions) deviennent une ligne « 1 portion » avec leurs calories.
+ */
+function itemsOf(meal: Meal): MealItem[] {
+  if (meal.items?.length) return meal.items;
+  return [{ name: meal.name, source: "perso", unit: "portion", quantity: 1, kcal100: meal.calories, protein100: meal.protein ?? null, portionLabel: "1 portion" }];
+}
 
 /** Nombre de résultats montrés avant « Voir plus » : la recherche doit rester lisible. */
 const SHOWN = { common: 4, ciqual: 4, own: 3, brands: 3 };
@@ -50,12 +61,12 @@ const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma rece
 const unitName = (label?: string) => (label ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, "").slice(0, 14);
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 
-export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, leftovers, onDiscardLeftover }: MealComposerProps) {
+export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, editing, leftovers, onDiscardLeftover }: MealComposerProps) {
   const today = todayKey();
-  const [date, setDate] = useState(initialDate);
-  const [category, setCategory] = useState(initialCategory);
+  const [date, setDate] = useState(editing?.date ?? initialDate);
+  const [category, setCategory] = useState(editing?.category ?? initialCategory);
   const [query, setQuery] = useState("");
-  const [lines, setLines] = useState<Line[]>(() => (initialItems ?? []).map((item, index) => ({ ...item, key: index + 1 })));
+  const [lines, setLines] = useState<Line[]>(() => (editing ? itemsOf(editing) : initialItems ?? []).map((item, index) => ({ ...item, key: index + 1 })));
   const [showAllRecipes, setShowAllRecipes] = useState(false);
   // Recettes du carnet, les plus récentes d'abord.
   const myRecipes = useMemo(() => [...recipes].sort((a, b) => b.id - a.id), [recipes]);
@@ -68,12 +79,13 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const [custom, setCustom] = useState({ name: "", kcal: "", protein: "", portion: "", perPortion: false, keep: true });
   const searchInput = useRef<HTMLInputElement>(null);
   // Assiette maison : plat préparé pour plusieurs personnes, dont on mange une part.
-  const [mode, setMode] = useState<"meal" | "plate">("meal");
-  const [plateName, setPlateName] = useState("");
-  const [servings, setServings] = useState(2);
-  const [parts, setParts] = useState(1);
+  const [mode, setMode] = useState<"meal" | "plate">(editing?.plate ? "plate" : "meal");
+  const [plateName, setPlateName] = useState(editing?.plate && !editing.name.startsWith("Assiette maison : ") ? editing.name : "");
+  const [servings, setServings] = useState(editing?.plate?.servings ?? 2);
+  // Part mangée retrouvée : en demi-parts, le reste en réglage fin.
+  const [parts, setParts] = useState(editing?.plate ? Math.max(0.5, Math.round(editing.plate.share * editing.plate.servings * 2) / 2) : 1);
   /** Réglage fin, en points de pourcentage : « un peu plus » que la part. */
-  const [adjust, setAdjust] = useState(0);
+  const [adjust, setAdjust] = useState(editing?.plate ? Math.round(editing.plate.share * 100 - (Math.max(0.5, Math.round(editing.plate.share * editing.plate.servings * 2) / 2) / editing.plate.servings) * 100) : 0);
   const [keepLeftover, setKeepLeftover] = useState(true);
   const searching = query.trim().length > 0;
   const [drinks, setDrinks] = useState<FoodResult[]>([]);
@@ -223,12 +235,13 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       name: shortName,
       calories: Math.round(total * share),
       protein: Math.round(protein * share) || undefined,
-      source: "manual",
+      source: editing?.source ?? "manual",
       items,
       ...(isPlate ? { plate: { servings, share } } : {}),
     }, {
-      usedLeftovers,
-      leftover: isPlate && keepLeftover && leftoverParts > 0
+      // Modification : les restes ont déjà été comptés à l'enregistrement du repas.
+      usedLeftovers: editing ? [] : usedLeftovers,
+      leftover: !editing && isPlate && keepLeftover && leftoverParts > 0
         ? { name: shortName, date: date > today ? today : date, partsLeft: leftoverParts, kcalPerPart: Math.round(total / servings), proteinPerPart: Math.round(protein / servings) }
         : undefined,
     });
@@ -461,7 +474,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
                 <span>Ma part</span>
                 <strong>{Math.round(total * share)} kcal</strong>
               </div>
-              {leftoverParts > 0 && (
+              {leftoverParts > 0 && !editing && (
                 <label className="awake-toggle">
                   <input type="checkbox" checked={keepLeftover} onChange={(e) => setKeepLeftover(e.target.checked)} />
                   <span>Garder le reste ({leftoverParts.toLocaleString("fr-FR")} part{leftoverParts > 1 ? "s" : ""} · {Math.round(total / servings)} kcal la part) pour un prochain repas</span>
@@ -528,7 +541,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
           )}
 
           <button type="button" className="submit-button" onClick={save} disabled={!lines.length}>
-            <Icon name="check" /> {!lines.length ? "Ajoutez au moins un aliment" : isPlate ? `Ajouter ma part · ${Math.round(total * share)} kcal` : `Enregistrer le repas · ${Math.round(total)} kcal`}
+            <Icon name="check" /> {!lines.length ? "Ajoutez au moins un aliment" : editing ? `Enregistrer les modifications · ${Math.round(total * share)} kcal` : isPlate ? `Ajouter ma part · ${Math.round(total * share)} kcal` : `Enregistrer le repas · ${Math.round(total)} kcal`}
           </button>
         </>
       )}

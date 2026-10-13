@@ -90,6 +90,8 @@ button:disabled { cursor: default; opacity: .45; }
 .photo-actions { display: flex; gap: 6px; }
 .photo-result button.secondary { color: var(--green-text); background: var(--mint); }
 .meal-row { cursor: default; }
+.meal-row.editable { grid-template-columns: auto minmax(0, 1fr) auto auto auto; gap: 8px; cursor: pointer; }
+.meal-row.editable .icon-button { width: 32px; height: 32px; }
 .meal-row.empty { cursor: pointer; }
 
 /* --- Défis ------------------------------------------------------------------ */
