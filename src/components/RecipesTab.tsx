@@ -119,12 +119,12 @@ export default function RecipesTab({ recipes, update, onAddToJournal, flash }: R
               {recipe.images?.length ? (
                 <div className="recipe-visual recipe-photo">
                   <StoredImage id={recipe.images[0]} alt="" />
-                  <span>{recipe.calories}<small>kcal</small></span>
+                  <span>{recipe.calories || "?"}<small>kcal</small></span>
                 </div>
               ) : (
                 <div className={`recipe-visual recipe-${index % 3}`}>
                   <Icon name={recipeCategories.find((item) => item.id === categoryOf(recipe))?.icon ?? "book"} size={28} />
-                  <span>{recipe.calories}<small>kcal</small></span>
+                  <span>{recipe.calories || "?"}<small>kcal</small></span>
                 </div>
               )}
               <div className="recipe-body">

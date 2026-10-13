@@ -4,6 +4,7 @@ import Icon from "./Icon";
 import MealLineEditor from "./MealLineEditor";
 import { openFoodFactsPortion, toMealItem, type FoodResult } from "../lib/foods";
 import { deleteImage, getImage, putImage, shrinkImage } from "../lib/images";
+import { matchIngredient } from "../lib/ingredientMatch";
 import { mergeTexts, ocrAvailable, readImageText } from "../lib/ocr";
 import { categoryOf, commonUnits, formatQuantity, ingredientFromItem, ingredientsNutrition, parseQuantity, recipeCategories } from "../lib/recipes";
 import { parseRecipeText, summarize } from "../lib/recipeText";
@@ -64,8 +65,8 @@ function draftFrom(recipe?: Recipe): Draft {
     steps: recipe?.steps.length ? recipe.steps : [{ title: "", steps: [emptyStep()] }],
     time: recipe ? String(recipe.time) : "",
     portions: recipe ? String(recipe.portions) : "",
-    calories: recipe ? String(recipe.calories) : "",
-    protein: recipe ? String(recipe.protein) : "",
+    calories: recipe?.calories ? String(recipe.calories) : "",
+    protein: recipe?.calories ? String(recipe.protein) : "",
     notes: recipe?.notes ?? "",
     url: recipe?.url ?? "",
     images: [],
@@ -131,22 +132,52 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
       return;
     }
     if (!isBlank(draft) && !window.confirm("Remplacer les ingrédients et les étapes déjà saisis par ceux de l'import ?")) return;
+    const groups = parsed.ingredients.length ? parsed.ingredients.map((group) => ({ title: group.title, items: group.items.map(toDraftItem) })) : null;
     setDraft((current) => ({
       ...current,
       name: parsed.name || current.name,
       category: parsed.category ?? current.category,
       portions: parsed.portions ? String(parsed.portions) : current.portions,
       time: parsed.time ? String(parsed.time) : current.time,
-      ingredients: parsed.ingredients.length
-        ? parsed.ingredients.map((group) => ({
-          title: group.title,
-          items: group.items.map(toDraftItem),
-        }))
-        : current.ingredients,
+      // Valeurs écrites dans la recette (« 339 kcal – 36 g P ») : celles de l'auteur.
+      calories: parsed.calories ? String(parsed.calories) : current.calories,
+      protein: parsed.protein ? String(parsed.protein) : current.protein,
+      ingredients: groups ?? current.ingredients,
       steps: parsed.steps.length ? parsed.steps : current.steps,
     }));
     const partsLabel = parts > 1 ? ` en ${parts} parties` : "";
-    setImportNote(`${ingredients} ingrédient${ingredients > 1 ? "s" : ""} et ${steps} étape${steps > 1 ? "s" : ""} trouvés${partsLabel}. Vérifiez et corrigez ci-dessous avant d'enregistrer.`);
+    const values = parsed.calories ? ` Valeurs de la recette : ${parsed.calories} kcal par portion.` : "";
+    setImportNote(`${ingredients} ingrédient${ingredients > 1 ? "s" : ""} et ${steps} étape${steps > 1 ? "s" : ""} trouvés${partsLabel}.${values} Vérifiez et corrigez ci-dessous avant d'enregistrer.`);
+    if (groups) void matchWritten(groups);
+  };
+
+  // --- Calcul des ingrédients écrits ----------------------------------------------------------
+
+  const [matching, setMatching] = useState(false);
+  const [matchNote, setMatchNote] = useState("");
+  /**
+   * Retrouve dans les bases les ingrédients écrits (import ou saisie à la main) : chacun
+   * devient réglable comme dans un repas, avec l'aliment retenu affiché pour vérifier.
+   */
+  const matchWritten = async (groups: DraftGroup[]) => {
+    setMatching(true);
+    setMatchNote("");
+    // « Sel, poivre » (sans quantité) ne compte pas : rien à calculer.
+    const written = groups.flatMap((group) => group.items).filter((item) => !item.food && item.name.trim() && toIngredient(item).quantity !== null);
+    const found = new Map<number, MealItem>();
+    for (const item of written) {
+      const food = await matchIngredient(toIngredient(item)).catch(() => null);
+      if (food) found.set(item.key, food);
+    }
+    setDraft((current) => ({
+      ...current,
+      ingredients: current.ingredients.map((group) => ({ ...group, items: group.items.map((item) => (found.has(item.key) ? { ...item, food: found.get(item.key) } : item)) })),
+    }));
+    const missing = written.length - found.size;
+    setMatchNote(written.length
+      ? `${found.size} ingrédient${found.size > 1 ? "s" : ""} sur ${written.length} retrouvé${found.size > 1 ? "s" : ""}. Vérifiez l'aliment indiqué sous chacun${missing === 1 ? ", et cherchez le dernier avec la recherche pour un calcul complet" : missing ? `, et cherchez les ${missing} autres avec la recherche pour un calcul complet` : ""}.`
+      : "");
+    setMatching(false);
   };
 
   // --- Ingrédients -----------------------------------------------------------------------
@@ -226,8 +257,6 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
       .map((group) => ({ title: group.title.trim(), steps: group.steps.map((step) => ({ title: step.title.trim(), text: step.text.trim() })).filter((step) => step.text || step.title) }))
       .filter((group) => group.steps.length);
     const count = ingredients.reduce((sum, group) => sum + group.items.length, 0);
-    const text = ingredients.flatMap((group) => group.items.map((item) => item.name)).join(" ").toLowerCase();
-    const proteinBoost = ["poulet", "œuf", "tofu", "saumon", "thon", "lentille"].filter((item) => text.includes(item)).length;
 
     let images: string[] = [];
     try {
@@ -245,12 +274,12 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
       category: draft.category,
       ingredients,
       steps,
-      // Champs vides : calcul d'après les ingrédients connus, sinon estimation grossière
-      // à partir du nombre d'ingrédients.
+      // Champs vides : calcul d'après les ingrédients retrouvés. Sans aucun : 0 = « à calculer »
+      // (pas d'estimation au hasard).
       time: Number(draft.time) || Math.max(15, count * 5),
       portions: Number(draft.portions) || 2,
-      calories: Number(draft.calories) || (computed.known ? perPerson.kcal : Math.round((180 + count * 95) / 10) * 10),
-      protein: Number(draft.protein) || (computed.known ? perPerson.protein : Math.round(8 + count * 2.5 + proteinBoost * 12)),
+      calories: Number(draft.calories) || (computed.known ? perPerson.kcal : 0),
+      protein: Number(draft.protein) || (computed.known ? perPerson.protein : 0),
       images,
       url: draft.url.trim() || undefined,
       notes: draft.notes.trim() || undefined,
@@ -407,6 +436,12 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
         <label><span>Calories <em>auto</em></span><div><input value={draft.calories} onChange={(e) => set({ calories: e.target.value })} type="number" placeholder="—" min="0" /><small>kcal/pers.</small></div></label>
         <label><span>Protéines <em>auto</em></span><div><input value={draft.protein} onChange={(e) => set({ protein: e.target.value })} type="number" placeholder="—" min="0" /><small>g/pers.</small></div></label>
       </div>
+      {draftIngredients.some((item) => !item.food && item.quantity !== null) && (
+        <button type="button" className="add-line" onClick={() => void matchWritten(draft.ingredients)} disabled={matching}>
+          {matching ? <span className="loader" /> : <Icon name="flame" size={15} />} {matching ? "Recherche des ingrédients…" : "Calculer avec les ingrédients écrits"}
+        </button>
+      )}
+      {matchNote && <p className="import-result" role="status">{matchNote}</p>}
       {computed.known > 0 ? (
         <div className="recipe-computed">
           <p>
@@ -418,7 +453,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
           )}
         </div>
       ) : (
-        <p className="recipe-estimate-note">Champs « auto » laissés vides : estimation très approximative. Ajoutez les ingrédients avec la recherche, la photo ou le code-barres pour un vrai calcul.</p>
+        <p className="recipe-estimate-note">Calories pas encore calculées : ajoutez les ingrédients avec la recherche, la photo ou le code-barres, ou indiquez les valeurs de la recette.</p>
       )}
       <label><span>Notes</span><textarea value={draft.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Ex. moins de crème, ajouter des épinards…" /></label>
       <label><span>Lien de la source (facultatif)</span><input value={draft.url} onChange={(e) => set({ url: e.target.value })} placeholder="https://www.instagram.com/p/…" inputMode="url" /></label>

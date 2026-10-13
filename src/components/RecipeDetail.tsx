@@ -76,8 +76,14 @@ export default function RecipeDetail({ recipe, onClose, onEdit, onDelete, onAddT
         <h2>{recipe.name}</h2>
         <div className="recipe-detail-meta">
           <span><Icon name="clock" size={15} /> {recipe.time} min</span>
-          <span><Icon name="flame" size={15} /> {recipe.calories} kcal / pers.</span>
-          <span><Icon name="target" size={15} /> {recipe.protein} g prot. / pers.</span>
+          {recipe.calories ? (
+            <>
+              <span><Icon name="flame" size={15} /> {recipe.calories} kcal / pers.</span>
+              <span><Icon name="target" size={15} /> {recipe.protein} g prot. / pers.</span>
+            </>
+          ) : (
+            <span><Icon name="flame" size={15} /> Calories à calculer (Modifier)</span>
+          )}
         </div>
 
         <section className="recipe-detail-section">
@@ -158,7 +164,7 @@ export default function RecipeDetail({ recipe, onClose, onEdit, onDelete, onAddT
       </div>
 
       <footer className="recipe-detail-footer">
-        <button className="submit-button" onClick={onAddToJournal}><Icon name="plus" size={18} /> J'en ai mangé ({recipe.calories} kcal la part)</button>
+        <button className="submit-button" onClick={onAddToJournal}><Icon name="plus" size={18} /> J'en ai mangé{recipe.calories ? ` (${recipe.calories} kcal la part)` : ""}</button>
       </footer>
     </div>
   );

@@ -4,7 +4,7 @@
 
 import { programFor } from "./goals";
 import { legacyActivity } from "./nutrition";
-import { ingredientLines, parseIngredientLine } from "./recipes";
+import { ingredientLines, legacyEstimate, parseIngredientLine } from "./recipes";
 
 export const STORAGE_KEY = "feedme:data";
 export const PIN_LENGTH = 4;
@@ -87,6 +87,8 @@ export type MealItem = {
   /** Paquet vendu à la pièce (« 10 tranches », « 4 feuilles ») : poids d'une pièce. */
   pieceGrams?: number;
   pieceLabel?: string;
+  /** Ingrédient écrit retrouvé automatiquement : nom de l'aliment retenu dans la base. */
+  matchedName?: string;
   /** Recette du carnet : nombre de parts de la recette entière (valeurs = 1 part). */
   recipePortions?: number;
 };
@@ -404,14 +406,27 @@ function isAppData(value: unknown): value is AppData {
  */
 function migrateRecipe(recipe: Recipe): Recipe {
   const legacy = recipe as unknown as { ingredients: unknown; steps?: unknown };
+  const ingredients = typeof legacy.ingredients === "string"
+    ? [{ title: "", items: ingredientLines(legacy.ingredients).map(parseIngredientLine) }]
+    : recipe.ingredients ?? [];
+  // Valeurs inventées par l'ancienne estimation (95 kcal par ingrédient) : « à calculer ».
+  const estimate = legacyEstimate(ingredients.flatMap((group) => group.items.map((item) => item.name)));
+  const guessed = recipe.calories === estimate.calories && recipe.protein === estimate.protein;
+  // Ligne de valeurs lue comme un ingrédient (« 1 portion – 339 kcal – 36 g P ») : on la retire,
+  // et ses valeurs remplacent l'ancienne estimation.
+  const valuesLine = ingredients.flatMap((group) => group.items).find((item) => /\d\s*kcal\b/i.test(`${item.quantity ?? ""} ${item.unit} ${item.name}`));
+  const kcal = valuesLine?.name.match(/(\d+)\s*kcal/i);
+  const protein = valuesLine?.name.match(/(\d+)\s*g\s*(?:de\s+)?(?:P\b|prot)/i);
+  const written = guessed && kcal ? { calories: Number(kcal[1]), protein: protein ? Number(protein[1]) : 0, ...(/^\s*portions?\b/i.test(`${valuesLine!.unit} ${valuesLine!.name}`) && valuesLine!.quantity ? { portions: valuesLine!.quantity } : {}) } : null;
   return {
     ...recipe,
-    ingredients: typeof legacy.ingredients === "string"
-      ? [{ title: "", items: ingredientLines(legacy.ingredients).map(parseIngredientLine) }]
-      : recipe.ingredients ?? [],
+    ingredients: valuesLine
+      ? ingredients.map((group) => ({ ...group, items: group.items.filter((item) => item !== valuesLine) })).filter((group) => group.items.length)
+      : ingredients,
     steps: Array.isArray(legacy.steps) && legacy.steps.some((step) => typeof step === "string")
       ? [{ title: "", steps: (legacy.steps as string[]).map((text) => ({ title: "", text })) }]
       : recipe.steps ?? [],
+    ...(guessed ? written ?? { calories: 0, protein: 0 } : {}),
   };
 }
 

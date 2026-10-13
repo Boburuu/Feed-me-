@@ -47,8 +47,8 @@ const unitAliases: { unit: string; pattern: string }[] = [
   { unit: "ml", pattern: "ml|millilitres?" },
   { unit: "dl", pattern: "dl" },
   { unit: "L", pattern: "l|litres?" },
-  { unit: "c. à soupe", pattern: "c\\.?\\s?[àa]\\.?\\s?s\\.?|cas|cs|cuill?(?:[èe]re)?s?\\.?\\s?[àa]\\s?soupe|c\\.?\\s?[àa]\\s?soupe|tbsp|cuill?[èe]res? soupe" },
-  { unit: "c. à café", pattern: "c\\.?\\s?[àa]\\.?\\s?c\\.?|cac|cc|cuill?(?:[èe]re)?s?\\.?\\s?[àa]\\s?caf[ée]|c\\.?\\s?[àa]\\s?caf[ée]|tsp|cuill?[èe]res? caf[ée]" },
+  { unit: "c. à soupe", pattern: "c\\.\\s?s\\.?|c\\.?\\s?[àa]\\.?\\s?s\\.?|cas|cs|cuill?(?:[èe]re)?s?\\.?\\s?[àa]\\s?soupe|c\\.?\\s?[àa]\\s?soupe|tbsp|cuill?[èe]res? soupe" },
+  { unit: "c. à café", pattern: "c\\.\\s?c\\.?|c\\.?\\s?[àa]\\.?\\s?c\\.?|cac|cc|cuill?(?:[èe]re)?s?\\.?\\s?[àa]\\s?caf[ée]|c\\.?\\s?[àa]\\s?caf[ée]|tsp|cuill?[èe]res? caf[ée]" },
   { unit: "pincée", pattern: "pinc[ée]es?" },
   { unit: "sachet", pattern: "sachets?" },
   { unit: "boîte", pattern: "bo[îi]tes?" },
@@ -162,6 +162,16 @@ export function ingredientsNutrition(items: Ingredient[]) {
     protein: known.reduce((sum, item) => sum + itemProtein(item.food!), 0),
     known: known.length,
   };
+}
+
+/**
+ * Ancienne estimation (avant le calcul par ingrédients) : 95 kcal par ingrédient, quel
+ * qu'il soit. Sert seulement à reconnaître les recettes qui n'ont que cette estimation.
+ */
+export function legacyEstimate(names: string[]) {
+  const text = names.join(" ").toLowerCase();
+  const proteinBoost = ["poulet", "œuf", "tofu", "saumon", "thon", "lentille"].filter((item) => text.includes(item)).length;
+  return { calories: Math.round((180 + names.length * 95) / 10) * 10, protein: Math.round(8 + names.length * 2.5 + proteinBoost * 12) };
 }
 
 export const allIngredients = (recipe: Recipe) => recipe.ingredients.flatMap((group) => group.items);

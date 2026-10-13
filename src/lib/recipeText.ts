@@ -12,6 +12,9 @@ export type ParsedRecipe = {
   portions: number | null;
   time: number | null;
   category: RecipeCategory | null;
+  /** Valeurs par portion écrites dans la recette (« 339 kcal – 36 g P »). */
+  calories: number | null;
+  protein: number | null;
   ingredients: IngredientGroup[];
   steps: StepGroup[];
 };
@@ -56,6 +59,10 @@ const verbs = /^(?:m[ée]lang|ajout|fai[st]|pr[ée]chauff|vers|cui[st]|coup|batt
 
 const isNoise = (line: string) => noise.some((pattern) => pattern.test(line));
 
+/** « 1 portion – 339 kcal – 36 g P – 19 g G – 14 g L », « Protéines : 36 g » : valeurs, pas un ingrédient. */
+const kcalPattern = /(\d+(?:[.,]\d+)?)\s*kcal\b(?!\s*\/\s*100)/i;
+const proteinPattern = /(\d+(?:[.,]\d+)?)\s*g\s*(?:de\s+)?(?:P\b|prot)|prot[ée]ines?\s*:?\s*(\d+(?:[.,]\d+)?)\s*g/i;
+
 /** « Pour la pâte : », « PÂTE SABLÉE », « Garniture : » */
 function sectionTitle(line: string): string | null {
   if (line.length > 45 || /\d/.test(line)) return null;
@@ -81,7 +88,7 @@ function looksLikeIngredient(line: string) {
 // --- Découpage ------------------------------------------------------------------------------
 
 export function parseRecipeText(text: string): ParsedRecipe {
-  const result: ParsedRecipe = { name: "", portions: null, time: null, category: null, ingredients: [], steps: [] };
+  const result: ParsedRecipe = { name: "", portions: null, time: null, category: null, calories: null, protein: null, ingredients: [], steps: [] };
   let mode: "intro" | "ingredients" | "steps" = "intro";
   const times = { prep: 0, cook: 0, total: 0 };
   let currentStep: RecipeStep | null = null;
@@ -130,6 +137,17 @@ export function parseRecipeText(text: string): ParsedRecipe {
 
     // Pseudo collé devant la légende : « cuisine_de_lea Tarte au citron »
     if (!result.name && mode === "intro") line = line.replace(/^[a-z0-9]*[._][a-z0-9._]+\s+(?=\S)/, "");
+
+    // Valeurs nutritionnelles : n'importe où, jamais un ingrédient.
+    const kcal = line.match(kcalPattern);
+    if (kcal && line.length < 90) {
+      if (result.calories === null) result.calories = Math.round(Number(kcal[1].replace(",", ".")));
+      const protein = line.match(proteinPattern);
+      if (protein && result.protein === null) result.protein = Math.round(Number((protein[1] ?? protein[2]).replace(",", ".")));
+      const portions = line.match(portionsPattern);
+      if (portions && !result.portions) result.portions = Number(portions[1]);
+      continue;
+    }
 
     // Temps et portions : peuvent apparaître n'importe où.
     let matchedTime = false;

@@ -165,7 +165,7 @@ export default function MealLineEditor({ line, onChange, onRemove }: MealLineEdi
       )}
 
       <small className="meal-line-detail">
-        {servings ? `Ma recette pour ${servings} pers. · ${Math.round(line.kcal100)} kcal la part` : sourceName[line.source]}
+        {servings ? `Ma recette pour ${servings} pers. · ${Math.round(line.kcal100)} kcal la part` : line.matchedName ? `Calculé avec : ${line.matchedName} (${sourceName[line.source]})` : sourceName[line.source]}
       </small>
     </div>
   );

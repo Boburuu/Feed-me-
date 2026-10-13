@@ -352,7 +352,7 @@ export function recipeResult(recipe: Recipe): FoodResult {
     portionLabel: "1 part",
     perPortionOnly: true,
     recipePortions: recipe.portions,
-    detail: `Ma recette pour ${recipe.portions} pers.`,
+    detail: recipe.calories ? `Ma recette pour ${recipe.portions} pers.` : "Ma recette · calories à calculer",
   };
 }
 
