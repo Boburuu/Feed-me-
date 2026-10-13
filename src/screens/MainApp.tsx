@@ -14,6 +14,7 @@ import { exportBackup } from "../lib/backup";
 import { programFor, tipOfTheDay } from "../lib/goals";
 import { restoreImages } from "../lib/images";
 import { readPhoneSteps, readSteps } from "../lib/steps";
+import { formatWater, WATER_MAX, waterAmounts, waterGoal } from "../lib/water";
 import { computePlan, observedMaintenance } from "../lib/nutrition";
 import { bodyErrors, draftFrom, goalErrors, parseDraft } from "../lib/planDraft";
 import {
@@ -41,8 +42,6 @@ type MainAppProps = {
 
 type Tab = "Accueil" | "Suivi" | "Activité" | "Recettes" | "Profil";
 type ModalType = "meal" | "add" | "pin" | "steps" | null;
-
-const WATER_GOAL = 8;
 
 function defaultCategory(date = new Date()): MealCategory {
   const hour = date.getHours() + date.getMinutes() / 60;
@@ -100,6 +99,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const remaining = goal - consumed;
   const progress = Math.round((consumed / goal) * 100);
   const water = data.water[today] ?? 0;
+  const goalWater = waterGoal(profile.sex);
   const stepsToday = data.steps[today];
   const latestWeight = [...data.weights].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
   const displayName = profile.pseudo || profile.firstName;
@@ -183,8 +183,12 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     setModal("meal");
   };
 
-  const setWater = (value: number) =>
-    update((current) => ({ ...current, water: { ...current.water, [today]: Math.max(0, Math.min(value, WATER_GOAL)) } }));
+  /** Dernière quantité ajoutée : le bouton « moins » l'annule. */
+  const [lastWater, setLastWater] = useState(200);
+  const addWater = (ml: number) => {
+    if (ml > 0) setLastWater(ml);
+    update((current) => ({ ...current, water: { ...current.water, [today]: Math.max(0, Math.min(WATER_MAX, (current.water[today] ?? 0) + ml)) } }));
+  };
 
   /** Photo prise depuis l'accueil : la fenêtre d'ajout de repas l'analyse à l'ouverture. */
   const takeMealPhoto = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -398,21 +402,20 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               <span className="water-icon"><Icon name="water" /></span>
               <div>
                 <p>Hydratation</p>
-                <strong>{water} verre{water > 1 ? "s" : ""} <span>sur {WATER_GOAL}</span></strong>
+                <strong>{formatWater(water)} <span>sur {formatWater(goalWater)}</span></strong>
               </div>
-            </div>
-            <div className="water-actions">
-              <div className="glass-row" aria-hidden="true">
-                {Array.from({ length: WATER_GOAL }).map((_, index) => (
-                  <span key={index} className={index < water ? "filled" : ""} />
-                ))}
-              </div>
-              <button className="round-button soft" onClick={() => setWater(water - 1)} disabled={water === 0} aria-label="Retirer un verre d'eau">
+              <button className="round-button soft" onClick={() => addWater(-lastWater)} disabled={water === 0} aria-label={`Retirer ${lastWater} ml`}>
                 <Icon name="minus" size={18} />
               </button>
-              <button className="round-button" onClick={() => setWater(water + 1)} disabled={water >= WATER_GOAL} aria-label="Ajouter un verre d'eau">
-                <Icon name="plus" size={18} />
-              </button>
+            </div>
+            <div className="water-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, (water / goalWater) * 100)}%` }} /></div>
+            <div className="water-amounts">
+              {waterAmounts.map((amount) => (
+                <button key={amount.ml} onClick={() => addWater(amount.ml)} aria-label={`Ajouter ${amount.ml} ml d'eau`}>
+                  <strong>+{amount.ml} ml</strong>
+                  <small>{amount.label}</small>
+                </button>
+              ))}
             </div>
           </section>
 
@@ -462,7 +465,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           update={update}
           target={goal}
           goal={plan.goal}
-          waterGoal={WATER_GOAL}
+          waterGoal={goalWater}
           onAddMeal={openMealForm}
           onSaveWeight={saveWeight}
           onDeleteWeight={deleteWeight}

@@ -62,6 +62,11 @@ export const commonFoods: CommonFood[] = [
   // Pour cuisiner (pesé cru, avant cuisson)
   { name: "Riz (cru)", ciqual: "Riz blanc, cru", aliases: ["riz cru"], portion: { label: "1 portion", grams: 75 } },
   { name: "Pâtes (crues)", ciqual: "Pâtes sèches standard, crues", aliases: ["pates crues"], portion: { label: "1 portion", grams: 80 } },
+  // Galettes pour rouleaux de printemps : absentes de Ciqual, faites de farine de riz.
+  { name: "Feuille de riz", ciqual: "Farine de riz", aliases: ["feuilles de riz", "galette de riz pour rouleaux", "papier de riz", "rice paper"], portion: { label: "1 feuille", grams: 9 } },
+  { name: "Galette de riz soufflé", ciqual: "Galette de riz soufflé complet", aliases: ["galette de riz", "galettes de riz"], portion: { label: "1 galette", grams: 8 } },
+  { name: "Tortilla (wrap)", ciqual: "Tortilla souple (à garnir), à base de blé", aliases: ["wrap", "wraps", "tortilla"], portion: { label: "1 wrap", grams: 40 } },
+  { name: "Biscotte", ciqual: "Biscotte classique", aliases: ["biscottes"], portion: { label: "1 biscotte", grams: 8 } },
   { name: "Oignon", ciqual: "Oignon jaune, cru", aliases: ["oignons", "echalote"], portion: { label: "1 oignon", grams: 100 } },
   { name: "Concentré de tomate", ciqual: "Tomate, concentré, appertisé", aliases: ["concentre", "double concentre"], portion: { label: "1 c. à soupe", grams: 15 }, packageGrams: 140 },
   { name: "Champignons en boîte", ciqual: "Champignon de Paris ou champignon de couche, appertisé, égoutté", aliases: ["champignon", "champignons de paris"], portion: { label: "1 portion", grams: 100 }, packageGrams: 230 },
@@ -93,6 +98,8 @@ export const commonFoods: CommonFood[] = [
   { name: "Gigot d'agneau", ciqual: "Agneau, gigot, rôti/cuit au four", aliases: ["gigot", "agneau"], portion: { label: "1 portion", grams: 120 } },
   { name: "Saumon", ciqual: "Saumon, cuit, sans précision (aliment moyen)", portion: { label: "1 pavé", grams: 120 } },
   { name: "Saumon fumé", ciqual: "Saumon fumé", portion: { label: "1 tranche", grams: 30 } },
+  { name: "Surimi", ciqual: "Surimi, bâtonnets, tranche ou râpé saveur crabe", aliases: ["batonnet de surimi"], portion: { label: "1 bâtonnet", grams: 15 } },
+  { name: "Nuggets de poulet", ciqual: "Poulet, croquette panée ou nuggets", aliases: ["nuggets", "nugget"], portion: { label: "1 nugget", grams: 20 } },
   { name: "Thon en boîte", ciqual: "Thon albacore ou thon jaune, au naturel, appertisé, égoutté", aliases: ["thon"], portion: { label: "1 petite boîte", grams: 100 } },
   { name: "Cabillaud", ciqual: "Cabillaud, cuit, sans précision (aliment moyen)", aliases: ["poisson blanc"], portion: { label: "1 filet", grams: 120 } },
   // Plats

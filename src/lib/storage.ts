@@ -84,6 +84,9 @@ export type MealItem = {
   /** Portion d'origine (« 1 barre »), gardée quand on passe à la boîte ou aux grammes. */
   servingGrams?: number;
   servingLabel?: string;
+  /** Paquet vendu à la pièce (« 10 tranches », « 4 feuilles ») : poids d'une pièce. */
+  pieceGrams?: number;
+  pieceLabel?: string;
 };
 
 export type StepEntry = { count: number; source: "manuel" | "auto"; updatedAt: string };
@@ -102,7 +105,20 @@ export type CustomFood = {
 export type WeightEntry = { id: number; date: string; kg: number };
 export type SportTask = { id: number; label: string; detail: string; done: boolean };
 /** « 200 g de farine » → { quantity: 200, unit: "g", name: "farine" }. Quantité nulle : « Sel, poivre ». */
-export type Ingredient = { name: string; quantity: number | null; unit: string };
+export type Ingredient = { name: string; quantity: number | null; unit: string; nutrition?: IngredientNutrition };
+/**
+ * Valeurs d'un ingrédient choisi dans Ciqual ou Open Food Facts (pour 100 g), pour
+ * calculer les calories de la recette. `unitGrams` : poids d'une pièce (« feuille »).
+ */
+export type IngredientNutrition = {
+  kcal100: number;
+  protein100: number | null;
+  source: FoodSource;
+  ref?: string;
+  unitGrams?: number;
+  /** Mot de la pièce (« feuille ») ; vide quand on compte l'aliment lui-même (« 2 œufs »). */
+  unitLabel?: string;
+};
 /** Une partie de la recette (« Pâte », « Garniture »…). Titre vide : partie unique. */
 export type IngredientGroup = { title: string; items: Ingredient[] };
 export type RecipeStep = { title: string; text: string };
@@ -155,7 +171,10 @@ export type AppData = {
   pin: PinRecord;
   theme: ThemeName;
   meals: Meal[];
+  /** Eau bue par jour (AAAA-MM-JJ), en ml. */
   water: Record<string, number>;
+  /** Absent des données où l'eau était comptée en verres (convertis à 200 ml). */
+  waterInMl?: boolean;
   weights: WeightEntry[];
   tasks: SportTask[];
   recipes: Recipe[];
@@ -290,6 +309,7 @@ export function defaultData(profile: Profile, pin: PinRecord, theme: ThemeName, 
     theme,
     meals: [],
     water: {},
+    waterInMl: true,
     weights: [{ id: Date.now(), date: today, kg: profile.weight }],
     tasks: programFor(plan.program).tasks.map((label, index) => ({ id: index + 1, label, detail: "À planifier", done: false })),
     recipes: [
@@ -409,6 +429,9 @@ function migrate(data: AppData): AppData {
   return {
     ...data,
     theme: legacyThemes[data.theme] ?? data.theme,
+    // L'eau était comptée en verres : 1 verre = 200 ml.
+    water: data.waterInMl ? data.water ?? {} : Object.fromEntries(Object.entries(data.water ?? {}).map(([day, glasses]) => [day, glasses * 200])),
+    waterInMl: true,
     profile: { ...data.profile, activity },
     sessions: data.sessions ?? [],
     customFoods: data.customFoods ?? [],

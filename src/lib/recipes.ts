@@ -1,7 +1,8 @@
 // Catégories de recettes, lecture et affichage des ingrédients.
 
 import type { IconName } from "../components/Icon";
-import type { Ingredient, Recipe, RecipeCategory } from "./storage";
+import type { FoodResult } from "./foods";
+import type { Ingredient, IngredientNutrition, Recipe, RecipeCategory } from "./storage";
 
 export const recipeCategories: { id: RecipeCategory; label: string; plural: string; icon: IconName }[] = [
   { id: "petit-dejeuner", label: "Petit-déjeuner", plural: "Petits-déj", icon: "clock" },
@@ -135,6 +136,65 @@ export function formatIngredient(item: Ingredient, factor = 1) {
   // « 2 gousses », mais « 2 g » et « 2 c. à soupe » restent invariables.
   const unit = value !== null && value > 1 && countableUnits.has(item.unit) ? `${item.unit}s` : item.unit;
   return `${quantity} ${unit} ${linker}${item.name}`;
+}
+
+// --- Valeurs nutritionnelles -------------------------------------------------------------
+
+const simple = (text: string) => text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+
+/** Grammes par unité de mesure (1 ml ≈ 1 g ; cuillères rases, moyennes usuelles). */
+const unitWeights: Record<string, number> = { mg: 0.001, g: 1, kg: 1000, ml: 1, cl: 10, dl: 100, L: 1000, "c. à soupe": 15, "c. à café": 5 };
+
+/** Poids de l'ingrédient, quand on peut le déduire de sa quantité ; null sinon. */
+export function ingredientGrams(item: Ingredient): number | null {
+  if (item.quantity === null) return null;
+  const weight = unitWeights[item.unit];
+  if (weight) return item.quantity * weight;
+  const piece = item.nutrition?.unitGrams;
+  if (!piece) return null;
+  // « 4 feuilles » pour une feuille de 9 g ; « 2 » (sans unité) pour 2 œufs.
+  const unit = simple(item.unit);
+  const label = simple(item.nutrition?.unitLabel ?? "");
+  return (label ? unit.startsWith(label) : !unit) ? item.quantity * piece : null;
+}
+
+/** Calories et protéines de la recette entière, d'après les ingrédients dont on connaît les valeurs. */
+export function ingredientsNutrition(items: Ingredient[]) {
+  let kcal = 0;
+  let protein = 0;
+  let known = 0;
+  for (const item of items) {
+    const grams = ingredientGrams(item);
+    if (!item.nutrition || grams === null) continue;
+    kcal += (grams * item.nutrition.kcal100) / 100;
+    protein += (grams * (item.nutrition.protein100 ?? 0)) / 100;
+    known += 1;
+  }
+  return { kcal, protein, known };
+}
+
+/**
+ * Ingrédient tiré d'un aliment trouvé : la pièce s'il se compte (« 1 feuille de riz »,
+ * « 1 œuf »), la boîte entière s'il est en conserve, sinon 100 g.
+ */
+export function ingredientFromFood(food: FoodResult): Ingredient {
+  const name = food.brand && !simple(food.name).includes(simple(food.brand)) ? `${food.name} · ${food.brand}` : food.name;
+  const pieceGrams = food.pieceGrams ?? food.portionGrams;
+  const pieceLabel = (food.pieceGrams ? food.pieceLabel : food.portionLabel)?.replace(/^1\s+/, "").replace(/\s*\(.*$/, "") ?? "";
+  // Une portion vague (« portion », « assiette ») ne sert pas à compter un ingrédient.
+  const countable = !!pieceGrams && !!pieceLabel && !/^(portion|assiette|bol|part|verre|tasse|canette)/.test(simple(pieceLabel)) && !food.perPortionOnly;
+  // « 1 œuf », « 1 banane » : la pièce porte le nom de l'aliment, on ne répète pas l'unité.
+  const sameAsName = countable && simple(name).startsWith(simple(pieceLabel).slice(0, 4));
+  const nutrition: IngredientNutrition = {
+    kcal100: food.kcal100,
+    protein100: food.protein100,
+    source: food.source,
+    ref: food.ref,
+    ...(countable ? { unitGrams: pieceGrams, unitLabel: sameAsName ? "" : pieceLabel } : {}),
+  };
+  if (countable) return { name, quantity: 1, unit: sameAsName ? "" : pieceLabel, nutrition };
+  if (food.packageGrams) return { name, quantity: food.packageGrams, unit: food.liquid ? "ml" : "g", nutrition };
+  return { name, quantity: 100, unit: food.liquid ? "ml" : "g", nutrition };
 }
 
 export const allIngredients = (recipe: Recipe) => recipe.ingredients.flatMap((group) => group.items);

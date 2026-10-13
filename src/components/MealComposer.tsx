@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import FoodResultRow, { kcalLabel } from "./FoodResultRow";
 import Icon from "./Icon";
 import MealLineEditor from "./MealLineEditor";
 import {
@@ -41,21 +42,6 @@ type Line = MealItem & { key: number };
 /** Nombre de résultats montrés avant « Voir plus » : la recherche doit rester lisible. */
 const SHOWN = { common: 4, ciqual: 4, own: 3, brands: 3 };
 
-/** Calories d'une portion quand on la connaît (« 109 kcal » pour 1 banane), sinon pour 100 g. */
-const kcalLabel = (result: FoodResult) => {
-  if (result.perPortionOnly) return `${Math.round(result.kcal100)} kcal`;
-  if (result.portionGrams) return `${Math.round((result.kcal100 * result.portionGrams) / 100)} kcal`;
-  return `${Math.round(result.kcal100)} kcal/100 g`;
-};
-/** « 1 banane ≈ 120 g · 91 kcal/100 g · Ciqual (ANSES) » */
-const resultDetail = (result: FoodResult) => {
-  const parts: string[] = [];
-  if (result.perPortionOnly) parts.push("par portion");
-  else if (result.portionLabel && result.portionGrams) parts.push(`${result.portionLabel} ≈ ${Math.round(result.portionGrams)} ${result.liquid ? "ml" : "g"}`, `${Math.round(result.kcal100)} kcal/100 ${result.liquid ? "ml" : "g"}`);
-  parts.push(result.detail);
-  return parts.join(" · ");
-};
-const sourceIcon = { ciqual: "apple", off: "target", recette: "book", perso: "user" } as const;
 const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma recette", perso: "Mon aliment" } as const;
 /** « 1 banane » → « banane », « 1 portion (200 ml) » → « portion ». */
 const unitName = (label?: string) => (label ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, "").slice(0, 14);
@@ -178,8 +164,12 @@ export default function MealComposer({ date: initialDate, category: initialCateg
     if (result.source === "off" && result.ref) {
       openFoodFactsPortion(result.ref).then((portion) => {
         if (!portion) return;
-        setLines((current) => current.map((line) =>
-          line.key === key ? { ...line, portionGrams: portion.grams, portionLabel: portion.label, servingGrams: portion.grams, servingLabel: portion.label, ...(line.unit === "g" && line.quantity === 100 ? { unit: "portion" as const, quantity: 1 } : {}) } : line));
+        setLines((current) => current.map((line) => {
+          if (line.key !== key) return line;
+          // Compté à la pièce (« 1 tranche ») : on garde la pièce, la portion devient un choix de plus.
+          if (line.pieceGrams && line.portionGrams === line.pieceGrams) return { ...line, servingGrams: portion.grams, servingLabel: portion.label };
+          return { ...line, portionGrams: portion.grams, portionLabel: portion.label, servingGrams: portion.grams, servingLabel: portion.label, ...(line.unit === "g" && line.quantity === 100 ? { unit: "portion" as const, quantity: 1 } : {}) };
+        }));
       }).catch(() => undefined);
     }
   };
@@ -254,14 +244,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   };
 
   const resultRow = (result: FoodResult, index: number) => (
-    <button type="button" className="food-result" key={`${result.source}-${result.ref ?? result.name}-${index}`} onClick={() => add(result)}>
-      <span className={`food-icon source-${result.source}`}><Icon name={sourceIcon[result.source]} size={16} /></span>
-      <span className="food-result-text">
-        <strong>{result.name}</strong>
-        <small>{resultDetail(result)}</small>
-      </span>
-      <em>{kcalLabel(result)}</em>
-    </button>
+    <FoodResultRow key={`${result.source}-${result.ref ?? result.name}-${index}`} result={result} onPick={add} />
   );
 
   /** Section repliable : les premiers résultats, puis « Voir plus ». */
@@ -390,15 +373,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
         const analysis = photo.analysis;
         const found = !!analysis && (!!analysis.barcode || analysis.packaging.length > 0 || analysis.dishes.length > 0);
         const pick = (food: FoodResult) => { add(food); setPhoto(null); };
-        const row = (food: FoodResult, key: string, badge?: string) => (
-          <button type="button" className="food-result" key={key} onClick={() => pick(food)}>
-            {badge
-              ? <span className="photo-score">{badge}</span>
-              : <span className={`food-icon source-${food.source}`}><Icon name={sourceIcon[food.source]} size={16} /></span>}
-            <span className="food-result-text"><strong>{food.name}</strong><small>{resultDetail(food)}</small></span>
-            <em>{kcalLabel(food)}</em>
-          </button>
-        );
+        const row = (food: FoodResult, key: string, badge?: string) => <FoodResultRow key={key} result={food} onPick={pick} badge={badge} />;
         return (
           <section className="photo-analysis">
             <div className="photo-analysis-head">

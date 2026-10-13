@@ -225,6 +225,25 @@ export function parsePackage(text: unknown): number | undefined {
   return grams > 0 && grams <= 10000 ? grams : undefined;
 }
 
+/** Ce qui se compte dans un paquet (au singulier). */
+const pieceWords = ["tranche", "feuille", "galette", "pièce", "piece", "biscuit", "sachet", "barre", "œuf", "oeuf", "crêpe", "crepe", "wrap", "tortilla", "bâtonnet", "batonnet", "nugget", "steak", "saucisse", "filet", "cookie", "madeleine", "muffin", "croissant", "brioche", "gaufre", "blini", "nem", "samoussa", "pot", "capsule", "dosette"];
+const piecePattern = new RegExp(`(\\d+)\\s*(${pieceWords.join("|")})[sx]?(?![\\p{L}])(?!\\s*(?:de|d'|x|×)\\s*\\d)`, "iu");
+
+/**
+ * Paquet vendu à la pièce : « Jambon 4 tranches 160 g », « 10 feuilles de riz 100 g ».
+ * Renvoie le poids d'une pièce (160 g ÷ 4 = 40 g). « 6 pots de 125 g » n'est pas un
+ * nombre de pièces à diviser : la contenance lue est déjà celle d'un pot.
+ */
+export function parsePieces(text: string, packageGrams: number | undefined) {
+  const match = text.match(piecePattern);
+  if (!match || !packageGrams) return undefined;
+  const count = Number(match[1]);
+  const grams = Math.round((packageGrams / count) * 10) / 10;
+  if (count < 2 || count > 60 || grams < 1) return undefined;
+  const word = match[2].toLowerCase().replace(/^oeuf$/, "œuf").replace(/^piece$/, "pièce").replace(/^crepe$/, "crêpe").replace(/^batonnet$/, "bâtonnet");
+  return { pieceGrams: grams, pieceLabel: `1 ${word}` };
+}
+
 /** Nombre de mots de la recherche présents dans un texte. */
 function wordsFound(query: string, text: string) {
   const words = new Set(normalize(text).split(" "));
@@ -248,6 +267,7 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
     .map((hit) => {
       const name = (hit.product_name_fr || hit.product_name || "").trim();
       const brand = brandOf(hit.brands);
+      const packageGrams = parsePackage(hit.quantity);
       return {
         name,
         source: "off" as const,
@@ -255,7 +275,8 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
         kcal100: Math.round(hit.nutriments!["energy-kcal_100g"]!),
         protein100: hit.nutriments!.proteins_100g ?? null,
         brand: brand || undefined,
-        packageGrams: parsePackage(hit.quantity),
+        packageGrams,
+        ...parsePieces(`${hit.quantity ?? ""} ${name}`, packageGrams),
         liquid: /\d\s*(cl|ml|l)\b/i.test(hit.quantity ?? "") || undefined,
         detail: brand ? `${brand} · Open Food Facts` : "Open Food Facts",
       };
@@ -283,6 +304,7 @@ export async function openFoodFactsByBarcode(code: string): Promise<FoodResult |
   const grams = Number(product.serving_quantity);
   const brand = brandOf(product.brands);
   const name = String(product.product_name_fr || product.product_name || "Produit").trim();
+  const packageGrams = parsePackage(product.quantity);
   return {
     name,
     source: "off",
@@ -293,7 +315,8 @@ export async function openFoodFactsByBarcode(code: string): Promise<FoodResult |
     portionLabel: grams > 0 ? shortServing(String(product.serving_size ?? ""), grams) : undefined,
     // Boisson : contenance en cl / ml sur l'emballage.
     liquid: /\d\s*(cl|ml|l)\b/i.test(String(product.quantity ?? "")) || undefined,
-    packageGrams: parsePackage(product.quantity),
+    packageGrams,
+    ...parsePieces(`${product.quantity ?? ""} ${name}`, packageGrams),
     brand: brand || undefined,
     detail: brand ? `${brand} · code-barres` : "Code-barres · Open Food Facts",
   };
@@ -373,12 +396,15 @@ export function itemProtein(item: MealItem) {
 
 /** Aliment prêt à ajouter : une portion si on la connaît, sinon 100 g. */
 export function toMealItem(result: FoodResult): MealItem {
-  const { source, ref, kcal100, protein100, portionGrams, portionLabel, brand, liquid, packageGrams } = result;
+  const { source, ref, kcal100, protein100, brand, liquid, packageGrams, pieceGrams, pieceLabel } = result;
+  // Sans portion indiquée, un paquet vendu à la pièce se compte en pièces (« 1 tranche »).
+  const portionGrams = result.portionGrams ?? pieceGrams;
+  const portionLabel = result.portionGrams ? result.portionLabel : pieceLabel ?? result.portionLabel;
   // Un produit de marque garde sa marque : « Banane · Jafaden » n'est pas une banane.
   const name = brand && !normalize(result.name).includes(normalize(brand)) ? `${result.name} · ${brand}` : result.name;
   const byPortion = result.perPortionOnly || !!portionGrams;
   return {
-    name, source, ref, kcal100, protein100, portionGrams, portionLabel, liquid, packageGrams,
+    name, source, ref, kcal100, protein100, portionGrams, portionLabel, liquid, packageGrams, pieceGrams, pieceLabel,
     servingGrams: portionGrams, servingLabel: portionLabel,
     quantity: byPortion ? 1 : 100, unit: byPortion ? "portion" : "g",
   };

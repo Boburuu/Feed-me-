@@ -35,6 +35,14 @@ button:disabled { cursor: default; opacity: .45; }
 .welcome-points { display: grid; gap: 10px; margin: 12px 0 18px; padding: 16px; list-style: none; border-radius: 18px; background: var(--mint); }
 .welcome-points li { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; }
 .welcome-points svg { flex: none; color: var(--green-text); }
+.welcome-choices { display: grid; gap: 10px; }
+.welcome-choice { display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px; border: 2px solid var(--green); border-radius: 18px; color: var(--green-text); background: transparent; cursor: pointer; text-align: left; }
+.welcome-choice svg { flex: none; }
+.welcome-choice span { display: grid; gap: 2px; min-width: 0; }
+.welcome-choice strong { font-size: 16px; }
+.welcome-choice small { color: var(--muted); font-size: 12px; }
+.welcome-choice.primary { color: var(--on-accent); background: var(--green); }
+.welcome-choice.primary small { color: color-mix(in srgb, var(--on-accent) 80%, transparent); }
 .onboarding-form { display: grid; gap: 14px; }
 .onboarding-form h2 { margin-bottom: 8px; font-size: 26px; }
 .onboarding-form > label, .identity-form label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 700; }

@@ -89,8 +89,8 @@
 .phone[data-theme="sororitas"] .avatar { box-shadow: 0 0 0 2px #d9a93c; }
 
 /* Pastilles d'icônes : le blanc translucide des thèmes clairs ressort trop sur fond sombre. */
-.phone:is([data-theme="nuit"], [data-theme="eshin"], [data-theme="sororitas"]) :is(.metric-icon, .water-icon, .round-button.soft, .camera-icon) { background: rgba(255, 255, 255, .1); }
-.phone:is([data-theme="eshin"], [data-theme="sororitas"]) .glass-row span:not(.filled) { background: rgba(255, 255, 255, .14); }
+.phone:is([data-theme="nuit"], [data-theme="eshin"], [data-theme="sororitas"]) :is(.metric-icon, .water-icon, .round-button.soft, .camera-icon, .water-amounts button) { background: rgba(255, 255, 255, .1); }
+.phone:is([data-theme="eshin"], [data-theme="sororitas"]) .water-bar { background: rgba(255, 255, 255, .14); }
 .phone:is([data-theme="eshin"], [data-theme="sororitas"]) .goal-bar { background: rgba(255, 255, 255, .1); }
 .phone:is([data-theme="eshin"], [data-theme="sororitas"]) :is(small, .recipe-meta span, .metric-card small) { color: color-mix(in srgb, var(--muted) 80%, var(--ink)); }
 
@@ -121,6 +121,23 @@
 .add-line { border: 0; color: var(--green-text); background: var(--mint); }
 .add-part { border: 1px dashed var(--mint-bright); color: var(--green-text); background: transparent; }
 .ingredient-row input:focus, .step-editor input:focus, .step-editor textarea:focus, .part-title:focus, .raw-text textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px var(--mint); }
+
+/* Ingrédient choisi dans Ciqual / Open Food Facts : ses calories sous la ligne. */
+.ingredient-item { display: grid; gap: 3px; }
+.ingredient-kcal { overflow: hidden; padding-left: 4px; color: var(--green-text); font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.ingredient-kcal.warn { color: var(--coral); }
+.ingredient-add { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+.ingredient-add .add-line.secondary { padding: 10px 14px; color: var(--green-text); background: transparent; border: 1px dashed var(--mint-bright); }
+.food-picker { display: grid; gap: 8px; padding: 10px; border: 2px solid var(--mint-bright); border-radius: 14px; background: var(--white); }
+.food-picker-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.food-picker-head strong { font-size: 13px; }
+.food-picker .food-search input,
+.food-picker .food-search input:focus { width: auto; padding: 12px 4px; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: 16px; }
+.recipe-computed { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: var(--mint); }
+.recipe-computed p { display: grid; gap: 3px; margin: 0; }
+.recipe-computed strong { color: var(--green-text); font-size: 13px; }
+.recipe-computed small { color: var(--muted); font-size: 11px; }
+.recipe-computed .add-line { background: var(--white); }
 
 /* --- Recettes : fiche à cuisiner par parties ----------------------------------- */
 .recipe-part + .recipe-part { margin-top: 14px; }

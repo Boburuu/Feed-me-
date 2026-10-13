@@ -317,23 +317,24 @@ h2 { font-size: 20px; font-weight: 800; }
 .peach .mini-progress span { background: var(--coral); }
 
 .water-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  gap: 12px;
   margin-top: 12px;
   padding: 17px 16px;
   border-radius: 20px;
   background: var(--blue);
 }
-.water-info { display: flex; align-items: center; gap: 11px; }
+.water-info { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px; }
+.water-bar { height: 6px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.75); }
+.water-bar span { display: block; height: 100%; border-radius: inherit; background: var(--blue-strong); transition: width .3s; }
+.water-amounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.water-amounts button { display: grid; gap: 1px; min-width: 0; padding: 8px 2px; border: 0; border-radius: 12px; color: var(--ink); background: rgba(255,255,255,.7); cursor: pointer; }
+.water-amounts strong { color: var(--blue-strong); font-size: 13px; white-space: nowrap; }
+.water-amounts small { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .water-icon { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 12px; color: var(--blue-strong); background: rgba(255,255,255,.65); }
 .water-info p { margin: 0 0 2px; color: var(--muted); font-size: 11px; font-weight: 600; }
 .water-info strong { font-family: "Manrope"; font-size: 15px; }
 .water-info strong span { color: var(--muted); font-family: "DM Sans"; font-size: 11px; font-weight: 500; }
-.water-actions { display: flex; align-items: center; gap: 10px; }
-.glass-row { display: flex; gap: 3px; }
-.glass-row span { width: 5px; height: 19px; border-radius: 4px; background: rgba(255,255,255,.75); }
-.glass-row span.filled { background: var(--blue-strong); }
 .round-button { display: grid; width: 32px; height: 32px; padding: 0; place-items: center; border: 0; border-radius: 50%; color: var(--on-accent); background: var(--blue-strong); cursor: pointer; }
 
 .meals { margin-top: 27px; }

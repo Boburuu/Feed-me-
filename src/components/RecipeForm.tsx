@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import FoodPicker from "./FoodPicker";
 import Icon from "./Icon";
+import type { FoodResult } from "../lib/foods";
 import { deleteImage, getImage, putImage, shrinkImage } from "../lib/images";
 import { mergeTexts, ocrAvailable, readImageText } from "../lib/ocr";
-import { categoryOf, commonUnits, formatQuantity, parseQuantity, recipeCategories } from "../lib/recipes";
+import { categoryOf, commonUnits, formatQuantity, ingredientFromFood, ingredientGrams, ingredientsNutrition, parseQuantity, recipeCategories } from "../lib/recipes";
 import { parseRecipeText, summarize } from "../lib/recipeText";
-import type { Recipe, RecipeCategory, RecipeStep, StepGroup } from "../lib/storage";
+import type { Ingredient, IngredientNutrition, Recipe, RecipeCategory, RecipeStep, StepGroup } from "../lib/storage";
 
 type RecipeFormProps = {
   /** Recette à modifier ; absente pour une création. */
@@ -17,7 +19,7 @@ type RecipeFormProps = {
 /** Image du formulaire : déjà enregistrée (id) ou nouvelle (data URL seulement). */
 type DraftImage = { id?: string; src: string };
 /** La quantité reste du texte pendant la saisie (« 1,5 », « ½ »). */
-type DraftItem = { quantity: string; unit: string; name: string };
+type DraftItem = { quantity: string; unit: string; name: string; nutrition?: IngredientNutrition };
 type DraftGroup = { title: string; items: DraftItem[] };
 
 type Draft = {
@@ -35,6 +37,14 @@ type Draft = {
 };
 
 const emptyItem = (): DraftItem => ({ quantity: "", unit: "", name: "" });
+const toDraftItem = (item: Ingredient): DraftItem => ({ quantity: item.quantity === null ? "" : formatQuantity(item.quantity), unit: item.unit, name: item.name, nutrition: item.nutrition });
+const toIngredient = (item: DraftItem): Ingredient => ({
+  name: item.name.trim(),
+  unit: item.unit.trim(),
+  quantity: item.quantity.trim() ? parseQuantity(item.quantity.replace(",", ".")) : null,
+  ...(item.nutrition ? { nutrition: item.nutrition } : {}),
+});
+const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma recette", perso: "Mon aliment" } as const;
 const emptyStep = (): RecipeStep => ({ title: "", text: "" });
 
 function draftFrom(recipe?: Recipe): Draft {
@@ -44,7 +54,7 @@ function draftFrom(recipe?: Recipe): Draft {
     ingredients: recipe?.ingredients.length
       ? recipe.ingredients.map((group) => ({
         title: group.title,
-        items: group.items.map((item) => ({ quantity: item.quantity === null ? "" : formatQuantity(item.quantity), unit: item.unit, name: item.name })),
+        items: group.items.map(toDraftItem),
       }))
       : [{ title: "", items: [emptyItem()] }],
     steps: recipe?.steps.length ? recipe.steps : [{ title: "", steps: [emptyStep()] }],
@@ -71,6 +81,8 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
   const [shots, setShots] = useState<string[]>([]);
   const screenshotInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
+  /** Partie d'ingrédients où l'on cherche un aliment (recherche, photo, code-barres). */
+  const [picking, setPicking] = useState<number | null>(null);
   const set = (change: Partial<Draft>) => setDraft((current) => ({ ...current, ...change }));
 
   // En modification, on charge les images déjà enregistrées pour les afficher.
@@ -124,7 +136,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
       ingredients: parsed.ingredients.length
         ? parsed.ingredients.map((group) => ({
           title: group.title,
-          items: group.items.map((item) => ({ quantity: item.quantity === null ? "" : formatQuantity(item.quantity), unit: item.unit, name: item.name })),
+          items: group.items.map(toDraftItem),
         }))
         : current.ingredients,
       steps: parsed.steps.length ? parsed.steps : current.steps,
@@ -139,6 +151,21 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
     set({ ingredients: draft.ingredients.map((group, i) => (i === index ? { ...group, ...change } : group)) });
   const setItem = (groupIndex: number, itemIndex: number, change: Partial<DraftItem>) =>
     setGroup(groupIndex, { items: draft.ingredients[groupIndex].items.map((item, i) => (i === itemIndex ? { ...item, ...change } : item)) });
+
+  /** Aliment trouvé : il remplace la ligne vide du bas, ou s'ajoute à la partie. */
+  const pickFood = (groupIndex: number, food: FoodResult) => {
+    const item = toDraftItem(ingredientFromFood(food));
+    const items = draft.ingredients[groupIndex].items;
+    const last = items.at(-1);
+    setGroup(groupIndex, { items: last && !last.name.trim() ? [...items.slice(0, -1), item] : [...items, item] });
+    setPicking(null);
+  };
+
+  // Calories calculées d'après les ingrédients dont on connaît les valeurs.
+  const draftIngredients = draft.ingredients.flatMap((group) => group.items.filter((item) => item.name.trim()).map(toIngredient));
+  const computed = ingredientsNutrition(draftIngredients);
+  const portionCount = Number(draft.portions) || 2;
+  const perPerson = { kcal: Math.round(computed.kcal / portionCount), protein: Math.round(computed.protein / portionCount) };
 
   // --- Étapes ---------------------------------------------------------------------------
 
@@ -171,7 +198,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
     const ingredients = draft.ingredients
       .map((group) => ({
         title: group.title.trim(),
-        items: group.items.filter((item) => item.name.trim()).map((item) => ({ name: item.name.trim(), unit: item.unit.trim(), quantity: item.quantity.trim() ? parseQuantity(item.quantity.replace(",", ".")) : null })),
+        items: group.items.filter((item) => item.name.trim()).map(toIngredient),
       }))
       .filter((group) => group.items.length);
     const steps = draft.steps
@@ -197,11 +224,12 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
       category: draft.category,
       ingredients,
       steps,
-      // Champs vides : estimation grossière à partir du nombre d'ingrédients.
+      // Champs vides : calcul d'après les ingrédients connus, sinon estimation grossière
+      // à partir du nombre d'ingrédients.
       time: Number(draft.time) || Math.max(15, count * 5),
       portions: Number(draft.portions) || 2,
-      calories: Number(draft.calories) || Math.round((180 + count * 95) / 10) * 10,
-      protein: Number(draft.protein) || Math.round(8 + count * 2.5 + proteinBoost * 12),
+      calories: Number(draft.calories) || (computed.known ? perPerson.kcal : Math.round((180 + count * 95) / 10) * 10),
+      protein: Number(draft.protein) || (computed.known ? perPerson.protein : Math.round(8 + count * 2.5 + proteinBoost * 12)),
       images,
       url: draft.url.trim() || undefined,
       notes: draft.notes.trim() || undefined,
@@ -274,16 +302,35 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
               )}
             </div>
             <div className="ingredient-rows">
-              {group.items.map((item, itemIndex) => (
-                <div className="ingredient-row" key={itemIndex}>
-                  <input value={item.quantity} onChange={(e) => setItem(groupIndex, itemIndex, { quantity: e.target.value })} inputMode="decimal" placeholder="Qté" aria-label="Quantité" />
-                  <input value={item.unit} onChange={(e) => setItem(groupIndex, itemIndex, { unit: e.target.value })} list="unit-options" placeholder="unité" aria-label="Unité" />
-                  <input value={item.name} onChange={(e) => setItem(groupIndex, itemIndex, { name: e.target.value })} placeholder="Ingrédient" aria-label="Ingrédient" />
-                  <button type="button" className="icon-button" onClick={() => setGroup(groupIndex, { items: group.items.filter((_, i) => i !== itemIndex) })} aria-label="Retirer cet ingrédient"><Icon name="close" size={15} /></button>
-                </div>
-              ))}
+              {group.items.map((item, itemIndex) => {
+                const grams = item.nutrition ? ingredientGrams(toIngredient(item)) : null;
+                return (
+                  <div className="ingredient-item" key={itemIndex}>
+                    <div className="ingredient-row">
+                      <input value={item.quantity} onChange={(e) => setItem(groupIndex, itemIndex, { quantity: e.target.value })} inputMode="decimal" placeholder="Qté" aria-label="Quantité" />
+                      <input value={item.unit} onChange={(e) => setItem(groupIndex, itemIndex, { unit: e.target.value })} list="unit-options" placeholder="unité" aria-label="Unité" />
+                      <input value={item.name} onChange={(e) => setItem(groupIndex, itemIndex, { name: e.target.value })} placeholder="Ingrédient" aria-label="Ingrédient" />
+                      <button type="button" className="icon-button" onClick={() => setGroup(groupIndex, { items: group.items.filter((_, i) => i !== itemIndex) })} aria-label="Retirer cet ingrédient"><Icon name="close" size={15} /></button>
+                    </div>
+                    {item.nutrition && (
+                      <small className={`ingredient-kcal${grams === null ? " warn" : ""}`}>
+                        {grams === null
+                          ? `${sourceName[item.nutrition.source]} · indiquez la quantité en g ou ml pour le calcul`
+                          : `${sourceName[item.nutrition.source]} · ${Math.round((grams * item.nutrition.kcal100) / 100)} kcal`}
+                      </small>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <button type="button" className="add-line" onClick={() => setGroup(groupIndex, { items: [...group.items, emptyItem()] })}><Icon name="plus" size={15} /> Ajouter un ingrédient</button>
+            {picking === groupIndex ? (
+              <FoodPicker title="Ajouter un ingrédient" onPick={(food) => pickFood(groupIndex, food)} onClose={() => setPicking(null)} />
+            ) : (
+              <div className="ingredient-add">
+                <button type="button" className="add-line" onClick={() => setPicking(groupIndex)}><Icon name="camera" size={15} /> Chercher ou scanner</button>
+                <button type="button" className="add-line secondary" onClick={() => setGroup(groupIndex, { items: [...group.items, emptyItem()] })}><Icon name="plus" size={15} /> Écrire</button>
+              </div>
+            )}
           </div>
         ))}
         <button type="button" className="add-part" onClick={() => set({ ingredients: [...draft.ingredients, { title: "", items: [emptyItem()] }] })}><Icon name="plus" size={15} /> Ajouter une partie (ex. Garniture)</button>
@@ -335,7 +382,19 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
         <label><span>Calories <em>auto</em></span><div><input value={draft.calories} onChange={(e) => set({ calories: e.target.value })} type="number" placeholder="—" min="0" /><small>kcal/pers.</small></div></label>
         <label><span>Protéines <em>auto</em></span><div><input value={draft.protein} onChange={(e) => set({ protein: e.target.value })} type="number" placeholder="—" min="0" /><small>g/pers.</small></div></label>
       </div>
-      <p className="recipe-estimate-note">Champs « auto » laissés vides : estimation très approximative, à remplacer dès que possible par les valeurs réelles.</p>
+      {computed.known > 0 ? (
+        <div className="recipe-computed">
+          <p>
+            <strong>≈ {perPerson.kcal} kcal et {perPerson.protein} g de protéines par personne</strong>
+            <small>Calculé d'après {computed.known} ingrédient{computed.known > 1 ? "s" : ""} sur {draftIngredients.length}, pour {portionCount} personne{portionCount > 1 ? "s" : ""}.</small>
+          </p>
+          {(draft.calories !== String(perPerson.kcal) || draft.protein !== String(perPerson.protein)) && (
+            <button type="button" className="add-line" onClick={() => set({ calories: String(perPerson.kcal), protein: String(perPerson.protein) })}><Icon name="check" size={15} /> Utiliser ces valeurs</button>
+          )}
+        </div>
+      ) : (
+        <p className="recipe-estimate-note">Champs « auto » laissés vides : estimation très approximative. Ajoutez les ingrédients avec « Chercher ou scanner » pour un vrai calcul.</p>
+      )}
       <label><span>Notes</span><textarea value={draft.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Ex. moins de crème, ajouter des épinards…" /></label>
       <label><span>Lien de la source (facultatif)</span><input value={draft.url} onChange={(e) => set({ url: e.target.value })} placeholder="https://www.instagram.com/p/…" inputMode="url" /></label>
 

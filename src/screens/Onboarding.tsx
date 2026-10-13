@@ -129,10 +129,16 @@ export default function Onboarding({ onCreate, onImport }: OnboardingProps) {
             <li><Icon name="target" size={17} /> Estimations indicatives, sans jugement</li>
           </ul>
           {errors.length > 0 && <p className="form-error" role="alert">{errors[0]}</p>}
-          <button className="submit-button" onClick={() => setStep("identity")}>Créer mon profil</button>
-          <button className="ghost-button" onClick={() => backupInput.current?.click()}>
-            <Icon name="upload" size={17} /> Importer une sauvegarde
-          </button>
+          <div className="welcome-choices">
+            <button className="welcome-choice primary" onClick={() => setStep("identity")}>
+              <Icon name="user" size={22} />
+              <span><strong>Nouveau compte</strong><small>Je commence avec Feed Me</small></span>
+            </button>
+            <button className="welcome-choice" onClick={() => backupInput.current?.click()}>
+              <Icon name="upload" size={22} />
+              <span><strong>Importer une sauvegarde</strong><small>J'avais déjà Feed Me (fichier exporté)</small></span>
+            </button>
+          </div>
           <input ref={backupInput} className="hidden-input" type="file" accept="application/json,.json" onChange={importBackup} />
         </section>
       )}

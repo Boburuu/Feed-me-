@@ -3,6 +3,7 @@ import Icon from "./Icon";
 import WeightTracker from "./WeightTracker";
 import { sessionLabel } from "../lib/activity";
 import { mealCategories, todayKey, type AppData, type GoalType, type Meal } from "../lib/storage";
+import { formatWater, WATER_MAX } from "../lib/water";
 
 type TrackingTabProps = {
   data: AppData;
@@ -28,6 +29,8 @@ const statusLabels: Record<DayStatus, string> = {
 const keyOf = (date: Date) => todayKey(date);
 const parse = (key: string) => new Date(`${key}T12:00:00`);
 const addDays = (key: string, days: number) => { const date = parse(key); date.setDate(date.getDate() + days); return keyOf(date); };
+/** Correction d'un jour passé : par verre de 200 ml. */
+const WATER_STEP = 200;
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const hours = (ms: number) => `${Math.floor(ms / 3_600_000)} h ${String(Math.floor((ms % 3_600_000) / 60_000)).padStart(2, "0")}`;
 
@@ -85,7 +88,7 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
   const status = statusOf(selected);
 
   const setWater = (value: number) =>
-    update((current) => ({ ...current, water: { ...current.water, [selected]: Math.max(0, Math.min(value, waterGoal)) } }));
+    update((current) => ({ ...current, water: { ...current.water, [selected]: Math.max(0, Math.min(value, WATER_MAX)) } }));
   const deleteMeal = (meal: Meal) => {
     if (window.confirm(`Supprimer « ${meal.name} » (${meal.calories} kcal) ?`)) {
       update((current) => ({ ...current, meals: current.meals.filter((item) => item.id !== meal.id) }));
@@ -125,7 +128,7 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
       <section className="tracking-stats">
         <span><Icon name="flame" /><strong>{streak} j</strong><small>d'affilée avec repas notés</small></span>
         <span><Icon name="scale" /><strong>{weightChange === null ? "—" : `${weightChange > 0 ? "+" : weightChange < 0 ? "−" : ""}${n(Math.abs(weightChange))} kg`}</strong><small>sur 30 jours</small></span>
-        <span><Icon name="water" /><strong>{n(last7.reduce((sum, day) => sum + (data.water[day] ?? 0), 0) / 7)}</strong><small>verres / jour</small></span>
+        <span><Icon name="water" /><strong>{formatWater(last7.reduce((sum, day) => sum + (data.water[day] ?? 0), 0) / 7)}</strong><small>d&apos;eau / jour</small></span>
       </section>
 
       <section className="calendar-card">
@@ -183,9 +186,9 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
         <div className="day-facts">
           <span className="day-water">
             <Icon name="water" size={18} />
-            <span>{dayWater} verre{dayWater > 1 ? "s" : ""}</span>
-            <button type="button" onClick={() => setWater(dayWater - 1)} disabled={!dayWater} aria-label="Retirer un verre"><Icon name="minus" size={14} /></button>
-            <button type="button" onClick={() => setWater(dayWater + 1)} disabled={dayWater >= waterGoal} aria-label="Ajouter un verre"><Icon name="plus" size={14} /></button>
+            <span>{formatWater(dayWater)} / {formatWater(waterGoal)}</span>
+            <button type="button" onClick={() => setWater(dayWater - WATER_STEP)} disabled={!dayWater} aria-label={`Retirer ${WATER_STEP} ml`}><Icon name="minus" size={14} /></button>
+            <button type="button" onClick={() => setWater(dayWater + WATER_STEP)} aria-label={`Ajouter ${WATER_STEP} ml`}><Icon name="plus" size={14} /></button>
           </span>
           <span><Icon name="scale" size={18} /> {dayWeight ? `${n(dayWeight.kg)} kg` : "Pas de pesée"}</span>
           {data.steps[selected] && (
