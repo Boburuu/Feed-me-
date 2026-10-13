@@ -82,6 +82,7 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
   const dayMeals = mealsByDay.get(selected) ?? [];
   const dayCalories = caloriesOf(selected);
   const dayProtein = dayMeals.reduce((sum, meal) => sum + (meal.protein ?? 0), 0);
+  const dayCarbs = dayMeals.reduce((sum, meal) => sum + (meal.carbs ?? 0), 0);
   const dayWater = data.water[selected] ?? 0;
   const dayWeight = data.weights.find((entry) => entry.date === selected);
   const dayFasts = data.fasts.filter((fast) => fast.end && keyOf(new Date(fast.end)) === selected);
@@ -182,6 +183,7 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
           <div><strong>{dayCalories.toLocaleString("fr-FR")}</strong><small> / {target.toLocaleString("fr-FR")} kcal</small></div>
           <span className={`goal-bar status-${status}`}><span style={{ width: `${Math.min(100, (dayCalories / target) * 100)}%` }} /></span>
           {dayProtein > 0 && <small>{dayProtein} g de protéines</small>}
+          {dayCarbs > 0 && <small>{dayCarbs} g de glucides</small>}
         </div>
 
         <div className="day-facts">
@@ -208,7 +210,7 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
           {mealCategories.flatMap((category) => dayMeals.filter((meal) => meal.category === category.id)).map((meal) => (
             <div className="meal-row editable" key={meal.id} onClick={() => onEditMeal(meal)}>
               <span className="meal-icon breakfast"><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
-              <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small></span>
+              <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
               <span className="meal-calories"><strong>{meal.calories}</strong><small>kcal</small></span>
               <button className="icon-button" onClick={(event) => { event.stopPropagation(); onEditMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
               <button className="icon-button" onClick={(event) => { event.stopPropagation(); deleteMeal(meal); }} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>

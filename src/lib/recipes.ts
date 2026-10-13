@@ -1,7 +1,7 @@
 // Catégories de recettes, lecture et affichage des ingrédients.
 
 import type { IconName } from "../components/Icon";
-import { itemCalories, itemProtein } from "./foods";
+import { itemCalories, itemCarbs, itemProtein } from "./foods";
 import type { Ingredient, MealItem, Recipe, RecipeCategory } from "./storage";
 
 export const recipeCategories: { id: RecipeCategory; label: string; plural: string; icon: IconName }[] = [
@@ -154,12 +154,13 @@ export function ingredientFromItem(item: MealItem): Ingredient {
   return { name: item.name, quantity: item.quantity, unit: sameAsName ? "" : label, food: item };
 }
 
-/** Calories et protéines de la recette entière, d'après les ingrédients choisis dans les bases. */
+/** Calories, protéines et glucides de la recette entière, d'après les ingrédients choisis dans les bases. */
 export function ingredientsNutrition(items: Ingredient[]) {
   const known = items.filter((item) => item.food);
   return {
     kcal: known.reduce((sum, item) => sum + itemCalories(item.food!), 0),
     protein: known.reduce((sum, item) => sum + itemProtein(item.food!), 0),
+    carbs: known.reduce((sum, item) => sum + (itemCarbs(item.food!) ?? 0), 0),
     known: known.length,
   };
 }

@@ -101,6 +101,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const todayMeals = data.meals.filter((meal) => meal.date === today);
   const consumed = todayMeals.reduce((sum, meal) => sum + meal.calories, 0);
   const proteinToday = todayMeals.reduce((sum, meal) => sum + (meal.protein ?? 0), 0);
+  const carbsToday = todayMeals.reduce((sum, meal) => sum + (meal.carbs ?? 0), 0);
   const observed = observedMaintenance(data.meals, data.weights, today);
 
   // Aperçu en direct pendant la saisie ; la valeur enregistrée sinon.
@@ -363,6 +364,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 <span><strong>{consumed.toLocaleString("fr-FR")}</strong> consommées</span>
                 <span><strong>{goal.toLocaleString("fr-FR")}</strong> objectif</span>
                 {showProtein && <span><strong>{proteinToday}/{result.macros.protein} g</strong> protéines</span>}
+                <span><strong>{carbsToday} g</strong> glucides</span>
               </div>
             </div>
             <div className="progress-ring" style={{ "--progress": `${Math.min(progress, 100) * 3.6}deg` } as React.CSSProperties}>
@@ -462,7 +464,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               {todayMeals.map((meal) => (
                 <div className="meal-row editable" key={meal.id} onClick={() => editMeal(meal)}>
                   <span className={`meal-icon ${categoryStyle[meal.category]}`}><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
-                  <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small></span>
+                  <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
                   <span className="meal-calories"><strong>{meal.calories}</strong><small>kcal</small></span>
                   <button className="icon-button" onClick={(event) => { event.stopPropagation(); editMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
                   <button className="icon-button" onClick={(event) => { event.stopPropagation(); deleteMeal(meal); }} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>

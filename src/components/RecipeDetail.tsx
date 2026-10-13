@@ -80,6 +80,7 @@ export default function RecipeDetail({ recipe, onClose, onEdit, onDelete, onAddT
             <>
               <span><Icon name="flame" size={15} /> {recipe.calories} kcal / pers.</span>
               <span><Icon name="target" size={15} /> {recipe.protein} g prot. / pers.</span>
+              {recipe.carbs !== undefined && <span><Icon name="apple" size={15} /> {recipe.carbs} g gluc. / pers.</span>}
             </>
           ) : (
             <span><Icon name="flame" size={15} /> Calories à calculer (Modifier)</span>

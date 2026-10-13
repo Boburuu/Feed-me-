@@ -1,5 +1,5 @@
 import Icon from "./Icon";
-import { itemCalories, itemGrams } from "../lib/foods";
+import { itemCalories, itemCarbs, itemGrams } from "../lib/foods";
 import type { MealItem } from "../lib/storage";
 
 type MealLineEditorProps = {
@@ -164,6 +164,7 @@ export default function MealLineEditor({ line, onChange, onRemove }: MealLineEdi
         </div>
       )}
 
+      {itemCarbs(line) !== null && <small className="meal-line-carbs">{n(Math.round(itemCarbs(line)! * 10) / 10)} g de glucides</small>}
       <small className="meal-line-detail">
         {servings ? `Ma recette pour ${servings} pers. · ${Math.round(line.kcal100)} kcal la part` : line.matchedName ? `Calculé avec : ${line.matchedName} (${sourceName[line.source]})` : sourceName[line.source]}
       </small>

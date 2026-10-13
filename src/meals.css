@@ -46,9 +46,11 @@
 .unit-toggle button { max-width: 130px; overflow: hidden; padding: 8px 12px; border: 0; border-radius: 9px; color: var(--muted); background: transparent; cursor: pointer; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .unit-toggle button.selected { color: var(--on-accent); background: var(--green); }
 .unit-fixed { color: var(--muted); font-size: 13px; font-weight: 700; }
+.meal-line-carbs { color: var(--ink); font-size: 12px; font-weight: 700; }
 .meal-line-detail { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .meal-total { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 4px 6px 2px; }
-.meal-total span { color: var(--ink); font-size: 13px; font-weight: 700; }
+.meal-total span { display: grid; gap: 2px; color: var(--ink); font-size: 13px; font-weight: 700; }
+.meal-total small, .plate-mine small { color: var(--muted); font-size: 11px; font-weight: 600; }
 .meal-total strong { color: var(--green-text); font-family: "Manrope"; font-size: 22px; }
 
 .custom-food { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--cream); }
@@ -146,7 +148,7 @@
 .share-row .stepper strong { min-width: 52px; font-size: 16px; text-align: center; }
 .share-row .stepper button:disabled { opacity: .35; }
 .plate-mine { display: flex; align-items: baseline; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--line); }
-.plate-mine span { font-size: 14px; font-weight: 800; }
+.plate-mine span { display: grid; gap: 2px; font-size: 14px; font-weight: 800; }
 .plate-mine strong { color: var(--green-text); font-family: "Manrope"; font-size: 24px; }
 .plate-share .awake-toggle { margin: 0; line-height: 1.45; }
 .leftover-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; }

@@ -40,6 +40,8 @@ export type Meal = {
   name: string;
   calories: number;
   protein?: number;
+  /** Glucides du repas, en g (absents des repas notés avant leur suivi). */
+  carbs?: number;
   source: SourceType;
   /** Détail des aliments, pour les repas composés avec la recherche. */
   items?: MealItem[];
@@ -56,6 +58,7 @@ export type Leftover = {
   partsLeft: number;
   kcalPerPart: number;
   proteinPerPart: number;
+  carbsPerPart?: number;
 };
 
 /** D'où viennent les valeurs nutritionnelles d'un aliment. */
@@ -74,6 +77,8 @@ export type MealItem = {
   unit: "g" | "portion";
   kcal100: number;
   protein100: number | null;
+  /** Glucides, comme kcal100 : pour 100 g, ou pour une portion. Absent : inconnu. */
+  carbs100?: number | null;
   /** Poids d'une portion, quand on le connaît (« 1 barre = 23,5 g »). */
   portionGrams?: number;
   portionLabel?: string;
@@ -102,6 +107,7 @@ export type CustomFood = {
   name: string;
   kcal100: number;
   protein100: number | null;
+  carbs100?: number | null;
   portionGrams?: number;
   portionLabel?: string;
 };
@@ -128,6 +134,8 @@ export type Recipe = {
   portions: number;
   calories: number;
   protein: number;
+  /** Glucides par personne, en g (absents : pas encore calculés). */
+  carbs?: number;
   /** Absente des recettes créées avant les catégories : « plat » par défaut. */
   category?: RecipeCategory;
   /** Identifiants des images (captures, photo du site) rangées dans IndexedDB. */
@@ -417,7 +425,8 @@ function migrateRecipe(recipe: Recipe): Recipe {
   const valuesLine = ingredients.flatMap((group) => group.items).find((item) => /\d\s*kcal\b/i.test(`${item.quantity ?? ""} ${item.unit} ${item.name}`));
   const kcal = valuesLine?.name.match(/(\d+)\s*kcal/i);
   const protein = valuesLine?.name.match(/(\d+)\s*g\s*(?:de\s+)?(?:P\b|prot)/i);
-  const written = guessed && kcal ? { calories: Number(kcal[1]), protein: protein ? Number(protein[1]) : 0, ...(/^\s*portions?\b/i.test(`${valuesLine!.unit} ${valuesLine!.name}`) && valuesLine!.quantity ? { portions: valuesLine!.quantity } : {}) } : null;
+  const carbs = valuesLine?.name.match(/(\d+)\s*g\s*(?:de\s+)?(?:G\b|gluc)/);
+  const written = guessed && kcal ? { calories: Number(kcal[1]), protein: protein ? Number(protein[1]) : 0, ...(carbs ? { carbs: Number(carbs[1]) } : {}), ...(/^\s*portions?\b/i.test(`${valuesLine!.unit} ${valuesLine!.name}`) && valuesLine!.quantity ? { portions: valuesLine!.quantity } : {}) } : null;
   return {
     ...recipe,
     ingredients: valuesLine

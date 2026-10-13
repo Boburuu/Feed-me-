@@ -119,7 +119,7 @@ export async function searchCiqual(query: string, limit = 12): Promise<FoodResul
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map(({ index }) => {
-      const [code, name, kcal, protein] = rows[index];
+      const [code, name, kcal, protein, carbs] = rows[index];
       const portion = portionFor(name);
       return {
         name,
@@ -127,6 +127,7 @@ export async function searchCiqual(query: string, limit = 12): Promise<FoodResul
         ref: String(code),
         kcal100: kcal,
         protein100: protein,
+        carbs100: carbs,
         portionGrams: portion?.grams,
         portionLabel: portion?.label,
         detail: "Ciqual (ANSES)",
@@ -179,6 +180,7 @@ export function energyResult(drink: EnergyDrink): FoodResult {
     ref: `energie:${normalize(drink.name).replace(/ /g, "-")}`,
     kcal100: drink.kcal100,
     protein100: 0,
+    carbs100: drink.carbs100,
     portionGrams: drink.can,
     portionLabel: "1 canette",
     liquid: true,
@@ -198,6 +200,7 @@ function commonResult(food: CommonFood): FoodResult[] {
     ref: `${row[0]}:${normalize(food.name)}`,
     kcal100: row[2],
     protein100: row[3],
+    carbs100: row[4],
     portionGrams: food.portion?.grams,
     portionLabel: food.portion?.label,
     liquid: food.drink || undefined,
@@ -299,6 +302,7 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
         ref: hit.code,
         kcal100: Math.round(hit.nutriments!["energy-kcal_100g"]!),
         protein100: hit.nutriments!.proteins_100g ?? null,
+        carbs100: hit.nutriments!.carbohydrates_100g ?? null,
         brand: brand || undefined,
         packageGrams,
         ...parsePieces(`${hit.quantity ?? ""} ${name}`, packageGrams),
@@ -336,6 +340,7 @@ export async function openFoodFactsByBarcode(code: string): Promise<FoodResult |
     ref: code,
     kcal100: Math.round(kcal),
     protein100: product.nutriments.proteins_100g ?? null,
+    carbs100: product.nutriments.carbohydrates_100g ?? null,
     portionGrams: grams > 0 ? grams : undefined,
     portionLabel: grams > 0 ? shortServing(String(product.serving_size ?? ""), grams) : undefined,
     // Boisson : contenance en cl / ml sur l'emballage.
@@ -374,6 +379,7 @@ export function recipeResult(recipe: Recipe): FoodResult {
     ref: String(recipe.id),
     kcal100: recipe.calories,
     protein100: recipe.protein,
+    carbs100: recipe.carbs ?? null,
     portionLabel: "1 part",
     perPortionOnly: true,
     recipePortions: recipe.portions,
@@ -392,6 +398,7 @@ export function searchOwn(query: string, recipes: Recipe[], customFoods: CustomF
       ref: String(food.id),
       kcal100: food.kcal100,
       protein100: food.protein100,
+      carbs100: food.carbs100 ?? null,
       portionGrams: food.portionGrams,
       portionLabel: food.portionLabel,
       detail: "Mon aliment",
@@ -424,9 +431,22 @@ export function itemProtein(item: MealItem) {
   return ((itemGrams(item) ?? 0) * item.protein100) / 100;
 }
 
+/** Glucides en g ; null quand la base ne les donne pas pour cet aliment. */
+export function itemCarbs(item: MealItem): number | null {
+  if (item.carbs100 === null || item.carbs100 === undefined) return null;
+  if (perPortion(item)) return item.quantity * item.carbs100;
+  return ((itemGrams(item) ?? 0) * item.carbs100) / 100;
+}
+
+/** Total des glucides connus, et nombre d'aliments dont on ne les connaît pas. */
+export function carbsOf(items: MealItem[]) {
+  const values = items.map(itemCarbs);
+  return { carbs: values.reduce<number>((sum, value) => sum + (value ?? 0), 0), unknown: values.filter((value) => value === null).length };
+}
+
 /** Aliment prêt à ajouter : une portion si on la connaît, sinon 100 g. */
 export function toMealItem(result: FoodResult): MealItem {
-  const { source, ref, kcal100, protein100, brand, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions } = result;
+  const { source, ref, kcal100, protein100, carbs100, brand, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions } = result;
   // Sans portion indiquée, un paquet vendu à la pièce se compte en pièces (« 1 tranche »).
   const portionGrams = result.portionGrams ?? pieceGrams;
   const portionLabel = result.portionGrams ? result.portionLabel : pieceLabel ?? result.portionLabel;
@@ -434,7 +454,7 @@ export function toMealItem(result: FoodResult): MealItem {
   const name = brand && !normalize(result.name).includes(normalize(brand)) ? `${result.name} · ${brand}` : result.name;
   const byPortion = result.perPortionOnly || !!portionGrams;
   return {
-    name, source, ref, kcal100, protein100, portionGrams, portionLabel, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions,
+    name, source, ref, kcal100, protein100, carbs100, portionGrams, portionLabel, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions,
     servingGrams: portionGrams, servingLabel: portionLabel,
     quantity: byPortion ? 1 : 100, unit: byPortion ? "portion" : "g",
   };

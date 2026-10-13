@@ -6,6 +6,7 @@ import {
   itemCalories,
   itemGrams,
   itemProtein,
+  carbsOf,
   normalize,
   openFoodFactsPortion,
   searchCiqual,
@@ -78,7 +79,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const [brandState, setBrandState] = useState<"idle" | "loading" | "error" | "offline">("idle");
   const [expanded, setExpanded] = useState({ common: false, ciqual: false, own: false, brands: false, variants: false });
   const [creating, setCreating] = useState(false);
-  const [custom, setCustom] = useState({ name: "", kcal: "", protein: "", portion: "", perPortion: false, keep: true });
+  const [custom, setCustom] = useState({ name: "", kcal: "", protein: "", carbs: "", portion: "", perPortion: false, keep: true });
   const searchInput = useRef<HTMLInputElement>(null);
   // Assiette maison : plat préparé pour plusieurs personnes, dont on mange une part.
   const [mode, setMode] = useState<"meal" | "plate">(editing?.plate ? "plate" : "meal");
@@ -206,18 +207,22 @@ export default function MealComposer({ date: initialDate, category: initialCateg
     const kcal = Number(custom.kcal.replace(",", "."));
     if (!custom.name.trim() || !kcal) return;
     const protein = custom.protein ? Number(custom.protein.replace(",", ".")) : null;
+    const carbs = custom.carbs ? Number(custom.carbs.replace(",", ".")) : null;
     const portion = Number(custom.portion.replace(",", ".")) || undefined;
     const food: CustomFood = custom.perPortion
-      ? { id: Date.now(), name: custom.name.trim(), kcal100: kcal, protein100: protein, portionLabel: "1 portion" }
-      : { id: Date.now(), name: custom.name.trim(), kcal100: kcal, protein100: protein, portionGrams: portion, portionLabel: portion ? `1 portion (${n(portion)} g)` : undefined };
+      ? { id: Date.now(), name: custom.name.trim(), kcal100: kcal, protein100: protein, carbs100: carbs, portionLabel: "1 portion" }
+      : { id: Date.now(), name: custom.name.trim(), kcal100: kcal, protein100: protein, carbs100: carbs, portionGrams: portion, portionLabel: portion ? `1 portion (${n(portion)} g)` : undefined };
     if (custom.keep) onCreateFood(food);
     add({ ...food, source: "perso", ref: String(food.id), detail: "Mon aliment", perPortionOnly: custom.perPortion });
     setCreating(false);
-    setCustom({ name: "", kcal: "", protein: "", portion: "", perPortion: false, keep: true });
+    setCustom({ name: "", kcal: "", protein: "", carbs: "", portion: "", perPortion: false, keep: true });
   };
 
   const total = lines.reduce((sum, line) => sum + itemCalories(line), 0);
   const protein = Math.round(lines.reduce((sum, line) => sum + itemProtein(line), 0));
+  // Glucides : utiles au suivi du diabète. « unknown » : aliments dont la base ne les donne pas.
+  const { carbs, unknown: carbsUnknown } = carbsOf(lines);
+  const carbsLabel = (value: number) => `${Math.round(value)} g de glucides${carbsUnknown ? ` (+ ${carbsUnknown} aliment${carbsUnknown > 1 ? "s" : ""} sans valeur)` : ""}`;
 
   const isPlate = mode === "plate";
   const share = isPlate ? Math.min(1, Math.max(0.05, parts / servings + adjust / 100)) : 1;
@@ -241,6 +246,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       name: shortName,
       calories: Math.round(total * share),
       protein: Math.round(protein * share) || undefined,
+      carbs: Math.round(carbs * share),
       source: editing?.source ?? "manual",
       items,
       ...(isPlate ? { plate: { servings, share } } : {}),
@@ -248,7 +254,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       // Modification : les restes ont déjà été comptés à l'enregistrement du repas.
       usedLeftovers: editing ? [] : usedLeftovers,
       leftover: !editing && isPlate && keepLeftover && leftoverParts > 0
-        ? { name: shortName, date: date > today ? today : date, partsLeft: leftoverParts, kcalPerPart: Math.round(total / servings), proteinPerPart: Math.round(protein / servings) }
+        ? { name: shortName, date: date > today ? today : date, partsLeft: leftoverParts, kcalPerPart: Math.round(total / servings), proteinPerPart: Math.round(protein / servings), carbsPerPart: Math.round(carbs / servings) }
         : undefined,
     });
   };
@@ -264,6 +270,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       unit: "portion",
       kcal100: item.kcalPerPart,
       protein100: item.proteinPerPart,
+      carbs100: item.carbsPerPart ?? null,
       portionLabel: "1 part",
     }]);
   };
@@ -370,6 +377,9 @@ export default function MealComposer({ date: initialDate, category: initialCateg
             <label><span>Calories</span><div><input value={custom.kcal} onChange={(e) => setCustom({ ...custom, kcal: e.target.value })} inputMode="decimal" required /><small>kcal</small></div></label>
             <label><span>Protéines</span><div><input value={custom.protein} onChange={(e) => setCustom({ ...custom, protein: e.target.value })} inputMode="decimal" placeholder="—" /><small>g</small></div></label>
           </div>
+          <div className="recipe-fields">
+            <label><span>Glucides</span><div><input value={custom.carbs} onChange={(e) => setCustom({ ...custom, carbs: e.target.value })} inputMode="decimal" placeholder="—" /><small>g</small></div></label>
+          </div>
           {!custom.perPortion && (
             <label>Poids d'une portion (facultatif)<input value={custom.portion} onChange={(e) => setCustom({ ...custom, portion: e.target.value })} inputMode="decimal" placeholder="Ex. 23,5 pour une barre" /></label>
           )}
@@ -445,7 +455,10 @@ export default function MealComposer({ date: initialDate, category: initialCateg
                 />
               ))}
               <div className="meal-total">
-                <span>{isPlate ? "Plat entier" : "Total"}{!isPlate && protein > 0 ? ` · ${protein} g de protéines` : ""}</span>
+                <span>
+                  {isPlate ? "Plat entier" : "Total"}
+                  <small>{carbsLabel(carbs)}{protein > 0 ? ` · ${protein} g de protéines` : ""}</small>
+                </span>
                 <strong>{Math.round(total)} kcal</strong>
               </div>
             </section>
@@ -481,7 +494,10 @@ export default function MealComposer({ date: initialDate, category: initialCateg
                 <span>{adjust > 0 ? "un peu plus" : adjust < 0 ? "un peu moins" : "du plat"}</span>
               </div>
               <div className="plate-mine">
-                <span>Ma part</span>
+                <span>
+                  Ma part
+                  <small>{carbsLabel(carbs * share)}</small>
+                </span>
                 <strong>{Math.round(total * share)} kcal</strong>
               </div>
               {leftoverParts > 0 && !editing && (

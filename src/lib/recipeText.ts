@@ -15,6 +15,7 @@ export type ParsedRecipe = {
   /** Valeurs par portion écrites dans la recette (« 339 kcal – 36 g P »). */
   calories: number | null;
   protein: number | null;
+  carbs: number | null;
   ingredients: IngredientGroup[];
   steps: StepGroup[];
 };
@@ -62,6 +63,7 @@ const isNoise = (line: string) => noise.some((pattern) => pattern.test(line));
 /** « 1 portion – 339 kcal – 36 g P – 19 g G – 14 g L », « Protéines : 36 g » : valeurs, pas un ingrédient. */
 const kcalPattern = /(\d+(?:[.,]\d+)?)\s*kcal\b(?!\s*\/\s*100)/i;
 const proteinPattern = /(\d+(?:[.,]\d+)?)\s*g\s*(?:de\s+)?(?:P\b|prot)|prot[ée]ines?\s*:?\s*(\d+(?:[.,]\d+)?)\s*g/i;
+const carbsPattern = /(\d+(?:[.,]\d+)?)\s*g\s*(?:de\s+)?(?:G\b|gluc)|glucides?\s*:?\s*(\d+(?:[.,]\d+)?)\s*g/i;
 
 /** « Pour la pâte : », « PÂTE SABLÉE », « Garniture : » */
 function sectionTitle(line: string): string | null {
@@ -88,7 +90,7 @@ function looksLikeIngredient(line: string) {
 // --- Découpage ------------------------------------------------------------------------------
 
 export function parseRecipeText(text: string): ParsedRecipe {
-  const result: ParsedRecipe = { name: "", portions: null, time: null, category: null, calories: null, protein: null, ingredients: [], steps: [] };
+  const result: ParsedRecipe = { name: "", portions: null, time: null, category: null, calories: null, protein: null, carbs: null, ingredients: [], steps: [] };
   let mode: "intro" | "ingredients" | "steps" = "intro";
   const times = { prep: 0, cook: 0, total: 0 };
   let currentStep: RecipeStep | null = null;
@@ -144,6 +146,8 @@ export function parseRecipeText(text: string): ParsedRecipe {
       if (result.calories === null) result.calories = Math.round(Number(kcal[1].replace(",", ".")));
       const protein = line.match(proteinPattern);
       if (protein && result.protein === null) result.protein = Math.round(Number((protein[1] ?? protein[2]).replace(",", ".")));
+      const carbs = line.match(carbsPattern);
+      if (carbs && result.carbs === null) result.carbs = Math.round(Number((carbs[1] ?? carbs[2]).replace(",", ".")));
       const portions = line.match(portionsPattern);
       if (portions && !result.portions) result.portions = Number(portions[1]);
       continue;
