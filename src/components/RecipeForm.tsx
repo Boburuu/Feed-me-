@@ -145,6 +145,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
       calories: parsed.calories ? String(parsed.calories) : current.calories,
       protein: parsed.protein ? String(parsed.protein) : current.protein,
       carbs: parsed.carbs !== null ? String(parsed.carbs) : current.carbs,
+      notes: current.notes.trim() ? current.notes : parsed.notes,
       ingredients: groups ?? current.ingredients,
       steps: parsed.steps.length ? parsed.steps : current.steps,
     }));

@@ -12,6 +12,8 @@ export type ParsedRecipe = {
   portions: number | null;
   time: number | null;
   category: RecipeCategory | null;
+  /** Conseils de l'auteur, à mettre dans les notes de la recette. */
+  notes: string;
   /** Valeurs par portion écrites dans la recette (« 339 kcal – 36 g P »). */
   calories: number | null;
   protein: number | null;
@@ -50,12 +52,12 @@ function cleanLine(raw: string) {
 
 // --- Reconnaissance des lignes -----------------------------------------------------------
 
-const ingredientHeader = /^(?:les\s+)?ingr[ée]dients?\b[\s:]*(.*?)\s*:?\s*$/i;
+const ingredientHeader = /^(?:les\s+)?i?ngr[ée]dients?\b[\s:]*(.*?)\s*:?\s*$/i;
 const stepsHeader = /^(?:la\s+)?(?:pr[ée]paration|[ée]tapes?|instructions?|m[ée]thode|d[ée]roul[ée]|r[ée]alisation|recette|progression|steps?|directions?)\b(?!\s*\d)[\s:]*(.*?)\s*:?\s*$/i;
 const portionsPattern = /(?:pour\s+)?(\d+)\s*(?:à\s*\d+\s*)?(?:personnes?|pers\.?|parts?|portions?|people|servings?|couverts?|cookies|muffins|biscuits|pi[èe]ces|cr[êe]pes|pancakes|verrines|bols?)\b/i;
 const timePattern = /(pr[ée]paration|pr[ée]pa|cuisson|repos|total|temps)\s*:?\s*(\d+)\s*(h|heures?|min|mn|minutes?)\s*(\d+)?/gi;
 // Pas de drapeau « i » : « 2 Mélanger » est une étape, « 2 pavés de saumon » un ingrédient.
-const numbered = /^(?:[ÉéEe]tape\s*)?(\d{1,2})\s*(?:[.)\-–:/]|\s(?=[A-ZÀ-ÝÉ]))\s*(.*)$/;
+const numbered = /^(?:[ÉéEe]tape\s*)?(\d{1,2})\s*(?:[.)\-–:]|\/(?!\s*\d)|\s(?=[A-ZÀ-ÝÉ]))\s*(.*)$/;
 const verbs = /^(?:m[ée]lang|ajout|fai[st]|pr[ée]chauff|vers|cui[st]|coup|batt|incorpor|laiss|mett|enfourn|serv|dispos|[ée]tal|fouett|[ée]minc|[ée]pluch|hach|r[ée]serv|plac|r[ée]part|assaisonn|sal|poivr|napp|garn|form|roul|p[ée]tr|chauff|d[ée]coup|rinc|[ée]goutt|port|plong|retir|sort|d[ée]moul|lav|press|r[ée]dui|fond|torr[ée]fi|saisi|dor|badigeon|parsem|d[ée]glac|remu|tamis|monte|beurr|farin|graiss|chemis|d[ée]pos|fe?r?me|recouvr|couvr|r[ée]fri|congel|mix|blend|bake|mix|add|stir|cook|preheat|pour|place|serve)\w*/i;
 
 const isNoise = (line: string) => noise.some((pattern) => pattern.test(line));
@@ -79,8 +81,12 @@ const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
 const endsSentence = (text: string) => /[.!?)]\s*$/.test(text);
 
 function looksLikeStep(line: string) {
-  return numbered.test(line) || (verbs.test(line) && (line.length > 30 || endsSentence(line)));
+  if (numbered.test(line)) return !parseIngredientLine(line).unit;
+  return verbs.test(line) && (line.length > 30 || endsSentence(line));
 }
+
+/** Conseil ou remarque de l'auteur (« Normalement… », « Vous pouvez aussi… ») : va dans les notes. */
+const notePattern = /^(astuce|conseil|remarque|note|info|à savoir|a savoir|normalement|vous pouvez|on peut|bon app|pour info|attention)\b/i;
 
 function looksLikeIngredient(line: string) {
   if (line.length > 70 || looksLikeStep(line)) return false;
@@ -90,11 +96,12 @@ function looksLikeIngredient(line: string) {
 // --- Découpage ------------------------------------------------------------------------------
 
 export function parseRecipeText(text: string): ParsedRecipe {
-  const result: ParsedRecipe = { name: "", portions: null, time: null, category: null, calories: null, protein: null, carbs: null, ingredients: [], steps: [] };
+  const result: ParsedRecipe = { name: "", portions: null, time: null, category: null, calories: null, protein: null, carbs: null, notes: "", ingredients: [], steps: [] };
   let mode: "intro" | "ingredients" | "steps" = "intro";
   const times = { prep: 0, cook: 0, total: 0 };
   let currentStep: RecipeStep | null = null;
   let numberedSteps = false;
+  let inNotes = false;
 
   const ingredientGroup = (title = "") => {
     const last = result.ingredients.at(-1);
@@ -176,7 +183,13 @@ export function parseRecipeText(text: string): ParsedRecipe {
       const forCount = ingHeader[1].match(/pour\s+(\d+)\b/i);
       if (forCount && !result.portions) result.portions = Number(forCount[1]);
       const rest = ingHeader[1].replace(portionsPattern, "").replace(/^(pour|de|du)\s+(la|le|les|l['’])?\s*/i, "").replace(/[():]/g, "").trim();
-      ingredientGroup(rest && !/\d/.test(rest) ? capitalize(rest) : "");
+      const title = rest && !/\d/.test(rest) ? capitalize(rest) : "";
+      if (title && !result.name && !result.ingredients.length) {
+        result.name = title;
+        ingredientGroup();
+      } else {
+        ingredientGroup(title);
+      }
       continue;
     }
     const stHeader = line.match(stepsHeader);
@@ -219,6 +232,11 @@ export function parseRecipeText(text: string): ParsedRecipe {
     }
 
     // mode étapes
+    if (notePattern.test(line) || (inNotes && !numbered.test(line))) {
+      inNotes = true;
+      result.notes = result.notes ? `${result.notes} ${line}` : line;
+      continue;
+    }
     const number = line.match(numbered);
     if (number && number[2]) {
       numberedSteps = true;
@@ -231,7 +249,7 @@ export function parseRecipeText(text: string): ParsedRecipe {
       addStep(line, false);
     } else {
       // Étapes non numérotées : une phrase terminée clôt l'étape.
-      addStep(line, !currentStep || endsSentence(currentStep.text));
+      addStep(line, !currentStep || endsSentence(currentStep.text) || /^[A-ZÀ-ÝÉ]/.test(line) && verbs.test(line));
     }
   }
 
