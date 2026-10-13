@@ -8,6 +8,7 @@ export type IconName =
   | "shoe"
   | "apple"
   | "camera"
+  | "image"
   | "target"
   | "calendar"
   | "book"
@@ -36,6 +37,7 @@ export default function Icon({ name, size = 20 }: { name: IconName; size?: numbe
     flame: <path d="M12 22c4 0 7-2.8 7-7 0-3.6-2.2-6.4-5.5-9.8.2 2.7-1.3 4.3-2.5 5.3.2-3.8-1.8-6.4-3.2-7.5.1 3.7-3.8 6.8-3.8 12 0 4.2 3.3 7 8 7Z" />,
     shoe: <><path d="M3 15c4.5.2 6.3-1.8 7-6l4 4 6.5 2.5c1 .4 1.3 1.7.6 2.5-.6.7-1.5 1-2.4 1H5c-1.7 0-2.7-2.1-2-4Z" /><path d="m13 12 2-2m1.5 4 1.3-1.3" /></>,
     apple: <><path d="M12 7c-2.4-3.5-8-2.4-8 3.6C4 16 7.5 21 10 21c1 0 1.2-.7 2-.7s1 .7 2 .7c2.5 0 6-5 6-10.4C20 4.6 14.4 3.5 12 7Z" /><path d="M12 7c0-2.5 1.6-4 4-4" /></>,
+    image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5-9 9" /></>,
     camera: <><path d="M14.5 5 13 3h-2L9.5 5H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4.5Z" /><circle cx="12" cy="12.5" r="4" /></>,
     target: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></>,
     calendar: <><path d="M5 3v3m14-3v3M3 9h18" /><rect x="3" y="5" width="18" height="16" rx="2" /></>,

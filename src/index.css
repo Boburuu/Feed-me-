@@ -355,6 +355,10 @@ h2 { font-size: 20px; font-weight: 800; }
 }
 .camera-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; background: rgba(255,255,255,.13); }
 .photo-meal-card > span:nth-child(2) { display: grid; gap: 3px; }
+.photo-meal-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 10px; }
+.photo-meal-row .photo-meal-card { grid-template-columns: auto 1fr; margin-bottom: 0; }
+.photo-meal-gallery { display: grid; gap: 2px; place-items: center; align-content: center; width: 72px; padding: 8px; border: 2px solid var(--green); border-radius: 18px; color: var(--green-text); background: transparent; cursor: pointer; }
+.photo-meal-gallery small { font-size: 11px; font-weight: 700; }
 .photo-meal-card strong { font-size: 13px; }
 .photo-meal-card small { color: #c9ded7; font-size: 11px; }
 .hidden-input { display: none; }

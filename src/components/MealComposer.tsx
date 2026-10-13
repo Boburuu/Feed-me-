@@ -92,6 +92,8 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const [showAllDrinks, setShowAllDrinks] = useState(false);
   useEffect(() => { drinkShortcuts().then(setDrinks).catch(() => undefined); }, []);
   const photoInput = useRef<HTMLInputElement>(null);
+  /** Sans « capture » : Android ouvre la galerie au lieu de l'appareil photo. */
+  const galleryInput = useRef<HTMLInputElement>(null);
   const [photo, setPhoto] = useState<{ src: string; state: "loading" | "done" | "error"; analysis: PhotoAnalysis | null } | null>(null);
   const [scanNote, setScanNote] = useState("");
 
@@ -380,6 +382,9 @@ export default function MealComposer({ date: initialDate, category: initialCateg
           <button type="button" className="add-part" onClick={() => photoInput.current?.click()}>
             <Icon name="camera" size={16} /> Photo
           </button>
+          <button type="button" className="add-part" onClick={() => galleryInput.current?.click()}>
+            <Icon name="image" size={16} /> Galerie
+          </button>
           <button type="button" className="add-part" onClick={scan}>
             <Icon name="target" size={16} /> Code-barres
           </button>
@@ -387,6 +392,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       )}
       {scanNote && !searching && <p className="food-hint">{scanNote}</p>}
       <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) analyzePhoto(file); }} />
+      <input ref={galleryInput} className="hidden-input" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) analyzePhoto(file); }} />
 
       {!searching && !creating && photo && (() => {
         const analysis = photo.analysis;

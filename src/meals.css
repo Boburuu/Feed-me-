@@ -123,7 +123,8 @@
 .drink-chips .drink-more { border-style: dashed; color: var(--green-text); }
 
 /* --- Photo / code-barres, contenants des boissons ------------------------------------ */
-.capture-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.capture-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.capture-actions .add-part { padding: 10px 4px; }
 .capture-actions .add-part { margin: 0; }
 .container-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .container-chips button { display: flex; align-items: baseline; gap: 4px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 99px; color: var(--ink); background: var(--cream); cursor: pointer; font-size: 12px; font-weight: 700; }

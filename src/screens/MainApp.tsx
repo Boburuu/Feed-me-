@@ -83,6 +83,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   /** Jour auquel le formulaire de repas ajoute l'entrée (aujourd'hui, ou un jour choisi dans le suivi). */
   const [mealDate, setMealDate] = useState(today);
   const photoInput = useRef<HTMLInputElement>(null);
+  /** Sans « capture » : Android ouvre la galerie au lieu de l'appareil photo. */
+  const galleryInput = useRef<HTMLInputElement>(null);
   const avatarInput = useRef<HTMLInputElement>(null);
   const backupInput = useRef<HTMLInputElement>(null);
 
@@ -434,15 +436,21 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               </div>
               <button className="add-button" onClick={() => openMealForm()}><Icon name="plus" size={17} /> Ajouter</button>
             </div>
-            <button className="photo-meal-card" onClick={() => photoInput.current?.click()}>
-              <span className="camera-icon"><Icon name="camera" /></span>
-              <span>
-                <strong>Photographier mon repas</strong>
-                <small>Reconnaissance du plat sur le téléphone, à vérifier</small>
-              </span>
-              <Icon name="chevron" size={18} />
-            </button>
+            <div className="photo-meal-row">
+              <button className="photo-meal-card" onClick={() => photoInput.current?.click()}>
+                <span className="camera-icon"><Icon name="camera" /></span>
+                <span>
+                  <strong>Photographier mon repas</strong>
+                  <small>Reconnaissance du plat sur le téléphone, à vérifier</small>
+                </span>
+              </button>
+              <button className="photo-meal-gallery" onClick={() => galleryInput.current?.click()} aria-label="Choisir une photo dans la galerie">
+                <Icon name="image" />
+                <small>Galerie</small>
+              </button>
+            </div>
             <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={takeMealPhoto} />
+            <input ref={galleryInput} className="hidden-input" type="file" accept="image/*" onChange={takeMealPhoto} />
             <div className="meal-list">
               {todayMeals.length === 0 && (
                 <button className="meal-row empty" onClick={() => openMealForm()}>

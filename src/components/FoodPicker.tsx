@@ -22,6 +22,8 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
   const [photo, setPhoto] = useState<{ src: string; state: "loading" | "done" | "error"; analysis: PhotoAnalysis | null } | null>(null);
   const [note, setNote] = useState("");
   const photoInput = useRef<HTMLInputElement>(null);
+  /** Sans « capture » : Android ouvre la galerie au lieu de l'appareil photo. */
+  const galleryInput = useRef<HTMLInputElement>(null);
   const native = photoRecognitionAvailable();
   /** Aliment choisi : la recherche se vide pour revoir la liste, comme dans un repas. */
   const onPick = (food: FoodResult) => { setQuery(""); setPhoto(null); pick(food); };
@@ -88,10 +90,12 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
       {native && !query.trim() && !photo && (
         <div className="capture-actions">
           <button type="button" className="add-part" onClick={() => photoInput.current?.click()}><Icon name="camera" size={16} /> Photo</button>
+          <button type="button" className="add-part" onClick={() => galleryInput.current?.click()}><Icon name="image" size={16} /> Galerie</button>
           <button type="button" className="add-part" onClick={scan}><Icon name="target" size={16} /> Code-barres</button>
         </div>
       )}
       <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) analyzePhoto(file); }} />
+      <input ref={galleryInput} className="hidden-input" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) analyzePhoto(file); }} />
       {note && <p className="food-hint">{note}</p>}
 
       {photo && !query.trim() && (
