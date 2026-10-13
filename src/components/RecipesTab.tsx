@@ -177,7 +177,7 @@ export default function RecipesTab({ recipes, update, onAddToJournal, flash }: R
               </div>
               <div className="recipe-actions">
                 {selection === null
-                  ? <button className="recipe-add" onClick={() => onAddToJournal(recipe)} aria-label={`Ajouter une portion de ${recipe.name} au journal`}><Icon name="plus" size={17} /></button>
+                  ? <button className="recipe-add" onClick={() => onAddToJournal(recipe)} aria-label={`Ajouter ${recipe.name} à mes repas`}><Icon name="plus" size={17} /></button>
                   : <span className={`recipe-check${selection.has(recipe.id) ? " on" : ""}`} aria-hidden="true">{selection.has(recipe.id) && <Icon name="check" size={16} />}</span>}
               </div>
             </article>

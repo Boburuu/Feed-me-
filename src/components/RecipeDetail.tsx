@@ -165,7 +165,7 @@ export default function RecipeDetail({ recipe, onClose, onEdit, onDelete, onAddT
       </div>
 
       <footer className="recipe-detail-footer">
-        <button className="submit-button" onClick={onAddToJournal}><Icon name="plus" size={18} /> J'en ai mangé{recipe.calories ? ` (${recipe.calories} kcal la part)` : ""}</button>
+        <button className="submit-button" onClick={onAddToJournal}><Icon name="plus" size={18} /> Ajouter à mes repas</button>
       </footer>
     </div>
   );

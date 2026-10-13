@@ -126,6 +126,10 @@
 
 /* --- Photo / code-barres, contenants des boissons ------------------------------------ */
 .energy-list { display: grid; gap: 8px; }
+.portion-picker { display: grid; gap: 12px; }
+.portion-modes { grid-template-columns: repeat(3, 1fr); }
+.portion-hint { color: var(--muted); font-size: 12px; }
+.modal-card .portion-input { width: 76px; padding: 9px 8px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--cream); font-size: 16px; font-weight: 700; text-align: center; }
 .energy-head { display: flex; align-items: center; justify-content: space-between; }
 .capture-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .capture-actions .add-part { padding: 10px 4px; }
@@ -149,7 +153,7 @@
 .share-row .stepper button:disabled { opacity: .35; }
 .plate-mine { display: flex; align-items: baseline; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--line); }
 .plate-mine span { display: grid; gap: 2px; font-size: 14px; font-weight: 800; }
-.plate-mine strong { color: var(--green-text); font-family: "Manrope"; font-size: 24px; }
+.plate-mine strong { color: var(--green-text); font-family: "Manrope"; font-size: 24px; white-space: nowrap; }
 .plate-share .awake-toggle { margin: 0; line-height: 1.45; }
 .leftover-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; }
 .fraction-chips button { min-width: 44px; justify-content: center; }

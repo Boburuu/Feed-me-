@@ -7,6 +7,7 @@ import GoalCard from "../components/GoalCard";
 import Icon, { type IconName } from "../components/Icon";
 import PlanEditor from "../components/PlanEditor";
 import PlanResults from "../components/PlanResults";
+import RecipePortionPicker from "../components/RecipePortionPicker";
 import RecipesTab from "../components/RecipesTab";
 import StepsPanel from "../components/StepsPanel";
 import TrackingTab from "../components/TrackingTab";
@@ -42,7 +43,7 @@ type MainAppProps = {
 };
 
 type Tab = "Accueil" | "Suivi" | "Activité" | "Recettes" | "Profil";
-type ModalType = "meal" | "add" | "pin" | "steps" | null;
+type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | null;
 
 function defaultCategory(date = new Date()): MealCategory {
   const hour = date.getHours() + date.getMinutes() / 60;
@@ -71,7 +72,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const [mealRecipe, setMealRecipe] = useState<Recipe | null>(null);
   /** Repas déjà noté qu'on corrige (moment, jour, aliments). */
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
-  useEffect(() => { if (modal !== "meal") { setMealPhoto(null); setMealRecipe(null); setEditingMeal(null); } }, [modal]);
+  useEffect(() => { if (modal !== "meal" && modal !== "portion") { setMealPhoto(null); setMealRecipe(null); setEditingMeal(null); } }, [modal]);
 
   // Repas et recettes notés avant le suivi des glucides : complétés une fois, en arrière-plan.
   useEffect(() => {
@@ -300,9 +301,21 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const stopFast = () =>
     update((current) => ({ ...current, fasts: current.fasts.map((fast) => (fast.end ? fast : { ...fast, end: new Date().toISOString() })) }));
 
+  /** « Ajouter à mes repas » depuis une recette : fenêtre du choix de la quantité mangée. */
   const addRecipeToJournal = (recipe: Recipe) => {
     setMealRecipe(recipe);
-    openMealForm();
+    setModal("portion");
+  };
+
+  const saveRecipePortion = (meal: Omit<Meal, "id">, remember: Pick<Recipe, "pieces" | "totalGrams">) => {
+    const recipeId = mealRecipe?.id;
+    update((current) => ({
+      ...current,
+      meals: [...current.meals, { ...meal, id: Date.now() }],
+      recipes: current.recipes.map((recipe) => (recipe.id === recipeId ? { ...recipe, ...remember } : recipe)),
+    }));
+    setModal(null);
+    flash(`Ajouté à mes repas · ${meal.calories} kcal`);
   };
 
   const importBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -630,6 +643,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           <section className="modal-card" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-handle" />
             <button className="modal-close" onClick={() => setModal(null)} aria-label="Fermer"><Icon name="close" /></button>
+            {modal === "portion" && mealRecipe && (
+              <>
+                <p className="eyebrow">Ajouter à mes repas</p>
+                <h2>{mealRecipe.name}</h2>
+                <RecipePortionPicker recipe={mealRecipe} category={defaultCategory()} onSave={saveRecipePortion} />
+              </>
+            )}
             {modal === "meal" && (
               <>
                 <p className="eyebrow">Journal alimentaire</p>

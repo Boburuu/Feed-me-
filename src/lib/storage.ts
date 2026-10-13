@@ -136,6 +136,10 @@ export type Recipe = {
   protein: number;
   /** Glucides par personne, en g (absents : pas encore calculés). */
   carbs?: number;
+  /** Nombre de morceaux du plat (gâteau coupé en 12), retenu pour « j'en ai mangé 2 ». */
+  pieces?: number;
+  /** Poids du plat entier en g, retenu pour « j'en ai mangé 250 g ». */
+  totalGrams?: number;
   /** Absente des recettes créées avant les catégories : « plat » par défaut. */
   category?: RecipeCategory;
   /** Identifiants des images (captures, photo du site) rangées dans IndexedDB. */
