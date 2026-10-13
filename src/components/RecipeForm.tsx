@@ -205,8 +205,8 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
       ingredients: current.ingredients.map((group, i) => (i === groupIndex ? { ...group, items: [...group.items.filter(hasContent), item] } : group)),
     }));
     // Produit de marque : la portion indiquée sur l'emballage arrive ensuite (comme dans un repas).
-    if (result.source === "off" && result.ref && !food.pieceGrams) {
-      openFoodFactsPortion(result.ref).then((portion) => {
+    if (result.source === "off" && /^d+$/.test(result.ref ?? "") && !food.pieceGrams) {
+      openFoodFactsPortion(result.ref!).then((portion) => {
         if (!portion) return;
         updateItem(item.key, (line) => line.food ? { ...line, food: { ...line.food, servingGrams: portion.grams, servingLabel: portion.label, ...(line.food.unit === "g" && line.food.quantity === 100 ? { unit: "portion" as const, quantity: 1, portionGrams: portion.grams, portionLabel: portion.label } : {}) } } : line);
       }).catch(() => undefined);

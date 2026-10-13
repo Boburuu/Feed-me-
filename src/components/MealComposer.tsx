@@ -12,11 +12,13 @@ import {
   searchCommon,
   drinkShortcuts,
   searchOpenFoodFacts,
+  energyResult,
   recipeResult,
   searchOwn,
   toMealItem,
   type FoodResult,
 } from "../lib/foods";
+import { energyBrands, energyDrinks } from "../lib/energyDrinks";
 import { analyzeMealPhoto, photoRecognitionAvailable, scanBarcode, type PhotoAnalysis } from "../lib/foodPhoto";
 import { mealCategories, todayKey, type CustomFood, type Leftover, type Meal, type MealCategory, type MealItem, type Recipe } from "../lib/storage";
 
@@ -90,6 +92,8 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const searching = query.trim().length > 0;
   const [drinks, setDrinks] = useState<FoodResult[]>([]);
   const [showAllDrinks, setShowAllDrinks] = useState(false);
+  /** Liste des boissons énergisantes : fermée, ou ouverte sur une marque. */
+  const [energyBrand, setEnergyBrand] = useState<string | null>(null);
   useEffect(() => { drinkShortcuts().then(setDrinks).catch(() => undefined); }, []);
   const photoInput = useRef<HTMLInputElement>(null);
   /** Sans « capture » : Android ouvre la galerie au lieu de l'appareil photo. */
@@ -149,7 +153,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   // les autres variantes de la table ensuite, sans doublon.
   useEffect(() => {
     let alive = true;
-    Promise.all([searchCommon(query), searchCiqual(query, 15)])
+    Promise.all([searchCommon(query, 40), searchCiqual(query, 15)])
       .then(([simple, all]) => {
         if (!alive) return;
         // Référence d'un aliment courant : « code Ciqual:nom simple ».
@@ -181,8 +185,8 @@ export default function MealComposer({ date: initialDate, category: initialCateg
     setLines((current) => [...current, { ...toMealItem(result), key }]);
     setQuery("");
     // Produit de marque : on récupère la portion indiquée sur l'emballage.
-    if (result.source === "off" && result.ref) {
-      openFoodFactsPortion(result.ref).then((portion) => {
+    if (result.source === "off" && /^d+$/.test(result.ref ?? "")) {
+      openFoodFactsPortion(result.ref!).then((portion) => {
         if (!portion) return;
         setLines((current) => current.map((line) => {
           if (line.key !== key) return line;
@@ -534,6 +538,27 @@ export default function MealComposer({ date: initialDate, category: initialCateg
                   <button type="button" className="drink-more" onClick={() => setShowAllDrinks(true)}><strong>+ {drinks.length - 8}</strong><small>autres</small></button>
                 )}
               </div>
+              {energyBrand === null ? (
+                <button type="button" className="add-part" onClick={() => setEnergyBrand(energyBrands[0])}>
+                  <Icon name="flame" size={15} /> Boissons énergisantes ({energyDrinks.length})
+                </button>
+              ) : (
+                <div className="energy-list">
+                  <div className="energy-head">
+                    <p className="food-section">Boissons énergisantes</p>
+                    <button type="button" className="icon-button" onClick={() => setEnergyBrand(null)} aria-label="Fermer la liste"><Icon name="close" size={15} /></button>
+                  </div>
+                  <div className="container-chips" role="radiogroup" aria-label="Marque">
+                    {energyBrands.map((brand) => (
+                      <button type="button" role="radio" aria-checked={brand === energyBrand} key={brand} className={brand === energyBrand ? "selected" : ""} onClick={() => setEnergyBrand(brand)}>{brand}</button>
+                    ))}
+                  </div>
+                  {energyDrinks.filter((drink) => drink.brand === energyBrand).map((drink) => (
+                    <FoodResultRow key={drink.name} result={energyResult(drink)} onPick={(food) => { add(food); setEnergyBrand(null); }} />
+                  ))}
+                  <small className="photo-note">Valeurs moyennes des canettes vendues en France (Open Food Facts). Le code-barres donne la valeur exacte.</small>
+                </div>
+              )}
             </div>
           )}
           {recents.length > 0 && (

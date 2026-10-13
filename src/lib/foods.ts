@@ -9,6 +9,7 @@
 
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { commonFoods, type CommonFood } from "./commonFoods";
+import { energyDrinks, type EnergyDrink } from "./energyDrinks";
 import type { CustomFood, MealItem, Recipe } from "./storage";
 
 export type FoodResult = Omit<MealItem, "quantity" | "unit"> & {
@@ -136,7 +137,7 @@ export async function searchCiqual(query: string, limit = 12): Promise<FoodResul
 // --- Aliments courants (noms simples) ------------------------------------------------------
 
 /** « banane », « bananes », « ban » trouvent « Banane » ; les synonymes comptent aussi. */
-function commonScore(food: CommonFood, query: string) {
+function commonScore(food: Pick<CommonFood, "name" | "aliases">, query: string) {
   let best = 0;
   for (const key of [normalize(food.name), ...(food.aliases ?? []).map(normalize)]) {
     if (key === query) best = Math.max(best, 100);
@@ -157,12 +158,33 @@ export async function searchCommon(query: string, limit = 4): Promise<FoodResult
   if (normalized.length < 2) return [];
   const { rows } = await loadCiqual();
   byName ??= new Map(rows.map((row) => [row[1], row]));
-  return commonFoods
-    .map((food) => ({ food, score: commonScore(food, normalized) }))
+  const found = [
+    ...commonFoods.map((food) => ({ score: commonScore(food, normalized), result: () => commonResult(food) })),
+    // Boissons énergisantes : arrondi à la dizaine pour garder l'ordre de la liste
+    // (l'original d'une marque avant ses parfums), le tri étant stable.
+    ...energyDrinks.map((drink) => ({ score: Math.floor(commonScore(drink, normalized) / 10) * 10, result: () => [energyResult(drink)] })),
+  ];
+  return found
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .flatMap(({ food }) => commonResult(food));
+    .flatMap((item) => item.result());
+}
+
+/** Boisson énergisante de marque (valeurs Open Food Facts embarquées), comptée à la canette. */
+export function energyResult(drink: EnergyDrink): FoodResult {
+  return {
+    name: drink.name,
+    source: "off",
+    ref: `energie:${normalize(drink.name).replace(/ /g, "-")}`,
+    kcal100: drink.kcal100,
+    protein100: 0,
+    portionGrams: drink.can,
+    portionLabel: "1 canette",
+    liquid: true,
+    packageGrams: drink.can,
+    detail: `${drink.brand} · Open Food Facts`,
+  };
 }
 
 function commonResult(food: CommonFood): FoodResult[] {

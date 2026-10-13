@@ -6,6 +6,7 @@
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { commonFoods } from "./commonFoods";
+import { energyDrinks } from "./energyDrinks";
 import { normalize as simplify, openFoodFactsByBarcode, searchCiqual, searchCommon, searchOpenFoodFacts, type FoodResult } from "./foods";
 import { readTextLines } from "./ocr";
 
@@ -197,16 +198,27 @@ const wordMatches = (read: string, wanted: string) => nearlyEqual(read, wanted) 
  */
 function commonInText(text: string) {
   const read = simplify(text).split(" ");
-  let best = { name: "", length: 0 };
-  for (const food of commonFoods) {
-    for (const name of [food.name, ...(food.aliases ?? [])].map(simplify)) {
-      if (name.length < 5 || name.length <= best.length) continue;
-      const wanted = name.split(" ");
-      const found = read.some((_, start) => wanted.every((word, offset) => read[start + offset] !== undefined && wordMatches(read[start + offset], word)));
-      if (found) best = { name: food.name, length: name.length };
+  /** Nom le plus long de la liste écrit sur l'emballage. */
+  const longest = <T extends { name: string; aliases?: string[] }>(foods: T[]) => {
+    let best: { food: T | null; length: number } = { food: null, length: 0 };
+    for (const food of foods) {
+      for (const name of [food.name, ...(food.aliases ?? [])].map(simplify)) {
+        if (name.length < 5 || name.length <= best.length) continue;
+        const wanted = name.split(" ");
+        const found = read.some((_, start) => wanted.every((word, offset) => read[start + offset] !== undefined && wordMatches(read[start + offset], word)));
+        if (found) best = { food, length: name.length };
+      }
     }
+    return best.food;
+  };
+  // Une marque connue (« Kong Strong ») passe avant les mots génériques (« energy drink »).
+  const drink = longest(energyDrinks);
+  if (drink) {
+    // « Sugarfree », « zéro sucre » écrits ailleurs sur la canette : la version sans sucre de la marque.
+    const sugarFree = /\b(zero|sugar ?free|sans sucre|zero sucre)\b/.test(read.join(" ")) && drink.kcal100 > 10;
+    return (sugarFree && energyDrinks.find((item) => item.brand === drink.brand && item.kcal100 <= 5)?.name) || drink.name;
   }
-  return best.name;
+  return longest(commonFoods)?.name ?? "";
 }
 
 export type PhotoAnalysis = {
