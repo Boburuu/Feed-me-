@@ -124,6 +124,9 @@
 
 /* Ingrédients : recherche, photo et code-barres comme dans un repas. */
 .food-picker { display: grid; gap: 8px; }
+.ingredient-food { display: grid; gap: 6px; }
+.choice-chips { align-items: center; padding: 0 4px; }
+.choice-chips small { color: var(--muted); font-size: 12px; font-weight: 700; }
 .food-picker .food-search input,
 .food-picker .food-search input:focus { width: auto; padding: 12px 4px; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: 16px; }
 .recipe-computed { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: var(--mint); }

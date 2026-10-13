@@ -94,6 +94,8 @@ export type MealItem = {
   pieceLabel?: string;
   /** Ingrédient écrit retrouvé automatiquement : nom de l'aliment retenu dans la base. */
   matchedName?: string;
+  /** Ingrédient « au choix » (« crevettes ou poulet ») : le choix compté. */
+  choice?: string;
   /** Recette du carnet : nombre de parts de la recette entière (valeurs = 1 part). */
   recipePortions?: number;
 };

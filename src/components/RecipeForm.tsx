@@ -4,7 +4,7 @@ import Icon from "./Icon";
 import MealLineEditor from "./MealLineEditor";
 import { openFoodFactsPortion, toMealItem, type FoodResult } from "../lib/foods";
 import { deleteImage, getImage, putImage, shrinkImage } from "../lib/images";
-import { matchIngredient } from "../lib/ingredientMatch";
+import { choicesOf, matchChoice, matchIngredient } from "../lib/ingredientMatch";
 import { mergeTexts, ocrAvailable, readImageText } from "../lib/ocr";
 import { categoryOf, commonUnits, formatQuantity, ingredientFromItem, ingredientsNutrition, parseQuantity, recipeCategories } from "../lib/recipes";
 import { parseRecipeText, summarize } from "../lib/recipeText";
@@ -200,6 +200,15 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
   const removeItem = (key: number) =>
     setDraft((current) => ({ ...current, ingredients: current.ingredients.map((group) => ({ ...group, items: group.items.filter((item) => item.key !== key) })) }));
 
+  /** Autre choix d'un ingrédient « au choix », au même poids. */
+  const chooseAlternative = async (key: number, choice: string) => {
+    const current = draft.ingredients.flatMap((group) => group.items).find((item) => item.key === key)?.food;
+    if (!current || current.choice === choice) return;
+    const food = await matchChoice(current, choice).catch(() => null);
+    if (food) updateItem(key, (item) => ({ ...item, food }));
+    else flash(`« ${choice} » introuvable : cherchez-le avec la recherche.`);
+  };
+
   /** Aliment trouvé : il s'ajoute à la partie, réglable comme dans un repas. */
   const pickFood = (groupIndex: number, result: FoodResult) => {
     const food = toMealItem(result);
@@ -362,12 +371,27 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
               const lines = (group.items.length > 0 || picking !== groupIndex) && (
                 <div className="ingredient-rows">
                   {group.items.map((item, itemIndex) => item.food ? (
-                    <MealLineEditor
-                      key={item.key}
-                      line={item.food}
-                      onChange={(change) => updateItem(item.key, (current) => ({ ...current, food: { ...current.food!, ...change } }))}
-                      onRemove={() => removeItem(item.key)}
-                    />
+                    <div className="ingredient-food" key={item.key}>
+                      <MealLineEditor
+                        line={item.food}
+                        onChange={(change) => updateItem(item.key, (current) => ({ ...current, food: { ...current.food!, ...change } }))}
+                        onRemove={() => removeItem(item.key)}
+                      />
+                      {/* « crevettes ou poulet ou tofu » : le choix compté, modifiable. */}
+                      {choicesOf(item.food.name).length > 1 && (
+                        <div className="container-chips choice-chips" role="radiogroup" aria-label="Au choix">
+                          <small>Au choix :</small>
+                          {choicesOf(item.food.name).map((choice) => {
+                            const selected = (item.food!.choice ?? choicesOf(item.food!.name)[0]) === choice;
+                            return (
+                              <button type="button" role="radio" aria-checked={selected} key={choice} className={selected ? "selected" : ""} onClick={() => void chooseAlternative(item.key, choice)}>
+                                {choice.length > 28 ? `${choice.slice(0, 27)}…` : choice}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="ingredient-row" key={item.key}>
                       <input value={item.quantity} onChange={(e) => setItem(groupIndex, itemIndex, { quantity: e.target.value })} inputMode="decimal" placeholder="Qté" aria-label="Quantité" />

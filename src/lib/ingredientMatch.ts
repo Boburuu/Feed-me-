@@ -7,7 +7,7 @@
 // retenu et peut le corriger.
 
 import { commonFoods } from "./commonFoods";
-import { normalize, searchCiqual, searchCommon, toMealItem, type FoodResult } from "./foods";
+import { itemGrams, normalize, searchCiqual, searchCommon, toMealItem, type FoodResult } from "./foods";
 import type { Ingredient, MealItem } from "./storage";
 
 const stopWords = new Set(["de", "d", "du", "des", "la", "le", "les", "l", "a", "au", "aux", "en", "et", "ou", "avec", "pour", "sans"]);
@@ -93,7 +93,8 @@ export async function matchIngredient(item: Ingredient): Promise<MealItem | null
   // « feuille » + « riz J.B » : l'unité fait partie du nom de l'aliment (« Feuille de riz J.B »).
   const unitInName = !!withUnit && normalize(found.name).startsWith(normalize(item.unit));
   const name = unitInName ? `${item.unit.charAt(0).toUpperCase()}${item.unit.slice(1)} de ${item.name}` : item.name;
-  const food: MealItem = { ...toMealItem(found), name, matchedName: found.name };
+  const choices = choicesOf(item.name);
+  const food: MealItem = { ...toMealItem(found), name, matchedName: found.name, ...(choices.length > 1 ? { choice: choices[0] } : {}) };
   const grams = metric[item.unit];
   if (grams) return { ...food, unit: "g", quantity: Math.round(item.quantity * grams * 10) / 10, ...(["ml", "cl", "dl", "L"].includes(item.unit) ? { liquid: true } : {}) };
   // « 1 c. à café », « 2 tranches », « 1 œuf » : la mesure écrite, ou la pièce habituelle de l'aliment.
@@ -101,4 +102,27 @@ export async function matchIngredient(item: Ingredient): Promise<MealItem | null
   if (!pieceGrams) return null;
   const label = item.unit && !unitInName ? `1 ${item.unit}` : found.portionLabel;
   return { ...food, unit: "portion", quantity: item.quantity, portionGrams: pieceGrams, portionLabel: label, servingGrams: pieceGrams, servingLabel: label };
+}
+
+/**
+ * Les choix proposés par un ingrédient : « crevettes ou poulet ou tofu »,
+ * « galanga (ou de gingembre) ». Un seul élément : pas d'alternative.
+ */
+export function choicesOf(name: string): string[] {
+  const inParens = [...name.matchAll(/\(\s*ou\s+([^)]*)\)/gi)].map((match) => match[1]);
+  const main = name.replace(/\([^)]*\)/g, " ").split(/\s+ou\s+/i);
+  const clean = (text: string) => text.replace(/^\s*(sinon|bien sûr)\s+/i, "").replace(/^\s*(de|du|des|la|le|les|d['’])\s*/i, "").replace(/\s+/g, " ").trim();
+  return [...new Set([...main, ...inParens].map(clean).filter((text) => text.length >= 2))];
+}
+
+/**
+ * Autre choix pour un ingrédient déjà calculé, au même poids : « 12 crevettes » (180 g)
+ * devient 180 g de poulet, et non 12 blancs de poulet.
+ */
+export async function matchChoice(current: MealItem, choice: string): Promise<MealItem | null> {
+  const matched = await findFood(choice);
+  if (!matched) return null;
+  const found = await rawIfCooked(matched, choice);
+  const grams = itemGrams(current) ?? 100;
+  return { ...toMealItem(found), name: current.name, matchedName: found.name, choice, unit: "g", quantity: Math.round(grams), ...(current.liquid ? { liquid: true } : {}) };
 }
