@@ -9,13 +9,16 @@ import { commonFoods } from "./commonFoods";
 import { energyDrinks } from "./energyDrinks";
 import { normalize as simplify, openFoodFactsByBarcode, searchCiqual, searchCommon, searchOpenFoodFacts, type FoodResult } from "./foods";
 import { readTextLines } from "./ocr";
+import { readBarcodeFromFile, readLinesFromFile } from "./webVision";
 
 type FoodClassifierPlugin = {
   classify(options: { path: string; limit?: number }): Promise<{ results: { label: string; score: number }[] }>;
 };
 const FoodClassifier = registerPlugin<FoodClassifierPlugin>("FoodClassifier");
 
-export const photoRecognitionAvailable = () => Capacitor.isNativePlatform();
+/** Photo et code-barres : partout (navigateur compris). La reconnaissance des plats : Android seulement. */
+export const photoRecognitionAvailable = () => true;
+const native = () => Capacitor.isNativePlatform();
 
 export type PhotoSuggestion = { label: string; score: number; food: FoodResult };
 
@@ -159,8 +162,7 @@ const packagingNoise = /^(net|poids|ingredients?|nutri|score|valeurs?|energie|kc
  * Nom du produit lu sur l'emballage : les lignes écrites le plus gros (« kinder »,
  * « Country »), puis recherche dans Open Food Facts.
  */
-async function packagingProducts(uri: string): Promise<FoodResult[]> {
-  const read = await readTextLines(uri);
+async function packagingProducts(read: { text: string; height: number }[]): Promise<FoodResult[]> {
   // Nom d'un aliment courant écrit sur l'emballage (« Monster … Ultra Rosá ») : fiable,
   // et disponible hors ligne. Le nom le plus long l'emporte (« ultra rosa » avant « monster »).
   const known = commonInText(read.map((line) => line.text).join(" "));
@@ -235,12 +237,20 @@ export type PhotoAnalysis = {
  * code-barres → nom imprimé sur l'emballage → reconnaissance du plat.
  */
 export async function analyzeMealPhoto(file: File): Promise<PhotoAnalysis> {
+  if (!native()) {
+    // Navigateur : code-barres (ZXing) puis texte de l'emballage (Tesseract) ; pas de modèle de plats.
+    const code = await readBarcodeFromFile(file).catch(() => null);
+    const barcode = code ? await openFoodFactsByBarcode(code).catch(() => null) : null;
+    if (barcode) return { barcode, packaging: [], dishes: [] };
+    const packaging = await readLinesFromFile(file).then(packagingProducts).catch(() => []);
+    return { barcode: null, packaging, dishes: [] };
+  }
   const { uri, remove } = await writePhoto(file);
   try {
     const barcode = await barcodeProduct(uri).catch(() => null);
     if (barcode) return { barcode, packaging: [], dishes: [] };
     const [packaging, dishes] = await Promise.all([
-      packagingProducts(uri).catch(() => []),
+      readTextLines(uri).then(packagingProducts).catch(() => []),
       classifyDish(uri, 3).catch(() => []),
     ]);
     return { barcode: null, packaging, dishes };
@@ -249,7 +259,18 @@ export async function analyzeMealPhoto(file: File): Promise<PhotoAnalysis> {
   }
 }
 
-export type ScanResult = { status: "found"; food: FoodResult } | { status: "unknown"; code: string } | { status: "cancelled" | "installing" };
+/** Code-barres pris en photo (navigateur : pas de scanner en direct). */
+export async function scanBarcodePhoto(file: File): Promise<ScanResult> {
+  const code = await readBarcodeFromFile(file);
+  if (!code) return { status: "unreadable" };
+  const food = await openFoodFactsByBarcode(code);
+  return food ? { status: "found", food } : { status: "unknown", code };
+}
+
+/** Scanner en direct sur Android ; dans le navigateur, le code-barres se prend en photo. */
+export const liveScanAvailable = () => native();
+
+export type ScanResult = { status: "found"; food: FoodResult } | { status: "unknown"; code: string } | { status: "cancelled" | "installing" | "unreadable" };
 
 /** Scanner de codes-barres de Google (caméra en direct), puis produit Open Food Facts. */
 export async function scanBarcode(): Promise<ScanResult> {

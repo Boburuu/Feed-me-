@@ -1,9 +1,10 @@
-// Lecture du texte d'une capture d'écran, sur le téléphone et hors ligne (Google ML Kit).
-// ML Kit n'existe pas dans un navigateur : sur ordinateur, on colle le texte à la place.
+// Lecture du texte d'une capture d'écran : Google ML Kit sur Android (hors ligne),
+// Tesseract dans le navigateur (version iPhone, voir webVision.ts).
 
 import { Capacitor } from "@capacitor/core";
+import { readTextFromFile } from "./webVision";
 
-export const ocrAvailable = () => Capacitor.isNativePlatform();
+export const ocrAvailable = () => true;
 
 const MAX_SIDE = 2400;
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -35,6 +36,7 @@ function toJpegBase64(file: File): Promise<string> {
 export async function readImageText(file: File): Promise<string> {
   if (!file.type.startsWith("image/")) throw new Error("Ce fichier n'est pas une image.");
   if (file.size > MAX_BYTES) throw new Error("Image trop lourde (20 Mo maximum).");
+  if (!Capacitor.isNativePlatform()) return readTextFromFile(file);
   // Chargés à la première capture seulement : le moteur est lourd.
   const [{ Directory, Filesystem }, { TextRecognition }] = await Promise.all([
     import("@capacitor/filesystem"),

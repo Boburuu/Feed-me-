@@ -20,7 +20,7 @@ import {
   type FoodResult,
 } from "../lib/foods";
 import { energyBrands, energyDrinks } from "../lib/energyDrinks";
-import { analyzeMealPhoto, photoRecognitionAvailable, scanBarcode, type PhotoAnalysis } from "../lib/foodPhoto";
+import { analyzeMealPhoto, liveScanAvailable, photoRecognitionAvailable, scanBarcode, scanBarcodePhoto, type PhotoAnalysis, type ScanResult } from "../lib/foodPhoto";
 import { mealCategories, todayKey, type CustomFood, type Leftover, type Meal, type MealCategory, type MealItem, type Recipe } from "../lib/storage";
 
 /** Ce qui accompagne l'enregistrement : un reste à garder, des restes consommés. */
@@ -99,6 +99,8 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const photoInput = useRef<HTMLInputElement>(null);
   /** Sans « capture » : Android ouvre la galerie au lieu de l'appareil photo. */
   const galleryInput = useRef<HTMLInputElement>(null);
+  /** Navigateur (iPhone) : le code-barres se prend en photo. */
+  const barcodeInput = useRef<HTMLInputElement>(null);
   const [photo, setPhoto] = useState<{ src: string; state: "loading" | "done" | "error"; analysis: PhotoAnalysis | null } | null>(null);
   const [scanNote, setScanNote] = useState("");
 
@@ -112,15 +114,33 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   };
 
   /** Scanner de code-barres (caméra en direct) : le produit exact, via Open Food Facts. */
+  /** Résultat d'un scan, en direct (Android) ou en photo (iPhone). */
+  const showScan = (result: ScanResult) => {
+    if (result.status === "found") add(result.food);
+    else if (result.status === "unknown") setScanNote(`Code ${result.code} inconnu d'Open Food Facts : cherchez le produit par son nom, ou créez-le.`);
+    else if (result.status === "installing") setScanNote("Installation du scanner par Android… Réessayez dans quelques secondes.");
+    else if (result.status === "unreadable") setScanNote("Code-barres illisible : reprenez-le de près, bien net et à plat.");
+  };
+
   const scan = async () => {
     setScanNote("");
+    // Navigateur (iPhone) : pas de scanner en direct, le code-barres se prend en photo.
+    if (!liveScanAvailable()) { barcodeInput.current?.click(); return; }
     try {
-      const result = await scanBarcode();
-      if (result.status === "found") add(result.food);
-      else if (result.status === "unknown") setScanNote(`Code ${result.code} inconnu d'Open Food Facts : cherchez le produit par son nom, ou créez-le.`);
-      else if (result.status === "installing") setScanNote("Installation du scanner par Android… Réessayez dans quelques secondes.");
+      showScan(await scanBarcode());
     } catch {
       setScanNote(navigator.onLine ? "Le scan n'a pas abouti. Réessayez, bien éclairé." : "Hors connexion : le scan a besoin d'internet pour trouver le produit.");
+    }
+  };
+
+  const scanPhoto = async (picked: File) => {
+    setScanNote("Lecture du code-barres…");
+    try {
+      const result = await scanBarcodePhoto(picked);
+      setScanNote("");
+      showScan(result);
+    } catch {
+      setScanNote(navigator.onLine ? "Le code-barres n'a pas pu être lu." : "Hors connexion : le scan a besoin d'internet pour trouver le produit.");
     }
   };
   useEffect(() => {
@@ -407,6 +427,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       {scanNote && !searching && <p className="food-hint">{scanNote}</p>}
       <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) analyzePhoto(file); }} />
       <input ref={galleryInput} className="hidden-input" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) analyzePhoto(file); }} />
+      <input ref={barcodeInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void scanPhoto(file); }} />
 
       {!searching && !creating && photo && (() => {
         const analysis = photo.analysis;

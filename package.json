@@ -23,7 +23,9 @@
     "@fontsource/manrope": "^5.3.0",
     "capacitor-health": "8.4.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tesseract.js": "7.0.0",
+    "zxing-wasm": "3.1.4"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.3",

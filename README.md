@@ -52,13 +52,12 @@ Sur iPhone, on n'installe rien : on ajoute Feed Me sur l'écran, et elle s'ouvre
 4. Touchez **Ajouter**, en haut à droite.
 5. **C'est fini !** 🎉 L'icône **Feed Me** est sur l'écran, avec vos autres applications.
 
-Sur iPhone, ces trois options ne sont pas disponibles :
+Sur iPhone, tout fonctionne, avec deux différences :
 
-- le compteur de pas automatique ;
-- la photo du repas ;
-- le scan de code-barres.
+- **le compteur de pas** : Safari n'a pas accès aux pas de l'iPhone, on les note à la main ;
+- **la photo du repas** reconnaît les produits (code-barres, nom sur l'emballage), mais pas les plats cuisinés.
 
-Tout le reste fonctionne.
+Le **code-barres** se prend en photo (bouton « Code-barres »), et la **lecture des captures de recettes** marche aussi. La première fois, l'iPhone télécharge le lecteur de texte (quelques secondes, avec internet).
 
 ---
 
@@ -108,7 +107,7 @@ Application de suivi nutrition, hydratation, activité et poids (voir [docs/CAHI
 
 > Le code PIN protège l'accès à l'écran, il ne chiffre pas les données. Un code oublié ne peut pas être récupéré : il faut tout effacer, puis réimporter une sauvegarde.
 
-Sur iPhone, la lecture des captures de recettes n'est pas disponible : il faut coller le texte de la recette.
+Dans le navigateur (iPhone), le code-barres et le texte sont lus avec zxing-wasm et tesseract.js (`src/lib/webVision.ts`), chargés depuis jsDelivr au premier usage. La reconnaissance des plats (modèle de 21 Mo) et le podomètre restent réservés à Android.
 
 ## Publier une nouvelle version
 
