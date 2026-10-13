@@ -150,7 +150,7 @@ export function ingredientFromItem(item: MealItem): Ingredient {
   if (item.unit === "g") return { name: item.name, quantity: Math.round(item.quantity), unit: item.liquid ? "ml" : "g", food: item };
   const label = (item.portionLabel ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, "");
   // « 1 œuf » pour l'aliment Œuf : la pièce porte le nom de l'aliment, on ne la répète pas.
-  const sameAsName = simple(item.name).startsWith(simple(label).slice(0, 4));
+  const sameAsName = simple(item.name).split(" ").some((word) => word.startsWith(simple(label).slice(0, 4)));
   return { name: item.name, quantity: item.quantity, unit: sameAsName ? "" : label, food: item };
 }
 
