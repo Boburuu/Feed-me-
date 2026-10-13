@@ -60,10 +60,10 @@ const verbs = /^(?:m[ée]lang|ajout|fai[st]|pr[ée]chauff|vers|cui[st]|coup|batt
 
 const isNoise = (line: string) => noise.some((pattern) => pattern.test(line));
 
-/** « 1 portion – 339 kcal – 36 g P – 19 g G – 14 g L », « Protéines : 36 g » : valeurs, pas un ingrédient. */
+/** « 1 portion – 339 kcal – 36 g P – 19 g G », « 393kcal · 29P · 52G · 9L », « Protéines : 36 g ». P et G en majuscule : pas « 1 pers. ». */
 const kcalPattern = /(\d+(?:[.,]\d+)?)\s*kcal\b(?!\s*\/\s*100)/i;
-const proteinPattern = /(\d+(?:[.,]\d+)?)\s*g\s*(?:de\s+)?(?:P\b|prot)|prot[ée]ines?\s*:?\s*(\d+(?:[.,]\d+)?)\s*g/i;
-const carbsPattern = /(\d+(?:[.,]\d+)?)\s*g\s*(?:de\s+)?(?:G\b|gluc)|glucides?\s*:?\s*(\d+(?:[.,]\d+)?)\s*g/i;
+const proteinPattern = /(\d+(?:[.,]\d+)?)\s*g?\s*(?:de\s+)?(?:P\b|[Pp]rot)|[Pp]rot[ée]ines?\s*:?\s*(\d+(?:[.,]\d+)?)\s*g/;
+const carbsPattern = /(\d+(?:[.,]\d+)?)\s*g?\s*(?:de\s+)?(?:G\b|[Gg]luc)|[Gg]lucides?\s*:?\s*(\d+(?:[.,]\d+)?)\s*g/;
 
 /** « Pour la pâte : », « PÂTE SABLÉE », « Garniture : » */
 function sectionTitle(line: string): string | null {
@@ -172,6 +172,9 @@ export function parseRecipeText(text: string): ParsedRecipe {
     const ingHeader = line.match(ingredientHeader);
     if (ingHeader && line.length < 50) {
       mode = "ingredients";
+      // « INGRÉDIENTS (pour 4) » : le nombre de portions de la recette.
+      const forCount = ingHeader[1].match(/pour\s+(\d+)\b/i);
+      if (forCount && !result.portions) result.portions = Number(forCount[1]);
       const rest = ingHeader[1].replace(portionsPattern, "").replace(/^(pour|de|du)\s+(la|le|les|l['’])?\s*/i, "").replace(/[():]/g, "").trim();
       ingredientGroup(rest && !/\d/.test(rest) ? capitalize(rest) : "");
       continue;

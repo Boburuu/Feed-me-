@@ -139,7 +139,9 @@
 
 .recipe-photo { position: relative; overflow: hidden; padding: 0; border: 0; cursor: pointer; }
 .recipe-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.recipe-photo > span:not(.loader) { position: absolute; right: 6px; bottom: 6px; left: 6px; margin: 0; padding: 4px; border-radius: 9px; color: var(--ink); background: rgba(255, 255, 255, .88); }
+.recipe-photo > span:not(.loader) { position: absolute; right: 6px; bottom: 6px; left: 6px; margin: 0; padding: 4px; border-radius: 9px; color: #18342e; background: rgba(255, 255, 255, .9); }
+/* Étiquette claire sur la photo : texte sombre quel que soit le thème. */
+.recipe-photo > span:not(.loader) small { color: #4b5d57; }
 .recipe-photo i { position: absolute; top: 6px; left: 6px; padding: 2px 7px; border-radius: 99px; color: #fff; background: rgba(0, 0, 0, .55); font-size: 10px; font-style: normal; font-weight: 700; }
 .recipe-notes { font-style: italic; }
 .recipe-link { display: inline-block; margin-top: 8px; color: var(--green-text); font-size: 11px; font-weight: 700; }

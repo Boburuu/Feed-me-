@@ -134,6 +134,7 @@ export default function RecipesTab({ recipes, update, onAddToJournal, flash }: R
                 <div className="recipe-meta">
                   <span><Icon name="clock" size={14} /> {recipe.time} min</span>
                   <span><Icon name="users" size={14} /> {recipe.portions} pers.</span>
+                  {recipe.carbs !== undefined && <span><Icon name="apple" size={14} /> {recipe.carbs} g gluc.</span>}
                   <span><Icon name="check" size={14} /> {allSteps(recipe).length ? `${allSteps(recipe).length} étapes` : "sans étapes"}</span>
                 </div>
               </div>
