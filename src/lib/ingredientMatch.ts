@@ -34,21 +34,27 @@ function exactCommon(text: string) {
 }
 
 export async function findFood(name: string): Promise<FoodResult | null> {
-  const cleaned = normalize(name.replace(/\([^)]*\)/g, " ").replace(/%/g, " "));
+  // « 12 crevettes ou poulet ou tofu » : on compte le premier choix proposé.
+  const firstChoice = name.replace(/\([^)]*\)/g, " ").split(/\s+ou\s+/i)[0];
+  const cleaned = normalize(firstChoice.replace(/%/g, " "));
   const words = cleaned.split(" ").filter(Boolean);
   const parts = windows(words);
-  // 1. Aliments courants : le nom le plus long reconnu (« viande bovine hachee 5 »).
-  for (const part of parts) {
-    const food = exactCommon(part);
-    if (food) return (await searchCommon(food.name, 1))[0] ?? null;
-  }
-  // 2. Ciqual : l'aliment doit commencer par le morceau cherché (« bacon fume » → « Filet de bacon » non,
-  //    « Cornichon, au vinaigre » oui), pour éviter « filet » → un filet de poisson.
-  for (const part of parts) {
-    for (const query of new Set([part, singular(part)])) {
-      if (query.length < 3) continue;
-      const [found] = await searchCiqual(query, 1);
-      if (found && normalize(found.name).startsWith(query.split(" ")[0])) return found;
+  // Le morceau le plus long l'emporte, quelle que soit la base : « jus de citron vert » (Ciqual)
+  // passe avant « jus » (aliment courant : jus d'orange). À longueur égale, l'aliment courant d'abord.
+  for (let size = words.length; size >= 1; size -= 1) {
+    const sameSize = parts.filter((part) => part.split(" ").length === size);
+    for (const part of sameSize) {
+      const food = exactCommon(part);
+      if (food) return (await searchCommon(food.name, 1))[0] ?? null;
+    }
+    // Ciqual : l'aliment doit commencer par le morceau cherché (« Cornichon, au vinaigre » pour
+    // « cornichons »), pour éviter « filet » → un filet de poisson.
+    for (const part of sameSize) {
+      for (const query of new Set([part, singular(part)])) {
+        if (query.length < 3) continue;
+        const [found] = await searchCiqual(query, 1);
+        if (found && normalize(found.name).startsWith(query.split(" ")[0])) return found;
+      }
     }
   }
   return null;

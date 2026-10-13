@@ -37,6 +37,16 @@ export const commonFoods: CommonFood[] = [
   { name: "Compote de pomme", ciqual: "Compote de pomme", aliases: ["compote"], portion: { label: "1 pot", grams: 100 } },
   // Légumes
   { name: "Tomate", ciqual: "Tomate ronde, crue", portion: { label: "1 tomate", grams: 120 } },
+  { name: "Tomates cerises", ciqual: "Tomate cerise, crue", aliases: ["tomate cerise", "tomates cerise"], portion: { label: "1 tomate cerise", grams: 15 } },
+  // Aromates et condiments, comptés à la pièce ou à la cuillère dans les recettes.
+  { name: "Ail", ciqual: "Ail, cru", aliases: ["gousse d ail", "gousses d ail"], portion: { label: "1 gousse", grams: 5 } },
+  { name: "Gingembre", ciqual: "Gingembre, racine crue", aliases: ["galanga"], portion: { label: "1 tranche", grams: 5 } },
+  { name: "Piment", ciqual: "Piment, cru", aliases: ["piments", "petit piment", "piment oiseau", "piment frais"], portion: { label: "1 piment", grams: 5 } },
+  { name: "Coriandre fraîche", ciqual: "Coriandre, fraiche", aliases: ["coriandre"], portion: { label: "1 poignée", grams: 10 } },
+  { name: "Jus de citron vert", ciqual: "Jus de citron vert, pur jus", aliases: ["jus de lime"], portion: { label: "1 c. à soupe", grams: 15 } },
+  { name: "Pâte de piment", ciqual: "Harissa (sauce condimentaire), préemballée", aliases: ["pate de piment", "harissa", "sambal", "pate de piment thai"], portion: { label: "1 c. à café", grams: 5 } },
+  // Absente de Ciqual : la sauce soja en est très proche (pour 100 g, 46 kcal contre ~35, 3,6 g de glucides).
+  { name: "Sauce de poisson (nuoc-mâm)", ciqual: "Sauce soja, préemballée", aliases: ["sauce de poisson", "sauce de poissons", "nuoc mam", "sauce soja"], portion: { label: "1 c. à soupe", grams: 15 } },
   { name: "Carotte", ciqual: "Carotte, crue", portion: { label: "1 carotte", grams: 80 } },
   { name: "Concombre", ciqual: "Concombre, pulpe et peau, cru", portion: { label: "½ concombre", grams: 150 } },
   { name: "Salade verte", ciqual: "Laitue, crue", aliases: ["salade", "laitue"], portion: { label: "1 assiette", grams: 50 } },
@@ -107,6 +117,7 @@ export const commonFoods: CommonFood[] = [
   { name: "Surimi", ciqual: "Surimi, bâtonnets, tranche ou râpé saveur crabe", aliases: ["batonnet de surimi"], portion: { label: "1 bâtonnet", grams: 15 } },
   { name: "Nuggets de poulet", ciqual: "Poulet, croquette panée ou nuggets", aliases: ["nuggets", "nugget"], portion: { label: "1 nugget", grams: 20 } },
   { name: "Thon en boîte", ciqual: "Thon albacore ou thon jaune, au naturel, appertisé, égoutté", aliases: ["thon"], portion: { label: "1 petite boîte", grams: 100 } },
+  { name: "Crevettes", ciqual: "Crevette, cuite", aliases: ["crevette", "gambas"], portion: { label: "1 crevette", grams: 15 } },
   { name: "Cabillaud", ciqual: "Cabillaud, cuit, sans précision (aliment moyen)", aliases: ["poisson blanc"], portion: { label: "1 filet", grams: 120 } },
   // Plats
   { name: "Bœuf bourguignon", ciqual: "Boeuf bourguignon", aliases: ["bourguignon"], portion: { label: "1 assiette", grams: 300 } },
