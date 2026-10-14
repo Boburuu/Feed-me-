@@ -1,4 +1,8 @@
+import { useState } from "react";
 import Icon from "./Icon";
+import LabelCheck from "./LabelCheck";
+import { canCheckLabel, reliabilityOf } from "../lib/corrections";
+import { useCorrections } from "../lib/correctionsContext";
 import { coherenceWarnings, quantityWarning } from "../lib/coherence";
 import { couldHydrate, drinkMl } from "../lib/hydration";
 import { itemCalories, itemCarbs, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
@@ -47,6 +51,9 @@ const PACKAGE_LABEL = "1 boîte";
 /** Une ligne d'aliment : quantité et unité (portion, boîte, contenant, grammes ou ml). */
 export default function MealLineEditor({ line, onChange, onRemove, hideHydration }: MealLineEditorProps) {
   const grams = itemGrams(line);
+  const corrections = useCorrections();
+  const [checking, setChecking] = useState(false);
+  const reliability = reliabilityOf(line);
   const perPortionOnly = line.unit === "portion" && !line.portionGrams;
   const isPackage = line.unit === "portion" && line.portionLabel === PACKAGE_LABEL && !!line.packageGrams;
   const isPiece = line.unit === "portion" && !!line.pieceGrams && line.portionGrams === line.pieceGrams && line.portionLabel === line.pieceLabel;
@@ -193,6 +200,13 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
       )}
       {[quantityWarning(line)].filter(Boolean).map((warning) => <small className="meal-line-warning" key={warning}>⚠ {warning}</small>)}
       {coherenceWarnings(line).map((warning) => <small className="meal-line-warning" key={warning}>⚠ {warning}</small>)}
+      <div className="meal-line-source">
+        <span className={`reliability ${reliability.tone}`}>{reliability.label}</span>
+        {corrections && canCheckLabel(line) && !checking && (
+          <button type="button" className="text-button" onClick={() => setChecking(true)}>Vérifier avec l'étiquette</button>
+        )}
+      </div>
+      {checking && <LabelCheck line={line} onChange={onChange} onClose={() => setChecking(false)} />}
       <small className="meal-line-detail">
         {servings ? `Ma recette pour ${servings} pers. · ${Math.round(line.kcal100)} kcal la part` : `Base : ${n(Math.round(line.kcal100))} kcal ${perPortionOnly ? "par portion" : `pour 100 ${line.liquid ? "ml" : "g"}`} · ${line.matchedName ? `${line.matchedName} (${sourceName[line.source]})` : sourceName[line.source]}`}
       </small>

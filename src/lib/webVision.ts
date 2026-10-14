@@ -29,6 +29,18 @@ export async function readTextFromFile(file: Blob): Promise<string> {
   return data.text.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/** Lignes lues avec leur position (tableau nutritionnel : les colonnes comptent). */
+export async function readBoxesFromFile(file: Blob) {
+  const { data } = await (await ocrWorker()).recognize(file, {}, { blocks: true });
+  return (data.blocks ?? []).flatMap((block) => block.paragraphs.flatMap((paragraph) => paragraph.lines)).map((line) => ({
+    text: line.text.trim(),
+    x: line.bbox.x0,
+    y: line.bbox.y0,
+    w: line.bbox.x1 - line.bbox.x0,
+    h: line.bbox.y1 - line.bbox.y0,
+  }));
+}
+
 /** Lignes lues avec leur hauteur : sur un emballage, le nom du produit est écrit en gros. */
 export async function readLinesFromFile(file: Blob) {
   const { data } = await (await ocrWorker()).recognize(file, {}, { blocks: true });

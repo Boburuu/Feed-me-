@@ -13,6 +13,8 @@ import StepsPanel from "../components/StepsPanel";
 import TrackingTab from "../components/TrackingTab";
 import { exportBackup } from "../lib/backup";
 import { backfillCarbs } from "../lib/carbsBackfill";
+import { correctPastMeals, mealsWithProduct } from "../lib/corrections";
+import { CorrectionsContext, type CorrectionsApi } from "../lib/correctionsContext";
 import { hasContent, lastTab, mealDraft, type MealDraft } from "../lib/drafts";
 import { programFor, tipOfTheDay } from "../lib/goals";
 import { restoreImages } from "../lib/images";
@@ -155,6 +157,15 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
       ...current,
       meals: current.meals.map((meal) => (meal.id !== mealId || !meal.items ? meal : { ...meal, items: meal.items.map((item, i) => (i === index ? { ...item, hydrates: false } : item)) })),
     }));
+  /** Fiches corrigées d'après l'étiquette : gardées à part, repas passés changés sur demande. */
+  const correctionsApi: CorrectionsApi = {
+    corrections: data.productCorrections ?? {},
+    save: (key, correction, recountPast) => update((current) => {
+      const next = { ...current, productCorrections: { ...current.productCorrections, [key]: correction } };
+      return recountPast ? correctPastMeals(next, key, correction) : next;
+    }),
+    pastMeals: (key, correction) => mealsWithProduct(data.meals, key, correction).length,
+  };
   const goalWater = waterGoal(profile.sex);
   const stepsToday = data.steps[today];
   const latestWeight = [...data.weights].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
@@ -414,7 +425,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   );
 
   return (
-    <>
+    <CorrectionsContext.Provider value={correctionsApi}>
       <header className="topbar">
         <div>
           <p className="eyebrow">{dateLabel}</p>
@@ -810,6 +821,6 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           </section>
         </div>
       )}
-    </>
+    </CorrectionsContext.Provider>
   );
 }

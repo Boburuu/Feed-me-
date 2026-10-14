@@ -32,6 +32,8 @@ import { cookedFactor } from "../lib/dryGoods";
 import { energyBrands, energyDrinks } from "../lib/energyDrinks";
 import { analyzeMealPhoto, photoRecognitionAvailable, type PhotoAnalysis } from "../lib/foodPhoto";
 import BarcodePanel from "./BarcodePanel";
+import { applyCorrection } from "../lib/corrections";
+import { useCorrections } from "../lib/correctionsContext";
 import { mealCategories, todayKey, type CustomFood, type Leftover, type Meal, type MealCategory, type MealItem, type Recipe } from "../lib/storage";
 
 /** Ce qui accompagne l'enregistrement : un reste à garder, des restes consommés. */
@@ -97,6 +99,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const [date, setDate] = useState(draft?.date ?? editing?.date ?? initialDate);
   const [category, setCategory] = useState(draft?.category ?? editing?.category ?? initialCategory);
   const [query, setQuery] = useState(draft?.query ?? "");
+  const corrections = useCorrections();
   const [lines, setLines] = useState<Line[]>(() => (draft ? draft.lines : editing ? itemsOf(editing) : initialItems ?? []).map((item, index) => ({ ...item, key: index + 1 })));
   const [showAllRecipes, setShowAllRecipes] = useState(false);
   // Recettes du carnet, les plus récentes d'abord.
@@ -216,11 +219,12 @@ export default function MealComposer({ date: initialDate, category: initialCateg
 
   const add = (result: FoodResult) => {
     const key = Date.now();
-    const item = toMealItem(result);
+    // Une fiche corrigée d'après l'étiquette prime sur celle de la base.
+    const item = applyCorrection(toMealItem(result), corrections?.corrections);
     setLines((current) => [...current, { ...item, ...(item.cookedFactor ? { weighedCooked: mode === "meal" } : {}), key }]);
     setQuery("");
     // Produit de marque : comparé à la valeur habituelle de ce type d'aliment (fiche douteuse ?).
-    referenceFor(item).then((reference) => {
+    if (!item.corrected) referenceFor(item).then((reference) => {
       if (reference) setLines((current) => current.map((line) => (line.key === key ? { ...line, ...reference } : line)));
     }).catch(() => undefined);
     // Produit de marque : on récupère la portion indiquée sur l'emballage.

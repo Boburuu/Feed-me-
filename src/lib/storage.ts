@@ -126,6 +126,10 @@ export type MealItem = {
   choice?: string;
   /** Recette du carnet : nombre de parts de la recette entière (valeurs = 1 part). */
   recipePortions?: number;
+  /** Valeurs remplacées par la correction locale du produit (étiquette). */
+  corrected?: boolean;
+  /** Fiche comparée à l'étiquette et trouvée juste. */
+  labelChecked?: boolean;
 };
 
 export type StepEntry = { count: number; source: "manuel" | "auto"; updatedAt: string };
@@ -234,6 +238,8 @@ export type AppData = {
   hydrationCoefficients?: Partial<Record<"eau" | "the" | "lait" | "jus" | "soda" | "soupe" | "cafe" | "alcool" | "autre", number>>;
   /** Liste de courses : lignes cochées (par nom) et lignes ajoutées à la main. */
   shopping?: { checked: string[]; extras: { id: number; text: string; done: boolean }[] };
+  /** Fiches produits corrigées d'après l'étiquette (par produit, voir corrections.ts). */
+  productCorrections?: Record<string, import("./corrections").ProductCorrection>;
   /** Les exemples de recettes de boissons ont déjà été proposés (pour ne pas les rajouter). */
   drinkRecipesOffered?: boolean;
 };

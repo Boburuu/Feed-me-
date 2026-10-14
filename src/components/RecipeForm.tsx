@@ -5,6 +5,8 @@ import MealLineEditor from "./MealLineEditor";
 import { openFoodFactsPortion, toMealItem, type FoodResult } from "../lib/foods";
 import { deleteImage, getImage, putImage, shrinkImage } from "../lib/images";
 import { referenceFor } from "../lib/coherence";
+import { applyCorrection } from "../lib/corrections";
+import { useCorrections } from "../lib/correctionsContext";
 import type { RecipeDraft } from "../lib/drafts";
 import { choicesOf, matchChoice, matchIngredient } from "../lib/ingredientMatch";
 import { mergeTexts, ocrAvailable, readImageText } from "../lib/ocr";
@@ -93,6 +95,7 @@ const isBlank = (draft: Draft) =>
 export default function RecipeForm({ initial, onSave, onCancel, flash, draft: saved, onDraft, onDiscardDraft }: RecipeFormProps) {
   const [draft, setDraft] = useState<Draft>(() => (saved ? { ...saved.form, images: [] } : draftFrom(initial)));
   const [rawText, setRawText] = useState<string | null>(saved?.rawText ?? null);
+  const corrections = useCorrections();
 
   // Brouillon enregistré à chaque changement (sans les photos ajoutées, trop lourdes).
   useEffect(() => {
@@ -230,9 +233,9 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
 
   /** Aliment trouvé : il s'ajoute à la partie, réglable comme dans un repas. */
   const pickFood = (groupIndex: number, result: FoodResult) => {
-    const food = toMealItem(result);
+    const food = applyCorrection(toMealItem(result), corrections?.corrections);
     const item: DraftItem = { key: nextKey++, quantity: "", unit: "", name: food.name, food };
-    referenceFor(food).then((reference) => {
+    if (!food.corrected) referenceFor(food).then((reference) => {
       if (reference) updateItem(item.key, (line) => (line.food ? { ...line, food: { ...line.food, ...reference } } : line));
     }).catch(() => undefined);
     setDraft((current) => ({

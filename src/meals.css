@@ -218,3 +218,25 @@
 .plate-share .awake-toggle { margin: 0; line-height: 1.45; }
 .leftover-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; }
 .fraction-chips button { min-width: 44px; justify-content: center; }
+/* Vérification avec l'étiquette (fiche contre tableau nutritionnel) et fiabilité de la fiche. */
+.meal-line-source { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+.meal-line-source .text-button { padding: 0; font-size: 12px; }
+.reliability { padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.reliability.sure { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.reliability.community { color: var(--coral); background: color-mix(in srgb, var(--coral) 12%, transparent); }
+.reliability.manual { color: var(--muted); background: var(--cream); }
+.label-check { display: grid; gap: 10px; padding: 12px; border: 2px solid var(--mint-bright); border-radius: 16px; background: var(--white); }
+.label-check a.add-part { color: inherit; text-decoration: none; }
+.label-table { display: grid; gap: 4px; }
+.label-row { display: grid; grid-template-columns: minmax(0, 1fr) 76px 96px; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; font-size: 13px; }
+.label-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.label-row-head { padding-block: 0; color: var(--muted); font-size: 11px; font-weight: 700; }
+.label-row.check { background: color-mix(in srgb, var(--coral) 12%, transparent); }
+.label-row.ok { background: color-mix(in srgb, var(--green) 10%, transparent); }
+.label-input { display: flex; align-items: center; gap: 4px; }
+.label-input input { width: 64px; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--cream); font-size: 14px; }
+.label-input small { color: var(--muted); font-size: 11px; }
+.label-gap { grid-column: 1 / -1; color: var(--coral); font-size: 11px; font-weight: 700; }
+.label-verdict { margin: 0; font-size: 13px; font-weight: 700; line-height: 1.4; }
+.label-verdict.ok { color: var(--green); }
+.label-verdict.check { color: var(--coral); }

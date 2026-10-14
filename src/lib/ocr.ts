@@ -2,7 +2,8 @@
 // Tesseract dans le navigateur (version iPhone, voir webVision.ts).
 
 import { Capacitor } from "@capacitor/core";
-import { readTextFromFile } from "./webVision";
+import type { OcrBox } from "./nutritionLabel";
+import { readBoxesFromFile, readTextFromFile } from "./webVision";
 
 export const ocrAvailable = () => true;
 
@@ -47,6 +48,29 @@ export async function readImageText(file: File): Promise<string> {
   try {
     const result = await TextRecognition.processImage({ path: uri });
     return result.blocks.map((block) => block.lines.map((line) => line.text).join("\n")).join("\n\n");
+  } finally {
+    Filesystem.deleteFile({ path, directory: Directory.Cache }).catch(() => undefined);
+  }
+}
+
+/** Lignes d'une photo d'étiquette avec leur position, pour reconstruire le tableau. */
+export async function readImageBoxes(file: File): Promise<OcrBox[]> {
+  if (!file.type.startsWith("image/")) throw new Error("Ce fichier n'est pas une image.");
+  if (!Capacitor.isNativePlatform()) return readBoxesFromFile(file);
+  const [{ Directory, Filesystem }, { TextRecognition }] = await Promise.all([
+    import("@capacitor/filesystem"),
+    import("@capacitor-mlkit/text-recognition"),
+  ]);
+  const path = `etiquette-${Date.now()}.jpg`;
+  const { uri } = await Filesystem.writeFile({ path, data: await toJpegBase64(file), directory: Directory.Cache });
+  try {
+    const result = await TextRecognition.processImage({ path: uri });
+    // ML Kit lit souvent un tableau colonne par colonne : les rangées sont reconstruites
+    // ensuite d'après la hauteur de chaque ligne (rowsOf).
+    return result.blocks.flatMap((block) => block.lines).flatMap((line) => {
+      const box = line.boundingBox;
+      return box ? [{ text: line.text, x: box.left, y: box.top, w: box.right - box.left, h: box.bottom - box.top }] : [];
+    });
   } finally {
     Filesystem.deleteFile({ path, directory: Directory.Cache }).catch(() => undefined);
   }
