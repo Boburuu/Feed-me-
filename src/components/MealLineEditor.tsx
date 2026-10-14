@@ -1,5 +1,6 @@
 import Icon from "./Icon";
-import { itemCalories, itemCarbs, itemGrams } from "../lib/foods";
+import { coherenceWarnings } from "../lib/coherence";
+import { itemCalories, itemCarbs, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
 import type { MealItem } from "../lib/storage";
 
 type MealLineEditorProps = {
@@ -164,7 +165,23 @@ export default function MealLineEditor({ line, onChange, onRemove }: MealLineEdi
         </div>
       )}
 
-      {itemCarbs(line) !== null && <small className="meal-line-carbs">{n(Math.round(itemCarbs(line)! * 10) / 10)} g de glucides</small>}
+      {/* Riz, pâtes… vendus secs : pesés secs (avant cuisson) ou cuits (dans l'assiette). */}
+      {line.cookedFactor && line.unit === "g" && (
+        <>
+          <div className="container-chips" role="radiogroup" aria-label="Pesé">
+            <small className="chips-label">Pesé :</small>
+            <button type="button" role="radio" aria-checked={!line.weighedCooked} className={!line.weighedCooked ? "selected" : ""} onClick={() => onChange({ weighedCooked: false })}>sec, avant cuisson</button>
+            <button type="button" role="radio" aria-checked={!!line.weighedCooked} className={line.weighedCooked ? "selected" : ""} onClick={() => onChange({ weighedCooked: true })}>cuit</button>
+          </div>
+          {line.weighedCooked && <small className="meal-line-detail">{n(Math.round(line.quantity))} g cuits ≈ {n(Math.round(nutrientGrams(line)))} g secs (la fiche est celle du produit sec)</small>}
+        </>
+      )}
+      {(itemCarbs(line) !== null || itemFat(line) !== null) && (
+        <small className="meal-line-carbs">
+          {[itemCarbs(line) !== null ? `${n(Math.round(itemCarbs(line)! * 10) / 10)} g de glucides` : "", itemFat(line) !== null ? `${n(Math.round(itemFat(line)! * 10) / 10)} g de lipides` : ""].filter(Boolean).join(" · ")}
+        </small>
+      )}
+      {coherenceWarnings(line).map((warning) => <small className="meal-line-warning" key={warning}>⚠ {warning}</small>)}
       <small className="meal-line-detail">
         {servings ? `Ma recette pour ${servings} pers. · ${Math.round(line.kcal100)} kcal la part` : line.matchedName ? `Calculé avec : ${line.matchedName} (${sourceName[line.source]})` : sourceName[line.source]}
       </small>

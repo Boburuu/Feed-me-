@@ -4,6 +4,7 @@ import Icon from "./Icon";
 import MealLineEditor from "./MealLineEditor";
 import { openFoodFactsPortion, toMealItem, type FoodResult } from "../lib/foods";
 import { deleteImage, getImage, putImage, shrinkImage } from "../lib/images";
+import { referenceFor } from "../lib/coherence";
 import { choicesOf, matchChoice, matchIngredient } from "../lib/ingredientMatch";
 import { mergeTexts, ocrAvailable, readImageText } from "../lib/ocr";
 import { categoryOf, commonUnits, formatQuantity, ingredientFromItem, ingredientsNutrition, parseQuantity, recipeCategories } from "../lib/recipes";
@@ -38,6 +39,7 @@ type Draft = {
   calories: string;
   protein: string;
   carbs: string;
+  fat: string;
   notes: string;
   url: string;
   images: DraftImage[];
@@ -69,6 +71,7 @@ function draftFrom(recipe?: Recipe): Draft {
     calories: recipe?.calories ? String(recipe.calories) : "",
     protein: recipe?.calories ? String(recipe.protein) : "",
     carbs: recipe?.carbs !== undefined ? String(recipe.carbs) : "",
+    fat: recipe?.fat !== undefined ? String(recipe.fat) : "",
     notes: recipe?.notes ?? "",
     url: recipe?.url ?? "",
     images: [],
@@ -145,6 +148,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
       calories: parsed.calories ? String(parsed.calories) : current.calories,
       protein: parsed.protein ? String(parsed.protein) : current.protein,
       carbs: parsed.carbs !== null ? String(parsed.carbs) : current.carbs,
+      fat: parsed.fat !== null ? String(parsed.fat) : current.fat,
       notes: current.notes.trim() ? current.notes : parsed.notes,
       ingredients: groups ?? current.ingredients,
       steps: parsed.steps.length ? parsed.steps : current.steps,
@@ -213,12 +217,15 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
   const pickFood = (groupIndex: number, result: FoodResult) => {
     const food = toMealItem(result);
     const item: DraftItem = { key: nextKey++, quantity: "", unit: "", name: food.name, food };
+    referenceFor(food).then((reference) => {
+      if (reference) updateItem(item.key, (line) => (line.food ? { ...line, food: { ...line.food, ...reference } } : line));
+    }).catch(() => undefined);
     setDraft((current) => ({
       ...current,
       ingredients: current.ingredients.map((group, i) => (i === groupIndex ? { ...group, items: [...group.items.filter(hasContent), item] } : group)),
     }));
     // Produit de marque : la portion indiquée sur l'emballage arrive ensuite (comme dans un repas).
-    if (result.source === "off" && /^d+$/.test(result.ref ?? "") && !food.pieceGrams) {
+    if (result.source === "off" && /^\d+$/.test(result.ref ?? "") && !food.pieceGrams) {
       openFoodFactsPortion(result.ref!).then((portion) => {
         if (!portion) return;
         updateItem(item.key, (line) => line.food ? { ...line, food: { ...line.food, servingGrams: portion.grams, servingLabel: portion.label, ...(line.food.unit === "g" && line.food.quantity === 100 ? { unit: "portion" as const, quantity: 1, portionGrams: portion.grams, portionLabel: portion.label } : {}) } } : line);
@@ -230,7 +237,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
   const draftIngredients = draft.ingredients.flatMap((group) => group.items.filter(hasContent).map(toIngredient));
   const computed = ingredientsNutrition(draftIngredients);
   const portionCount = Number(draft.portions) || 2;
-  const perPerson = { kcal: Math.round(computed.kcal / portionCount), protein: Math.round(computed.protein / portionCount), carbs: Math.round(computed.carbs / portionCount) };
+  const perPerson = { kcal: Math.round(computed.kcal / portionCount), protein: Math.round(computed.protein / portionCount), carbs: Math.round(computed.carbs / portionCount), fat: Math.round(computed.fat / portionCount) };
 
   // --- Étapes ---------------------------------------------------------------------------
 
@@ -295,6 +302,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
       protein: Number(draft.protein) || (computed.known ? perPerson.protein : 0),
       // Glucides : saisis (même 0), sinon calculés, sinon inconnus.
       carbs: draft.carbs.trim() ? Number(draft.carbs.replace(",", ".")) : computed.known ? perPerson.carbs : undefined,
+      fat: draft.fat.trim() ? Number(draft.fat.replace(",", ".")) : computed.known ? perPerson.fat : undefined,
       images,
       url: draft.url.trim() || undefined,
       notes: draft.notes.trim() || undefined,
@@ -468,6 +476,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
       </div>
       <div className="recipe-fields">
         <label><span>Glucides <em>auto</em></span><div><input value={draft.carbs} onChange={(e) => set({ carbs: e.target.value })} type="number" placeholder="—" min="0" /><small>g/pers.</small></div></label>
+        <label><span>Lipides <em>auto</em></span><div><input value={draft.fat} onChange={(e) => set({ fat: e.target.value })} type="number" placeholder="—" min="0" /><small>g/pers.</small></div></label>
       </div>
       {draftIngredients.some((item) => !item.food && item.quantity !== null) && (
         <button type="button" className="add-line" onClick={() => void matchWritten(draft.ingredients)} disabled={matching}>
@@ -478,11 +487,12 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
       {computed.known > 0 ? (
         <div className="recipe-computed">
           <p>
-            <strong>≈ {perPerson.kcal} kcal, {perPerson.carbs} g de glucides et {perPerson.protein} g de protéines par personne</strong>
+            <strong>≈ {perPerson.kcal} kcal par personne</strong>
+            <small>{perPerson.carbs} g de glucides · {perPerson.protein} g de protéines · {perPerson.fat} g de lipides</small>
             <small>Calculé d'après {computed.known} ingrédient{computed.known > 1 ? "s" : ""} sur {draftIngredients.length}, pour {portionCount} personne{portionCount > 1 ? "s" : ""}.</small>
           </p>
-          {(draft.calories !== String(perPerson.kcal) || draft.protein !== String(perPerson.protein) || draft.carbs !== String(perPerson.carbs)) && (
-            <button type="button" className="add-line" onClick={() => set({ calories: String(perPerson.kcal), protein: String(perPerson.protein), carbs: String(perPerson.carbs) })}><Icon name="check" size={15} /> Utiliser ces valeurs</button>
+          {(draft.calories !== String(perPerson.kcal) || draft.protein !== String(perPerson.protein) || draft.carbs !== String(perPerson.carbs) || draft.fat !== String(perPerson.fat)) && (
+            <button type="button" className="add-line" onClick={() => set({ calories: String(perPerson.kcal), protein: String(perPerson.protein), carbs: String(perPerson.carbs), fat: String(perPerson.fat) })}><Icon name="check" size={15} /> Utiliser ces valeurs</button>
           )}
         </div>
       ) : (

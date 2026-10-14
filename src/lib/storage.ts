@@ -42,6 +42,8 @@ export type Meal = {
   protein?: number;
   /** Glucides du repas, en g (absents des repas notés avant leur suivi). */
   carbs?: number;
+  /** Lipides du repas, en g (absents des repas notés avant leur suivi). */
+  fat?: number;
   source: SourceType;
   /** Détail des aliments, pour les repas composés avec la recherche. */
   items?: MealItem[];
@@ -59,6 +61,7 @@ export type Leftover = {
   kcalPerPart: number;
   proteinPerPart: number;
   carbsPerPart?: number;
+  fatPerPart?: number;
 };
 
 /** D'où viennent les valeurs nutritionnelles d'un aliment. */
@@ -79,6 +82,17 @@ export type MealItem = {
   protein100: number | null;
   /** Glucides, comme kcal100 : pour 100 g, ou pour une portion. Absent : inconnu. */
   carbs100?: number | null;
+  /** Lipides, comme kcal100. Absent : pas encore lu ; null : inconnu. */
+  fat100?: number | null;
+  /**
+   * Féculent vendu sec (riz, pâtes…) : rapport poids cuit / poids sec. Avec weighedCooked,
+   * les grammes saisis sont des grammes cuits, convertis en sec pour le calcul.
+   */
+  cookedFactor?: number;
+  weighedCooked?: boolean;
+  /** Valeur habituelle (Ciqual) pour ce type d'aliment, pour signaler une fiche douteuse. */
+  refKcal100?: number;
+  refName?: string;
   /** Poids d'une portion, quand on le connaît (« 1 barre = 23,5 g »). */
   portionGrams?: number;
   portionLabel?: string;
@@ -110,6 +124,7 @@ export type CustomFood = {
   kcal100: number;
   protein100: number | null;
   carbs100?: number | null;
+  fat100?: number | null;
   portionGrams?: number;
   portionLabel?: string;
 };
@@ -138,6 +153,8 @@ export type Recipe = {
   protein: number;
   /** Glucides par personne, en g (absents : pas encore calculés). */
   carbs?: number;
+  /** Lipides par personne, en g (absents : pas encore calculés). */
+  fat?: number;
   /** Nombre de morceaux du plat (gâteau coupé en 12), retenu pour « j'en ai mangé 2 ». */
   pieces?: number;
   /** Poids du plat entier en g, retenu pour « j'en ai mangé 250 g ». */

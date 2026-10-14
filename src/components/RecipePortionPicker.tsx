@@ -57,9 +57,10 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
       ? (toNumber(pieces) ? eatenPieces / toNumber(pieces) : 0)
       : (toNumber(totalGrams) ? toNumber(eatenGrams) / toNumber(totalGrams) : 0);
   const share = Math.max(0, fraction);
-  const whole = { kcal: recipe.calories * portions, protein: recipe.protein * portions, carbs: recipe.carbs === undefined ? null : recipe.carbs * portions };
+  const whole = { kcal: recipe.calories * portions, protein: recipe.protein * portions, carbs: recipe.carbs === undefined ? null : recipe.carbs * portions, fat: recipe.fat === undefined ? null : recipe.fat * portions };
   const kcal = Math.round(whole.kcal * share);
   const carbs = whole.carbs === null ? null : Math.round(whole.carbs * share);
+  const fat = whole.fat === null ? null : Math.round(whole.fat * share);
   const protein = Math.round(whole.protein * share);
   const valid = share > 0 && share <= 3;
 
@@ -78,6 +79,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
       calories: kcal,
       protein: protein || undefined,
       ...(carbs !== null ? { carbs } : {}),
+      ...(fat !== null ? { fat } : {}),
       source: "recipe",
       // En parts de la recette : le repas se rouvre et se modifie comme les autres.
       items: [{
@@ -89,6 +91,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
         kcal100: recipe.calories,
         protein100: recipe.protein,
         carbs100: recipe.carbs ?? null,
+        fat100: recipe.fat ?? null,
         portionLabel: "1 part",
         recipePortions: portions,
       }],
@@ -167,7 +170,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
         <div className="plate-mine">
           <span>
             Ma part
-            <small>{valid ? `${Math.round(share * 100)} % du plat${carbs !== null ? ` · ${carbs} g de glucides` : ""}${protein ? ` · ${protein} g de protéines` : ""}` : "Indiquez la quantité mangée"}</small>
+            <small>{valid ? `${Math.round(share * 100)} % du plat${carbs !== null ? ` · ${carbs} g de glucides` : ""}${protein ? ` · ${protein} g de protéines` : ""}${fat !== null ? ` · ${fat} g de lipides` : ""}` : "Indiquez la quantité mangée"}</small>
           </span>
           <strong>{valid ? kcal : "—"} kcal</strong>
         </div>

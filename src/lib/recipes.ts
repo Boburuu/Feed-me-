@@ -1,7 +1,7 @@
 // Catégories de recettes, lecture et affichage des ingrédients.
 
 import type { IconName } from "../components/Icon";
-import { itemCalories, itemCarbs, itemProtein } from "./foods";
+import { itemCalories, itemCarbs, itemFat, itemProtein } from "./foods";
 import type { Ingredient, MealItem, Recipe, RecipeCategory } from "./storage";
 
 export const recipeCategories: { id: RecipeCategory; label: string; plural: string; icon: IconName }[] = [
@@ -161,6 +161,7 @@ export function ingredientsNutrition(items: Ingredient[]) {
     kcal: known.reduce((sum, item) => sum + itemCalories(item.food!), 0),
     protein: known.reduce((sum, item) => sum + itemProtein(item.food!), 0),
     carbs: known.reduce((sum, item) => sum + (itemCarbs(item.food!) ?? 0), 0),
+    fat: known.reduce((sum, item) => sum + (itemFat(item.food!) ?? 0), 0),
     known: known.length,
   };
 }

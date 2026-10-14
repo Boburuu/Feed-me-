@@ -10,7 +10,8 @@
     "format": "oxfmt",
     "android:sync": "vite build && cap sync android",
     "android:open": "vite build && cap sync android && cap open android",
-    "android:run": "vite build && cap sync android && cap run android"
+    "android:run": "vite build && cap sync android && cap run android",
+    "test": "vitest run"
   },
   "dependencies": {
     "@capacitor-mlkit/barcode-scanning": "8.2.1",
@@ -38,6 +39,7 @@
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",
     "vite": "^8.0.5",
-    "vite-plugin-singlefile": "^2.3.3"
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "5.0.1"
   }
 }

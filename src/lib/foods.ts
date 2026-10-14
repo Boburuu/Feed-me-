@@ -9,6 +9,7 @@
 
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { commonFoods, type CommonFood } from "./commonFoods";
+import { cookedFactor } from "./dryGoods";
 import { energyDrinks, type EnergyDrink } from "./energyDrinks";
 import type { CustomFood, MealItem, Recipe } from "./storage";
 
@@ -119,7 +120,7 @@ export async function searchCiqual(query: string, limit = 12): Promise<FoodResul
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map(({ index }) => {
-      const [code, name, kcal, protein, carbs] = rows[index];
+      const [code, name, kcal, protein, carbs, fat] = rows[index];
       const portion = portionFor(name);
       return {
         name,
@@ -128,6 +129,7 @@ export async function searchCiqual(query: string, limit = 12): Promise<FoodResul
         kcal100: kcal,
         protein100: protein,
         carbs100: carbs,
+        fat100: fat,
         portionGrams: portion?.grams,
         portionLabel: portion?.label,
         detail: "Ciqual (ANSES)",
@@ -181,6 +183,7 @@ export function energyResult(drink: EnergyDrink): FoodResult {
     kcal100: drink.kcal100,
     protein100: 0,
     carbs100: drink.carbs100,
+    fat100: 0,
     portionGrams: drink.can,
     portionLabel: "1 canette",
     liquid: true,
@@ -201,6 +204,7 @@ function commonResult(food: CommonFood): FoodResult[] {
     kcal100: row[2],
     protein100: row[3],
     carbs100: row[4],
+    fat100: row[5],
     portionGrams: food.portion?.grams,
     portionLabel: food.portion?.label,
     liquid: food.drink || undefined,
@@ -291,7 +295,7 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
   if (signal?.cancelled) return [];
   const seen = new Set<string>();
   return ((data.hits ?? data.products ?? []) as OffHit[])
-    .filter((hit) => typeof hit.nutriments?.["energy-kcal_100g"] === "number" && (hit.product_name_fr || hit.product_name))
+    .filter((hit) => offKcal(hit.nutriments) !== null && (hit.product_name_fr || hit.product_name))
     .map((hit) => {
       const name = (hit.product_name_fr || hit.product_name || "").trim();
       const brand = brandOf(hit.brands);
@@ -300,9 +304,10 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
         name,
         source: "off" as const,
         ref: hit.code,
-        kcal100: Math.round(hit.nutriments!["energy-kcal_100g"]!),
+        kcal100: offKcal(hit.nutriments)!,
         protein100: hit.nutriments!.proteins_100g ?? null,
         carbs100: hit.nutriments!.carbohydrates_100g ?? null,
+        fat100: hit.nutriments!.fat_100g ?? null,
         brand: brand || undefined,
         packageGrams,
         ...parsePieces(`${hit.quantity ?? ""} ${name}`, packageGrams),
@@ -325,11 +330,19 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
 }
 
 /** Produit exact à partir de son code-barres (EAN), avec la portion de l'emballage. */
+/** kcal pour 100 g d'une fiche Open Food Facts : celles de l'étiquette, sinon les kJ ÷ 4,184. */
+export function offKcal(nutriments: OffNutriments | undefined): number | null {
+  const kcal = nutriments?.["energy-kcal_100g"];
+  if (typeof kcal === "number") return Math.round(kcal);
+  const kj = nutriments?.["energy-kj_100g"] ?? nutriments?.energy_100g;
+  return typeof kj === "number" ? Math.round(kj / 4.184) : null;
+}
+
 export async function openFoodFactsByBarcode(code: string): Promise<FoodResult | null> {
   const data = await getJson(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}?fields=product_name,product_name_fr,brands,nutriments,serving_size,serving_quantity,quantity`);
   const product = data.product;
-  const kcal = product?.nutriments?.["energy-kcal_100g"];
-  if (data.status !== 1 || typeof kcal !== "number") return null;
+  const kcal = offKcal(product?.nutriments);
+  if (data.status !== 1 || kcal === null) return null;
   const grams = Number(product.serving_quantity);
   const brand = brandOf(product.brands);
   const name = String(product.product_name_fr || product.product_name || "Produit").trim();
@@ -338,9 +351,10 @@ export async function openFoodFactsByBarcode(code: string): Promise<FoodResult |
     name,
     source: "off",
     ref: code,
-    kcal100: Math.round(kcal),
+    kcal100: kcal,
     protein100: product.nutriments.proteins_100g ?? null,
     carbs100: product.nutriments.carbohydrates_100g ?? null,
+    fat100: product.nutriments.fat_100g ?? null,
     portionGrams: grams > 0 ? grams : undefined,
     portionLabel: grams > 0 ? shortServing(String(product.serving_size ?? ""), grams) : undefined,
     // Boisson : contenance en cl / ml sur l'emballage.
@@ -353,16 +367,18 @@ export async function openFoodFactsByBarcode(code: string): Promise<FoodResult |
 }
 
 /** Glucides pour 100 g d'un aliment Ciqual, par son code (null : non renseignés). */
-export async function ciqualCarbs(code: number) {
+/** Glucides et lipides pour 100 g d'un aliment Ciqual, par son code (null : non renseignés). */
+export async function ciqualNutrients(code: number) {
   const { rows } = await loadCiqual();
-  return rows.find((row) => row[0] === code)?.[4] ?? null;
+  const row = rows.find((item) => item[0] === code);
+  return { carbs: row?.[4] ?? null, fat: row?.[5] ?? null };
 }
 
-/** Glucides pour 100 g d'un produit Open Food Facts, par son code-barres. */
-export async function openFoodFactsCarbs(code: string): Promise<number | null> {
+/** Glucides et lipides pour 100 g d'un produit Open Food Facts, par son code-barres. */
+export async function openFoodFactsNutrients(code: string) {
   const data = await getJson(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}?fields=nutriments`);
-  const carbs = data.product?.nutriments?.carbohydrates_100g;
-  return typeof carbs === "number" ? carbs : null;
+  const value = (key: string) => { const number = data.product?.nutriments?.[key]; return typeof number === "number" ? number : null; };
+  return { carbs: value("carbohydrates_100g"), fat: value("fat_100g") };
 }
 
 /** Taille d'une portion indiquée sur l'emballage (« 1 barre (23,5 g) »). */
@@ -393,6 +409,7 @@ export function recipeResult(recipe: Recipe): FoodResult {
     kcal100: recipe.calories,
     protein100: recipe.protein,
     carbs100: recipe.carbs ?? null,
+    fat100: recipe.fat ?? null,
     portionLabel: "1 part",
     perPortionOnly: true,
     recipePortions: recipe.portions,
@@ -412,6 +429,7 @@ export function searchOwn(query: string, recipes: Recipe[], customFoods: CustomF
       kcal100: food.kcal100,
       protein100: food.protein100,
       carbs100: food.carbs100 ?? null,
+      fat100: food.fat100 ?? null,
       portionGrams: food.portionGrams,
       portionLabel: food.portionLabel,
       detail: "Mon aliment",
@@ -433,22 +451,44 @@ export function itemGrams(item: MealItem) {
  */
 const perPortion = (item: MealItem) => item.unit === "portion" && !item.portionGrams;
 
+/**
+ * Poids auquel s'appliquent les valeurs pour 100 g. Féculent pesé cuit (riz, pâtes…) :
+ * les grammes cuits sont ramenés en grammes secs, puisque la fiche est celle du produit sec.
+ */
+export function nutrientGrams(item: MealItem) {
+  const grams = itemGrams(item) ?? 0;
+  return item.unit === "g" && item.weighedCooked && item.cookedFactor ? grams / item.cookedFactor : grams;
+}
+
+/** Valeur d'un nutriment pour la quantité mangée ; null si la fiche ne la donne pas. */
+function nutrient(item: MealItem, per100: number | null | undefined) {
+  if (per100 === null || per100 === undefined) return null;
+  if (perPortion(item)) return item.quantity * per100;
+  return (nutrientGrams(item) * per100) / 100;
+}
+
 export function itemCalories(item: MealItem) {
-  if (perPortion(item)) return item.quantity * item.kcal100;
-  return ((itemGrams(item) ?? 0) * item.kcal100) / 100;
+  return nutrient(item, item.kcal100) ?? 0;
 }
 
 export function itemProtein(item: MealItem) {
-  if (item.protein100 === null) return 0;
-  if (perPortion(item)) return item.quantity * item.protein100;
-  return ((itemGrams(item) ?? 0) * item.protein100) / 100;
+  return nutrient(item, item.protein100) ?? 0;
 }
 
 /** Glucides en g ; null quand la base ne les donne pas pour cet aliment. */
 export function itemCarbs(item: MealItem): number | null {
-  if (item.carbs100 === null || item.carbs100 === undefined) return null;
-  if (perPortion(item)) return item.quantity * item.carbs100;
-  return ((itemGrams(item) ?? 0) * item.carbs100) / 100;
+  return nutrient(item, item.carbs100);
+}
+
+/** Lipides en g ; null quand la base ne les donne pas pour cet aliment. */
+export function itemFat(item: MealItem): number | null {
+  return nutrient(item, item.fat100);
+}
+
+/** Total des lipides connus, et nombre d'aliments dont on ne les connaît pas. */
+export function fatOf(items: MealItem[]) {
+  const values = items.map(itemFat);
+  return { fat: values.reduce<number>((sum, value) => sum + (value ?? 0), 0), unknown: values.filter((value) => value === null).length };
 }
 
 /** Total des glucides connus, et nombre d'aliments dont on ne les connaît pas. */
@@ -459,15 +499,18 @@ export function carbsOf(items: MealItem[]) {
 
 /** Aliment prêt à ajouter : une portion si on la connaît, sinon 100 g. */
 export function toMealItem(result: FoodResult): MealItem {
-  const { source, ref, kcal100, protein100, carbs100, brand, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions } = result;
+  const { source, ref, kcal100, protein100, carbs100, fat100, brand, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions } = result;
   // Sans portion indiquée, un paquet vendu à la pièce se compte en pièces (« 1 tranche »).
   const portionGrams = result.portionGrams ?? pieceGrams;
   const portionLabel = result.portionGrams ? result.portionLabel : pieceLabel ?? result.portionLabel;
   // Un produit de marque garde sa marque : « Banane · Jafaden » n'est pas une banane.
   const name = brand && !normalize(result.name).includes(normalize(brand)) ? `${result.name} · ${brand}` : result.name;
   const byPortion = result.perPortionOnly || !!portionGrams;
+  // Riz, pâtes… vendus secs : on retient le rapport cuit / sec pour « pesé cuit ».
+  const dry = result.perPortionOnly ? null : cookedFactor(result.name, kcal100);
   return {
-    name, source, ref, kcal100, protein100, carbs100, portionGrams, portionLabel, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions,
+    ...(dry ? { cookedFactor: dry.factor } : {}),
+    name, source, ref, kcal100, protein100, carbs100, fat100, portionGrams, portionLabel, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions,
     servingGrams: portionGrams, servingLabel: portionLabel,
     quantity: byPortion ? 1 : 100, unit: byPortion ? "portion" : "g",
   };

@@ -83,6 +83,7 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
   const dayCalories = caloriesOf(selected);
   const dayProtein = dayMeals.reduce((sum, meal) => sum + (meal.protein ?? 0), 0);
   const dayCarbs = dayMeals.reduce((sum, meal) => sum + (meal.carbs ?? 0), 0);
+  const dayFat = dayMeals.reduce((sum, meal) => sum + (meal.fat ?? 0), 0);
   const dayWater = data.water[selected] ?? 0;
   const dayWeight = data.weights.find((entry) => entry.date === selected);
   const dayFasts = data.fasts.filter((fast) => fast.end && keyOf(new Date(fast.end)) === selected);
@@ -184,6 +185,7 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
           <span className={`goal-bar status-${status}`}><span style={{ width: `${Math.min(100, (dayCalories / target) * 100)}%` }} /></span>
           {dayProtein > 0 && <small>{dayProtein} g de protéines</small>}
           {dayCarbs > 0 && <small>{dayCarbs} g de glucides</small>}
+          {dayFat > 0 && <small>{dayFat} g de lipides</small>}
         </div>
 
         <div className="day-facts">

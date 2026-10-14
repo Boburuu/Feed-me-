@@ -1,6 +1,6 @@
 // Changer l'ingrédient « au choix » d'une recette enregistrée (« crevettes ou poulet ou tofu »).
 
-import { itemCalories, itemCarbs, itemProtein } from "./foods";
+import { itemCalories, itemCarbs, itemFat, itemProtein } from "./foods";
 import { matchChoice } from "./ingredientMatch";
 import { ingredientFromItem } from "./recipes";
 import type { MealItem, Recipe } from "./storage";
@@ -26,5 +26,6 @@ export async function applyChoice(recipe: Recipe, group: number, index: number, 
     ...(recipe.calories ? { calories: Math.max(0, Math.round(recipe.calories + change(itemCalories))) } : {}),
     ...(recipe.calories ? { protein: Math.max(0, Math.round(recipe.protein + change(itemProtein))) } : {}),
     ...(recipe.carbs !== undefined ? { carbs: Math.max(0, Math.round(recipe.carbs + change(itemCarbs))) } : {}),
+    ...(recipe.fat !== undefined ? { fat: Math.max(0, Math.round(recipe.fat + change(itemFat))) } : {}),
   };
 }
