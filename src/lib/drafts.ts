@@ -6,10 +6,10 @@
 
 import type { MealCategory, MealItem, RecipeCategory, StepGroup } from "./storage";
 
-/** Au-delà, un brouillon oublié n'est plus proposé. */
-const MAX_AGE_MS = 3 * 24 * 3_600_000;
+/** Au-delà de 24 h, un brouillon oublié n'est plus proposé. */
+const MAX_AGE_MS = 24 * 3_600_000;
 
-type Stored<T> = T & { savedAt: number; open: boolean };
+export type Stored<T> = T & { savedAt: number; open: boolean };
 
 function read<T>(key: string): Stored<T> | null {
   try {

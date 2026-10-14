@@ -131,6 +131,7 @@
 /* --- Photo / code-barres, contenants des boissons ------------------------------------ */
 .energy-list { display: grid; gap: 8px; }
 .planned-toggle span { font-size: 12px; }
+.plate-sentence { margin: 0; padding: 8px 10px; border-radius: 10px; color: var(--ink); background: var(--mint); font-size: 13px; font-weight: 700; }
 .tracking-view { margin-top: 14px; }
 .week-planner, .shopping-list { display: grid; gap: 10px; margin-top: 14px; }
 .week-head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; text-align: center; }
@@ -167,6 +168,10 @@
 .shop-add input { padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--white); font-size: 14px; }
 .draft-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-radius: 12px; color: var(--green-text); background: var(--mint); font-size: 12px; font-weight: 700; }
 .draft-banner .text-button { flex: none; font-size: 12px; }
+.draft-offer { flex-wrap: wrap; }
+.draft-offer > span { display: grid; gap: 2px; }
+.draft-offer small { color: var(--muted); font-size: 11px; font-weight: 600; }
+.draft-offer > div { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 .portion-picker { display: grid; gap: 12px; }
 .portion-modes { grid-template-columns: repeat(3, 1fr); }
 .portion-hint { color: var(--muted); font-size: 12px; }

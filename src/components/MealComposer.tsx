@@ -21,7 +21,13 @@ import {
   type FoodResult,
 } from "../lib/foods";
 import { referenceFor } from "../lib/coherence";
-import type { MealDraft } from "../lib/drafts";
+import type { MealDraft, Stored } from "../lib/drafts";
+
+/** « il y a 2 h », « il y a 5 min ». */
+function draftAge(draft: Stored<MealDraft>) {
+  const minutes = Math.max(1, Math.round((Date.now() - draft.savedAt) / 60_000));
+  return minutes < 60 ? `il y a ${minutes} min` : `il y a ${Math.round(minutes / 60)} h`;
+}
 import { cookedFactor } from "../lib/dryGoods";
 import { energyBrands, energyDrinks } from "../lib/energyDrinks";
 import { analyzeMealPhoto, liveScanAvailable, photoRecognitionAvailable, scanBarcode, scanBarcodePhoto, type PhotoAnalysis, type ScanResult } from "../lib/foodPhoto";
@@ -52,6 +58,9 @@ type MealComposerProps = {
   /** Chaque changement de la saisie, pour l'enregistrer comme brouillon. */
   onDraft?: (draft: MealDraft) => void;
   onDiscardDraft?: () => void;
+  /** Brouillon trouvé à l'ouverture : « Reprendre ton repas en cours ? » */
+  offeredDraft?: MealDraft;
+  onResumeDraft?: () => void;
   /** Ouvert depuis le planning : repas prévu, pas encore mangé. */
   planned?: boolean;
 };
@@ -82,7 +91,7 @@ const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma rece
 const unitName = (label?: string) => (label ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, "").slice(0, 14);
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 
-export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, editing, draft, onDraft, onDiscardDraft, planned: plannedAtStart, leftovers, onDiscardLeftover }: MealComposerProps) {
+export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, editing, draft, onDraft, onDiscardDraft, offeredDraft, onResumeDraft, planned: plannedAtStart, leftovers, onDiscardLeftover }: MealComposerProps) {
   const today = todayKey();
   const [date, setDate] = useState(draft?.date ?? editing?.date ?? initialDate);
   const [category, setCategory] = useState(draft?.category ?? editing?.category ?? initialCategory);
@@ -114,7 +123,9 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const planned = plannedChoice || date > today;
 
   // Brouillon enregistré à chaque changement : rien n'est perdu si Android ferme l'app.
+  // Tant qu'un ancien brouillon attend une réponse, la fenêtre vierge ne l'écrase pas.
   useEffect(() => {
+    if (offeredDraft && !lines.length && !plateName.trim()) return;
     onDraft?.({ editingId: editing?.id, date, category, mode, lines: lines.map(({ key: _key, ...item }) => item), plateName, servings, parts, adjust, keepLeftover, query, planned: plannedChoice });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, category, mode, lines, plateName, servings, parts, adjust, keepLeftover, query, plannedChoice]);
@@ -278,6 +289,9 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const { carbs, unknown: carbsUnknown } = carbsOf(lines);
   const carbsLabel = (value: number) => `${Math.round(value)} g de glucides${carbsUnknown ? ` (+ ${carbsUnknown} aliment${carbsUnknown > 1 ? "s" : ""} sans valeur)` : ""}`;
   const { fat } = fatOf(lines);
+  // Poids (ou volume, si tout est liquide) du plat entier, pour « soit ≈ 250 g ».
+  const plateGrams = lines.reduce((sum, line) => sum + (itemGrams(line) ?? 0), 0);
+  const plateUnit = lines.length > 0 && lines.every((line) => line.liquid) ? "ml" : "g";
 
   const isPlate = mode === "plate";
   const share = isPlate ? Math.min(1, Math.max(0.05, parts / servings + adjust / 100)) : 1;
@@ -353,8 +367,20 @@ export default function MealComposer({ date: initialDate, category: initialCateg
     <div className="meal-composer">
       {draft && (
         <div className="draft-banner" role="status">
-          <span>Brouillon repris là où vous l'aviez laissé.</span>
-          <button type="button" className="text-button" onClick={onDiscardDraft}>Recommencer</button>
+          <span>Repas en cours repris là où vous l'aviez laissé.</span>
+          <button type="button" className="text-button" onClick={onDiscardDraft}>Abandonner</button>
+        </div>
+      )}
+      {offeredDraft && !draft && (
+        <div className="draft-banner draft-offer" role="status">
+          <span>
+            Reprendre ton repas en cours ?
+            <small>{offeredDraft.plateName.trim() || offeredDraft.lines.map((line) => line.name.split(" · ")[0]).slice(0, 3).join(", ")} · {offeredDraft.lines.length} aliment{offeredDraft.lines.length > 1 ? "s" : ""}, {draftAge(offeredDraft as Stored<MealDraft>)}</small>
+          </span>
+          <div>
+            <button type="button" className="text-button" onClick={onDiscardDraft}>Abandonner</button>
+            <button type="button" className="plan-confirm" onClick={onResumeDraft}>Reprendre</button>
+          </div>
         </div>
       )}
       <div className="meal-composer-when">
@@ -529,7 +555,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
               ))}
               <div className="meal-total">
                 <span>
-                  {isPlate ? "Plat entier" : "Total"}
+                  {isPlate ? `Plat entier (pour ${servings} pers.)` : "Total du repas"}
                   <small>{carbsLabel(carbs)}{protein > 0 ? ` · ${protein} g de protéines` : ""}{fat > 0 ? ` · ${Math.round(fat)} g de lipides` : ""}</small>
                 </span>
                 <strong>{Math.round(total)} kcal</strong>
@@ -566,6 +592,10 @@ export default function MealComposer({ date: initialDate, category: initialCateg
                 </div>
                 <span>{adjust > 0 ? "un peu plus" : adjust < 0 ? "un peu moins" : "du plat"}</span>
               </div>
+              <p className="plate-sentence">
+                Tu manges {Math.round(share * 100)} % du plat
+                {plateGrams > 0 ? `, soit ≈ ${Math.round(plateGrams * share).toLocaleString("fr-FR")} ${plateUnit}` : ""} et {Math.round(total * share)} kcal.
+              </p>
               <div className="plate-mine">
                 <span>
                   Ma part

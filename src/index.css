@@ -334,6 +334,17 @@ h2 { font-size: 20px; font-weight: 800; }
 .water-icon { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 12px; color: var(--blue-strong); background: rgba(255,255,255,.65); }
 .water-info p { margin: 0 0 2px; color: var(--muted); font-size: 11px; font-weight: 600; }
 .water-info strong { font-family: "Manrope"; font-size: 15px; }
+.water-detail-toggle { display: block; margin-top: 3px; padding: 0; font-size: 11px; }
+.water-sources { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.water-sources li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.55); }
+.water-sources span { display: grid; gap: 2px; min-width: 0; }
+.water-sources strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.water-sources small { color: var(--muted); font-size: 11px; }
+.water-sources em { color: var(--blue-strong); font-size: 13px; font-style: normal; font-weight: 700; }
+.coefficient-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.coefficient-list label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.coefficient-list label div { display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+.coefficient-list input { width: 100%; min-width: 0; padding: 10px 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 15px; font-weight: 700; }
 .water-split { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; font-weight: 600; }
 .water-info strong span { color: var(--muted); font-family: "DM Sans"; font-size: 11px; font-weight: 500; }
 .round-button { display: grid; width: 32px; height: 32px; padding: 0; place-items: center; border: 0; border-radius: 50%; color: var(--on-accent); background: var(--blue-strong); cursor: pointer; }

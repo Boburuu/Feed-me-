@@ -90,6 +90,7 @@
 
 /* Pastilles d'icônes : le blanc translucide des thèmes clairs ressort trop sur fond sombre. */
 .phone:is([data-theme="nuit"], [data-theme="eshin"], [data-theme="sororitas"]) :is(.metric-icon, .water-icon, .round-button.soft, .camera-icon, .water-amounts button) { background: rgba(255, 255, 255, .1); }
+.phone:is([data-theme="nuit"], [data-theme="eshin"], [data-theme="sororitas"]) .water-sources li { background: rgba(255, 255, 255, .08); }
 .phone:is([data-theme="eshin"], [data-theme="sororitas"]) .water-bar { background: rgba(255, 255, 255, .14); }
 .phone:is([data-theme="eshin"], [data-theme="sororitas"]) .goal-bar { background: rgba(255, 255, 255, .1); }
 .phone:is([data-theme="eshin"], [data-theme="sororitas"]) :is(small, .recipe-meta span, .metric-card small) { color: color-mix(in srgb, var(--muted) 80%, var(--ink)); }

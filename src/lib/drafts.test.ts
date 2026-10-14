@@ -41,8 +41,8 @@ describe("brouillon de repas", () => {
     expect(hasContent({ ...assiette, lines: [], plateName: "" })).toBe(false);
   });
 
-  it("un brouillon de plus de 3 jours n'est plus proposé", () => {
-    store.set("feedme:brouillon-repas", JSON.stringify({ ...assiette, open: true, savedAt: Date.now() - 4 * 86_400_000 }));
+  it("un brouillon de plus de 24 h n'est plus proposé", () => {
+    store.set("feedme:brouillon-repas", JSON.stringify({ ...assiette, open: true, savedAt: Date.now() - 25 * 3_600_000 }));
     expect(mealDraft.load()).toBeNull();
   });
 

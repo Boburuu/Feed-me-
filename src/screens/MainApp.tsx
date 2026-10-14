@@ -18,7 +18,7 @@ import { programFor, tipOfTheDay } from "../lib/goals";
 import { restoreImages } from "../lib/images";
 import { readPhoneSteps, readSteps } from "../lib/steps";
 import { recipeResult, toMealItem } from "../lib/foods";
-import { hydrationOf } from "../lib/hydration";
+import { drinkCategories, hydrationOf } from "../lib/hydration";
 import { eatenMeals, isPlanned } from "../lib/planning";
 import { formatWater, WATER_MAX, waterAmounts, waterGoal } from "../lib/water";
 import { computePlan, observedMaintenance } from "../lib/nutrition";
@@ -148,6 +148,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const water = data.water[today] ?? 0;
   // Eau ajoutée ici + boissons des repas du jour (calculées, jamais recopiées).
   const hydration = hydrationOf(data, today);
+  const [waterDetail, setWaterDetail] = useState(false);
+  /** La boisson reste dans le repas (calories), mais ne compte plus dans l'hydratation. */
+  const removeDrink = (mealId: number, index: number) =>
+    update((current) => ({
+      ...current,
+      meals: current.meals.map((meal) => (meal.id !== mealId || !meal.items ? meal : { ...meal, items: meal.items.map((item, i) => (i === index ? { ...item, hydrates: false } : item)) })),
+    }));
   const goalWater = waterGoal(profile.sex);
   const stepsToday = data.steps[today];
   const latestWeight = [...data.weights].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
@@ -235,11 +242,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
 
   /** Repas prévu, ouvert depuis le planning. */
   const [planning, setPlanning] = useState(false);
+  /** Repas commencé puis laissé de côté : on demande s'il faut le reprendre. */
+  const [offeredDraft, setOfferedDraft] = useState<MealDraft | null>(null);
   const openMealForm = (date = today, planned = false) => {
     setPlanning(planned);
-    // Un repas commencé puis laissé de côté est repris.
     const draft = mealDraft.load();
-    setRestoredDraft(hasContent(draft) && !draft!.editingId ? draft : null);
+    setRestoredDraft(null);
+    setOfferedDraft(hasContent(draft) && !draft!.editingId ? draft : null);
     setMealDate(date);
     setModal("meal");
   };
@@ -478,12 +487,28 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 <p>Hydratation</p>
                 <strong>{formatWater(hydration.totalMl)} <span>sur {formatWater(goalWater)}</span></strong>
                 {hydration.mealsMl > 0 && <small className="water-split">Eau pure {formatWater(hydration.pureWaterMl)} · boissons des repas {formatWater(hydration.mealsMl)}</small>}
+                {hydration.sources.length > 0 && <button type="button" className="text-button water-detail-toggle" onClick={() => setWaterDetail((value) => !value)}>{waterDetail ? "Masquer le détail" : "Voir le détail"}</button>}
               </div>
               <button className="round-button soft" onClick={() => addWater(-lastWater)} disabled={water === 0} aria-label={`Retirer ${lastWater} ml`}>
                 <Icon name="minus" size={18} />
               </button>
             </div>
             <div className="water-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, (hydration.totalMl / goalWater) * 100)}%` }} /></div>
+            {/* D'où vient chaque apport ; une boisson peut être retirée de l'hydratation. */}
+            {waterDetail && (
+              <ul className="water-sources">
+                {water > 0 && <li><span><strong>Eau ajoutée ici</strong><small>Verres et bouteilles</small></span><em>{formatWater(water)}</em></li>}
+                {hydration.sources.map((source) => (
+                  <li key={`${source.mealId}-${source.index}`}>
+                    <span>
+                      <strong>{source.name}</strong>
+                      <small>{formatWater(Math.round(source.ml))} bus{source.countedMl !== source.ml ? ` · ${formatWater(Math.round(source.countedMl))} comptés (${drinkCategories.find((item) => item.id === source.category)?.label.toLowerCase()})` : ""} · {source.meal}</small>
+                    </span>
+                    <button type="button" className="icon-button" onClick={() => removeDrink(source.mealId, source.index)} aria-label={`Retirer ${source.name} de l'hydratation`}><Icon name="close" size={15} /></button>
+                  </li>
+                ))}
+              </ul>
+            )}
             <div className="water-amounts">
               {waterAmounts.map((amount) => (
                 <button key={amount.ml} onClick={() => addWater(amount.ml)} aria-label={`Ajouter ${amount.ml} ml d'eau`}>
@@ -663,6 +688,23 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           </section>
 
           <section className="section-block">
+            <div className="section-title"><div><p className="eyebrow">Hydratation</p><h2>Ce qui compte</h2></div></div>
+            <p className="theme-description">Part du volume d'une boisson comptée comme hydratation. Le volume bu reste affiché en entier ; l'eau ajoutée à la main compte toujours à 100 %.</p>
+            <div className="coefficient-list">
+              {drinkCategories.map((category) => {
+                const value = data.hydrationCoefficients?.[category.id] ?? category.coefficient;
+                return (
+                  <label key={category.id}>
+                    <span>{category.label}</span>
+                    <div><input type="number" inputMode="numeric" min="0" max="100" value={value} onChange={(e) => update((current) => ({ ...current, hydrationCoefficients: { ...current.hydrationCoefficients, [category.id]: Math.max(0, Math.min(100, Number(e.target.value) || 0)) } }))} /><small>%</small></div>
+                  </label>
+                );
+              })}
+            </div>
+            {data.hydrationCoefficients && <button type="button" className="text-button" onClick={() => update((current) => ({ ...current, hydrationCoefficients: undefined }))}>Revenir aux valeurs conseillées</button>}
+          </section>
+
+          <section className="section-block">
             <div className="section-title"><div><p className="eyebrow">Confidentialité</p><h2>Mes données</h2></div></div>
             <p className="theme-description">Tout est enregistré uniquement sur cet appareil. Désinstaller l'application efface les données : exportez une sauvegarde régulièrement.</p>
             <div className="settings-list">
@@ -723,7 +765,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   editing={editingMeal ?? undefined}
                   draft={restoredDraft ?? undefined}
                   onDraft={(draft) => mealDraft.save(draft, true)}
-                  onDiscardDraft={() => { mealDraft.clear(); setRestoredDraft(null); setComposerKey((value) => value + 1); }}
+                  onDiscardDraft={() => { mealDraft.clear(); setRestoredDraft(null); setOfferedDraft(null); setComposerKey((value) => value + 1); }}
+                  offeredDraft={offeredDraft ?? undefined}
+                  onResumeDraft={() => { setRestoredDraft(offeredDraft); setOfferedDraft(null); setComposerKey((value) => value + 1); }}
                   initialPhoto={mealPhoto ?? undefined}
                   planned={planning}
                   initialItems={mealRecipe ? [toMealItem(recipeResult(mealRecipe))] : undefined}

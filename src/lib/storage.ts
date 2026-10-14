@@ -230,6 +230,8 @@ export type AppData = {
   stepGoal: number;
   /** D'où viennent les pas : podomètre du téléphone, Health Connect, ou saisie seule. */
   stepsSource: StepsSource;
+  /** Part du volume bu comptée comme hydratation, par type de boisson (en %). */
+  hydrationCoefficients?: Partial<Record<"eau" | "the" | "lait" | "jus" | "soda" | "soupe" | "cafe" | "alcool" | "autre", number>>;
   /** Liste de courses : lignes cochées (par nom) et lignes ajoutées à la main. */
   shopping?: { checked: string[]; extras: { id: number; text: string; done: boolean }[] };
   /** Les exemples de recettes de boissons ont déjà été proposés (pour ne pas les rajouter). */

@@ -1,5 +1,5 @@
 import Icon from "./Icon";
-import { coherenceWarnings } from "../lib/coherence";
+import { coherenceWarnings, quantityWarning } from "../lib/coherence";
 import { couldHydrate, drinkMl } from "../lib/hydration";
 import { itemCalories, itemCarbs, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
 import type { MealItem } from "../lib/storage";
@@ -78,7 +78,7 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
     if (line.servingGrams) {
       options.push({
         key: "serving",
-        label: unitName(line.servingLabel),
+        label: unitName(line.servingLabel) === "portion" ? `portion ${amount(line.servingGrams)}` : unitName(line.servingLabel),
         selected: line.unit === "portion" && !isPackage && !(hasPiece && isPiece),
         pick: () => useUnit({ label: line.servingLabel ?? "1 portion", grams: line.servingGrams! }),
       });
@@ -188,12 +188,13 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
       {!hideHydration && (line.liquid || line.drinkMlPerPart || couldHydrate(line)) && (
         <button type="button" className={`hydrate-toggle${drinkMl(line) > 0 ? " on" : ""}`} aria-pressed={drinkMl(line) > 0}
           onClick={() => onChange({ hydrates: drinkMl(line) > 0 ? false : true })}>
-          {drinkMl(line) > 0 ? `💧 ${volume(drinkMl(line))} comptés dans l'hydratation` : "💧 Compter dans l'hydratation"}
+          {drinkMl(line) > 0 ? `💧 ${volume(drinkMl(line))} dans l'hydratation` : "💧 Compter dans l'hydratation"}
         </button>
       )}
+      {[quantityWarning(line)].filter(Boolean).map((warning) => <small className="meal-line-warning" key={warning}>⚠ {warning}</small>)}
       {coherenceWarnings(line).map((warning) => <small className="meal-line-warning" key={warning}>⚠ {warning}</small>)}
       <small className="meal-line-detail">
-        {servings ? `Ma recette pour ${servings} pers. · ${Math.round(line.kcal100)} kcal la part` : line.matchedName ? `Calculé avec : ${line.matchedName} (${sourceName[line.source]})` : sourceName[line.source]}
+        {servings ? `Ma recette pour ${servings} pers. · ${Math.round(line.kcal100)} kcal la part` : `Base : ${n(Math.round(line.kcal100))} kcal ${perPortionOnly ? "par portion" : `pour 100 ${line.liquid ? "ml" : "g"}`} · ${line.matchedName ? `${line.matchedName} (${sourceName[line.source]})` : sourceName[line.source]}`}
       </small>
     </div>
   );

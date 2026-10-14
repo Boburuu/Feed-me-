@@ -2,6 +2,7 @@
 // version du produit (pavés de saumon à 269 kcal/100 g). On le signale sans jamais rien
 // corriger soi-même : c'est à l'utilisateur de comparer avec l'emballage.
 
+import { itemGrams } from "./foods";
 import { findFood } from "./ingredientMatch";
 import type { MealItem } from "./storage";
 
@@ -45,6 +46,21 @@ export function coherenceWarnings(item: MealItem): string[] {
     }
   }
   return warnings;
+}
+
+/**
+ * Quantité très loin de la portion habituelle (2 000 g au lieu de 200 g) : faute de frappe
+ * probable. Rien n'est changé, l'utilisateur vérifie.
+ */
+export function quantityWarning(item: MealItem): string | null {
+  const grams = itemGrams(item);
+  if (grams === null || item.source === "recette") return null;
+  const unit = item.liquid ? "ml" : "g";
+  const usual = item.servingGrams ?? item.pieceGrams;
+  if (usual ? grams > usual * 6 && grams > 600 : grams > (item.liquid ? 3000 : 1500)) {
+    return `Quantité inhabituelle : ${Math.round(grams).toLocaleString("fr-FR")} ${unit}${usual ? ` (portion habituelle : ${Math.round(usual)} ${unit})` : ""}. Vérifiez qu'il n'y a pas un zéro de trop.`;
+  }
+  return null;
 }
 
 /**

@@ -19,7 +19,7 @@ describe("prévu et mangé", () => {
     const canette = { name: "Monster", source: "off" as const, quantity: 1, unit: "portion" as const, portionGrams: 500, liquid: true, kcal100: 3, protein100: 0 };
     const prevue = meal(4, "2026-10-14", 14, { status: "planned", drinksCounted: true, items: [canette] });
     expect(hydrationOf({ water: {}, meals: [prevue] }, "2026-10-14").totalMl).toBe(0);
-    expect(hydrationOf({ water: {}, meals: [{ ...prevue, status: undefined }] }, "2026-10-14").totalMl).toBe(500);
+    expect(hydrationOf({ water: {}, meals: [{ ...prevue, status: undefined }] }, "2026-10-14").mealsMl).toBe(500);
   });
 
   it("semaine du lundi au dimanche", () => {
