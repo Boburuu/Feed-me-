@@ -46,6 +46,8 @@
 .unit-toggle button { max-width: 130px; overflow: hidden; padding: 8px 12px; border: 0; border-radius: 9px; color: var(--muted); background: transparent; cursor: pointer; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .unit-toggle button.selected { color: var(--on-accent); background: var(--green); }
 .unit-fixed { color: var(--muted); font-size: 13px; font-weight: 700; }
+.hydrate-toggle { justify-self: start; padding: 4px 10px; border: 1px dashed var(--blue-strong); border-radius: 99px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 700; cursor: pointer; }
+.hydrate-toggle.on { border-style: solid; color: var(--blue-strong); background: color-mix(in srgb, var(--blue-strong) 14%, transparent); }
 .meal-line-warning { color: var(--coral); font-size: 12px; font-weight: 600; line-height: 1.35; }
 .chips-label { align-self: center; color: var(--muted); font-size: 12px; font-weight: 700; }
 .meal-line-carbs { color: var(--ink); font-size: 12px; font-weight: 700; }

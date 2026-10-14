@@ -81,6 +81,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
       ...(carbs !== null ? { carbs } : {}),
       ...(fat !== null ? { fat } : {}),
       source: "recipe",
+      drinksCounted: true,
       // En parts de la recette : le repas se rouvre et se modifie comme les autres.
       items: [{
         name: recipe.name,
@@ -94,6 +95,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
         fat100: recipe.fat ?? null,
         portionLabel: "1 part",
         recipePortions: portions,
+        ...(recipe.volumeMl ? { drinkMlPerPart: recipe.volumeMl / portions } : {}),
       }],
     }, {
       pieces: mode === "pieces" ? toNumber(pieces) || recipe.pieces : recipe.pieces,
@@ -170,7 +172,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
         <div className="plate-mine">
           <span>
             Ma part
-            <small>{valid ? `${Math.round(share * 100)} % du plat${carbs !== null ? ` · ${carbs} g de glucides` : ""}${protein ? ` · ${protein} g de protéines` : ""}${fat !== null ? ` · ${fat} g de lipides` : ""}` : "Indiquez la quantité mangée"}</small>
+            <small>{valid ? `${Math.round(share * 100)} % du plat${carbs !== null ? ` · ${carbs} g de glucides` : ""}${protein ? ` · ${protein} g de protéines` : ""}${fat !== null ? ` · ${fat} g de lipides` : ""}${recipe.volumeMl ? ` · 💧 ${Math.round(recipe.volumeMl * share)} ml` : ""}` : "Indiquez la quantité mangée"}</small>
           </span>
           <strong>{valid ? kcal : "—"} kcal</strong>
         </div>

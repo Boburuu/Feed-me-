@@ -44,6 +44,11 @@ export type Meal = {
   carbs?: number;
   /** Lipides du repas, en g (absents des repas notés avant leur suivi). */
   fat?: number;
+  /**
+   * Ses boissons comptent dans l'hydratation (repas notés depuis cette fonction ; les plus
+   * anciens n'y comptent pas, pour ne pas doubler les verres ajoutés à la main).
+   */
+  drinksCounted?: boolean;
   source: SourceType;
   /** Détail des aliments, pour les repas composés avec la recherche. */
   items?: MealItem[];
@@ -90,6 +95,13 @@ export type MealItem = {
    */
   cookedFactor?: number;
   weighedCooked?: boolean;
+  /**
+   * Hydratation : true = compté comme boisson même s'il n'est pas liquide (soupe), false =
+   * jamais compté. Absent : compté seulement si c'est une boisson (liquid).
+   */
+  hydrates?: boolean;
+  /** Part d'une recette dont le volume final est connu : ml bus par part. */
+  drinkMlPerPart?: number;
   /** Valeur habituelle (Ciqual) pour ce type d'aliment, pour signaler une fiche douteuse. */
   refKcal100?: number;
   refName?: string;
@@ -155,6 +167,8 @@ export type Recipe = {
   carbs?: number;
   /** Lipides par personne, en g (absents : pas encore calculés). */
   fat?: number;
+  /** Volume final préparé, en ml (boisson, soupe) : compté dans l'hydratation selon la part bue. */
+  volumeMl?: number;
   /** Nombre de morceaux du plat (gâteau coupé en 12), retenu pour « j'en ai mangé 2 ». */
   pieces?: number;
   /** Poids du plat entier en g, retenu pour « j'en ai mangé 250 g ». */

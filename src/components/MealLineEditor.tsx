@@ -1,5 +1,6 @@
 import Icon from "./Icon";
 import { coherenceWarnings } from "../lib/coherence";
+import { couldHydrate, drinkMl } from "../lib/hydration";
 import { itemCalories, itemCarbs, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
 import type { MealItem } from "../lib/storage";
 
@@ -7,6 +8,8 @@ type MealLineEditorProps = {
   line: MealItem;
   onChange: (change: Partial<MealItem>) => void;
   onRemove: () => void;
+  /** Ingrédient de recette : l'hydratation se règle avec le volume final de la recette. */
+  hideHydration?: boolean;
 };
 
 const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma recette", perso: "Mon aliment" } as const;
@@ -42,7 +45,7 @@ const fractions = [
 const PACKAGE_LABEL = "1 boîte";
 
 /** Une ligne d'aliment : quantité et unité (portion, boîte, contenant, grammes ou ml). */
-export default function MealLineEditor({ line, onChange, onRemove }: MealLineEditorProps) {
+export default function MealLineEditor({ line, onChange, onRemove, hideHydration }: MealLineEditorProps) {
   const grams = itemGrams(line);
   const perPortionOnly = line.unit === "portion" && !line.portionGrams;
   const isPackage = line.unit === "portion" && line.portionLabel === PACKAGE_LABEL && !!line.packageGrams;
@@ -180,6 +183,13 @@ export default function MealLineEditor({ line, onChange, onRemove }: MealLineEdi
         <small className="meal-line-carbs">
           {[itemCarbs(line) !== null ? `${n(Math.round(itemCarbs(line)! * 10) / 10)} g de glucides` : "", itemFat(line) !== null ? `${n(Math.round(itemFat(line)! * 10) / 10)} g de lipides` : ""].filter(Boolean).join(" · ")}
         </small>
+      )}
+      {/* Hydratation : boissons comptées d'office ; soupe, lait… au choix. */}
+      {!hideHydration && (line.liquid || line.drinkMlPerPart || couldHydrate(line)) && (
+        <button type="button" className={`hydrate-toggle${drinkMl(line) > 0 ? " on" : ""}`} aria-pressed={drinkMl(line) > 0}
+          onClick={() => onChange({ hydrates: drinkMl(line) > 0 ? false : true })}>
+          {drinkMl(line) > 0 ? `💧 ${volume(drinkMl(line))} comptés dans l'hydratation` : "💧 Compter dans l'hydratation"}
+        </button>
       )}
       {coherenceWarnings(line).map((warning) => <small className="meal-line-warning" key={warning}>⚠ {warning}</small>)}
       <small className="meal-line-detail">

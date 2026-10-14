@@ -120,11 +120,12 @@ export async function searchCiqual(query: string, limit = 12): Promise<FoodResul
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map(({ index }) => {
-      const [code, name, kcal, protein, carbs, fat] = rows[index];
+      const [code, name, kcal, protein, carbs, fat, group] = rows[index];
       const portion = portionFor(name);
       return {
         name,
         source: "ciqual" as const,
+        liquid: /^(0601|0602|0603|0501)$/.test(group) || undefined,
         ref: String(code),
         kcal100: kcal,
         protein100: protein,
@@ -413,6 +414,7 @@ export function recipeResult(recipe: Recipe): FoodResult {
     portionLabel: "1 part",
     perPortionOnly: true,
     recipePortions: recipe.portions,
+    ...(recipe.volumeMl ? { drinkMlPerPart: recipe.volumeMl / (recipe.portions || 1) } : {}),
     detail: recipe.calories ? `Ma recette pour ${recipe.portions} pers.` : "Ma recette · calories à calculer",
   };
 }
@@ -499,7 +501,7 @@ export function carbsOf(items: MealItem[]) {
 
 /** Aliment prêt à ajouter : une portion si on la connaît, sinon 100 g. */
 export function toMealItem(result: FoodResult): MealItem {
-  const { source, ref, kcal100, protein100, carbs100, fat100, brand, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions } = result;
+  const { source, ref, kcal100, protein100, carbs100, fat100, brand, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart } = result;
   // Sans portion indiquée, un paquet vendu à la pièce se compte en pièces (« 1 tranche »).
   const portionGrams = result.portionGrams ?? pieceGrams;
   const portionLabel = result.portionGrams ? result.portionLabel : pieceLabel ?? result.portionLabel;
@@ -510,7 +512,7 @@ export function toMealItem(result: FoodResult): MealItem {
   const dry = result.perPortionOnly ? null : cookedFactor(result.name, kcal100);
   return {
     ...(dry ? { cookedFactor: dry.factor } : {}),
-    name, source, ref, kcal100, protein100, carbs100, fat100, portionGrams, portionLabel, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions,
+    name, source, ref, kcal100, protein100, carbs100, fat100, portionGrams, portionLabel, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart,
     servingGrams: portionGrams, servingLabel: portionLabel,
     quantity: byPortion ? 1 : 100, unit: byPortion ? "portion" : "g",
   };

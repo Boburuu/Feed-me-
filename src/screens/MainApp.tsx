@@ -17,6 +17,7 @@ import { programFor, tipOfTheDay } from "../lib/goals";
 import { restoreImages } from "../lib/images";
 import { readPhoneSteps, readSteps } from "../lib/steps";
 import { recipeResult, toMealItem } from "../lib/foods";
+import { hydrationOf } from "../lib/hydration";
 import { formatWater, WATER_MAX, waterAmounts, waterGoal } from "../lib/water";
 import { computePlan, observedMaintenance } from "../lib/nutrition";
 import { bodyErrors, draftFrom, goalErrors, parseDraft } from "../lib/planDraft";
@@ -121,6 +122,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const remaining = goal - consumed;
   const progress = Math.round((consumed / goal) * 100);
   const water = data.water[today] ?? 0;
+  // Eau ajoutée ici + boissons des repas du jour (calculées, jamais recopiées).
+  const hydration = hydrationOf(data, today);
   const goalWater = waterGoal(profile.sex);
   const stepsToday = data.steps[today];
   const latestWeight = [...data.weights].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
@@ -435,13 +438,14 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               <span className="water-icon"><Icon name="water" /></span>
               <div>
                 <p>Hydratation</p>
-                <strong>{formatWater(water)} <span>sur {formatWater(goalWater)}</span></strong>
+                <strong>{formatWater(hydration.totalMl)} <span>sur {formatWater(goalWater)}</span></strong>
+                {hydration.mealsMl > 0 && <small className="water-split">Eau pure {formatWater(hydration.pureWaterMl)} · boissons des repas {formatWater(hydration.mealsMl)}</small>}
               </div>
               <button className="round-button soft" onClick={() => addWater(-lastWater)} disabled={water === 0} aria-label={`Retirer ${lastWater} ml`}>
                 <Icon name="minus" size={18} />
               </button>
             </div>
-            <div className="water-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, (water / goalWater) * 100)}%` }} /></div>
+            <div className="water-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, (hydration.totalMl / goalWater) * 100)}%` }} /></div>
             <div className="water-amounts">
               {waterAmounts.map((amount) => (
                 <button key={amount.ml} onClick={() => addWater(amount.ml)} aria-label={`Ajouter ${amount.ml} ml d'eau`}>

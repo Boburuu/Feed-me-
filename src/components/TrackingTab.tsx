@@ -3,6 +3,7 @@ import Icon from "./Icon";
 import WeightTracker from "./WeightTracker";
 import { sessionLabel } from "../lib/activity";
 import { mealCategories, todayKey, type AppData, type GoalType, type Meal } from "../lib/storage";
+import { hydrationOf } from "../lib/hydration";
 import { formatWater, WATER_MAX } from "../lib/water";
 
 type TrackingTabProps = {
@@ -85,6 +86,7 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
   const dayCarbs = dayMeals.reduce((sum, meal) => sum + (meal.carbs ?? 0), 0);
   const dayFat = dayMeals.reduce((sum, meal) => sum + (meal.fat ?? 0), 0);
   const dayWater = data.water[selected] ?? 0;
+  const dayHydration = hydrationOf(data, selected);
   const dayWeight = data.weights.find((entry) => entry.date === selected);
   const dayFasts = data.fasts.filter((fast) => fast.end && keyOf(new Date(fast.end)) === selected);
   const daySessions = data.sessions.filter((session) => session.date === selected);
@@ -131,7 +133,7 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
       <section className="tracking-stats">
         <span><Icon name="flame" /><strong>{streak} j</strong><small>d'affilée avec repas notés</small></span>
         <span><Icon name="scale" /><strong>{weightChange === null ? "—" : `${weightChange > 0 ? "+" : weightChange < 0 ? "−" : ""}${n(Math.abs(weightChange))} kg`}</strong><small>sur 30 jours</small></span>
-        <span><Icon name="water" /><strong>{formatWater(last7.reduce((sum, day) => sum + (data.water[day] ?? 0), 0) / 7)}</strong><small>d&apos;eau / jour</small></span>
+        <span><Icon name="water" /><strong>{formatWater(last7.reduce((sum, day) => sum + hydrationOf(data, day).totalMl, 0) / 7)}</strong><small>bus / jour</small></span>
       </section>
 
       <section className="calendar-card">
@@ -191,7 +193,7 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
         <div className="day-facts">
           <span className="day-water">
             <Icon name="water" size={18} />
-            <span>{formatWater(dayWater)} / {formatWater(waterGoal)}</span>
+            <span>{formatWater(dayHydration.totalMl)} / {formatWater(waterGoal)}{dayHydration.mealsMl > 0 ? ` (eau ${formatWater(dayHydration.pureWaterMl)})` : ""}</span>
             <button type="button" onClick={() => setWater(dayWater - WATER_STEP)} disabled={!dayWater} aria-label={`Retirer ${WATER_STEP} ml`}><Icon name="minus" size={14} /></button>
             <button type="button" onClick={() => setWater(dayWater + WATER_STEP)} aria-label={`Ajouter ${WATER_STEP} ml`}><Icon name="plus" size={14} /></button>
           </span>

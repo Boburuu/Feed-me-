@@ -286,6 +286,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       carbs: Math.round(carbs * share),
       fat: Math.round(fat * share),
       source: editing?.source ?? "manual",
+      drinksCounted: true,
       items,
       ...(isPlate ? { plate: { servings, share } } : {}),
     }, {

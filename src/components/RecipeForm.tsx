@@ -40,6 +40,7 @@ type Draft = {
   protein: string;
   carbs: string;
   fat: string;
+  volume: string;
   notes: string;
   url: string;
   images: DraftImage[];
@@ -72,6 +73,7 @@ function draftFrom(recipe?: Recipe): Draft {
     protein: recipe?.calories ? String(recipe.protein) : "",
     carbs: recipe?.carbs !== undefined ? String(recipe.carbs) : "",
     fat: recipe?.fat !== undefined ? String(recipe.fat) : "",
+    volume: recipe?.volumeMl ? String(recipe.volumeMl) : "",
     notes: recipe?.notes ?? "",
     url: recipe?.url ?? "",
     images: [],
@@ -303,6 +305,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
       // Glucides : saisis (même 0), sinon calculés, sinon inconnus.
       carbs: draft.carbs.trim() ? Number(draft.carbs.replace(",", ".")) : computed.known ? perPerson.carbs : undefined,
       fat: draft.fat.trim() ? Number(draft.fat.replace(",", ".")) : computed.known ? perPerson.fat : undefined,
+      volumeMl: Number(draft.volume.replace(",", ".")) || undefined,
       images,
       url: draft.url.trim() || undefined,
       notes: draft.notes.trim() || undefined,
@@ -382,6 +385,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
                     <div className="ingredient-food" key={item.key}>
                       <MealLineEditor
                         line={item.food}
+                        hideHydration
                         onChange={(change) => updateItem(item.key, (current) => ({ ...current, food: { ...current.food!, ...change } }))}
                         onRemove={() => removeItem(item.key)}
                       />
@@ -478,6 +482,10 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
         <label><span>Glucides <em>auto</em></span><div><input value={draft.carbs} onChange={(e) => set({ carbs: e.target.value })} type="number" placeholder="—" min="0" /><small>g/pers.</small></div></label>
         <label><span>Lipides <em>auto</em></span><div><input value={draft.fat} onChange={(e) => set({ fat: e.target.value })} type="number" placeholder="—" min="0" /><small>g/pers.</small></div></label>
       </div>
+      <div className="recipe-fields">
+        <label><span>Volume final (boisson, soupe)</span><div><input value={draft.volume} onChange={(e) => set({ volume: e.target.value })} type="number" placeholder="—" min="0" /><small>ml</small></div></label>
+      </div>
+      <p className="recipe-estimate-note">Volume mesuré une fois prêt : la part bue compte dans l'hydratation (600 ml pour 2 → 300 ml la part). Laissé vide, la recette n'y compte pas.</p>
       {draftIngredients.some((item) => !item.food && item.quantity !== null) && (
         <button type="button" className="add-line" onClick={() => void matchWritten(draft.ingredients)} disabled={matching}>
           {matching ? <span className="loader" /> : <Icon name="flame" size={15} />} {matching ? "Recherche des ingrédients…" : "Calculer avec les ingrédients écrits"}
