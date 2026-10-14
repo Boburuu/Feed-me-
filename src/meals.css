@@ -130,6 +130,8 @@
 
 /* --- Photo / code-barres, contenants des boissons ------------------------------------ */
 .energy-list { display: grid; gap: 8px; }
+.draft-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-radius: 12px; color: var(--green-text); background: var(--mint); font-size: 12px; font-weight: 700; }
+.draft-banner .text-button { flex: none; font-size: 12px; }
 .portion-picker { display: grid; gap: 12px; }
 .portion-modes { grid-template-columns: repeat(3, 1fr); }
 .portion-hint { color: var(--muted); font-size: 12px; }

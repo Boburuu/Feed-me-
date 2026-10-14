@@ -5,6 +5,7 @@ import MealLineEditor from "./MealLineEditor";
 import { openFoodFactsPortion, toMealItem, type FoodResult } from "../lib/foods";
 import { deleteImage, getImage, putImage, shrinkImage } from "../lib/images";
 import { referenceFor } from "../lib/coherence";
+import type { RecipeDraft } from "../lib/drafts";
 import { choicesOf, matchChoice, matchIngredient } from "../lib/ingredientMatch";
 import { mergeTexts, ocrAvailable, readImageText } from "../lib/ocr";
 import { categoryOf, commonUnits, formatQuantity, ingredientFromItem, ingredientsNutrition, parseQuantity, recipeCategories } from "../lib/recipes";
@@ -17,6 +18,11 @@ type RecipeFormProps = {
   onSave: (recipe: Recipe) => void;
   onCancel: () => void;
   flash: (message: string) => void;
+  /** Saisie reprise après une fermeture de l'app. */
+  draft?: RecipeDraft;
+  /** Chaque changement de la saisie, pour l'enregistrer comme brouillon. */
+  onDraft?: (draft: RecipeDraft) => void;
+  onDiscardDraft?: () => void;
 };
 
 /** Image du formulaire : déjà enregistrée (id) ou nouvelle (data URL seulement). */
@@ -84,9 +90,16 @@ const isBlank = (draft: Draft) =>
   draft.ingredients.every((group) => !group.items.some(hasContent)) &&
   draft.steps.every((group) => group.steps.every((step) => !step.text.trim() && !step.title.trim()));
 
-export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeFormProps) {
-  const [draft, setDraft] = useState<Draft>(() => draftFrom(initial));
-  const [rawText, setRawText] = useState<string | null>(null);
+export default function RecipeForm({ initial, onSave, onCancel, flash, draft: saved, onDraft, onDiscardDraft }: RecipeFormProps) {
+  const [draft, setDraft] = useState<Draft>(() => (saved ? { ...saved.form, images: [] } : draftFrom(initial)));
+  const [rawText, setRawText] = useState<string | null>(saved?.rawText ?? null);
+
+  // Brouillon enregistré à chaque changement (sans les photos ajoutées, trop lourdes).
+  useEffect(() => {
+    const { images: _images, ...form } = draft;
+    onDraft?.({ recipeId: initial?.id, form, rawText });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, rawText]);
   const [reading, setReading] = useState("");
   const [importNote, setImportNote] = useState("");
   const [keepShots, setKeepShots] = useState(true);
@@ -314,6 +327,12 @@ export default function RecipeForm({ initial, onSave, onCancel, flash }: RecipeF
 
   return (
     <form className="recipe-form" onSubmit={submit}>
+      {saved && (
+        <div className="draft-banner" role="status">
+          <span>Brouillon repris là où vous l'aviez laissé.</span>
+          <button type="button" className="text-button" onClick={onDiscardDraft}>Recommencer</button>
+        </div>
+      )}
       {!initial && (
         <div className="import-box">
           <p className="plan-label">Importer une recette</p>

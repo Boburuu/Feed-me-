@@ -13,6 +13,7 @@ import StepsPanel from "../components/StepsPanel";
 import TrackingTab from "../components/TrackingTab";
 import { exportBackup } from "../lib/backup";
 import { backfillCarbs } from "../lib/carbsBackfill";
+import { hasContent, lastTab, mealDraft, type MealDraft } from "../lib/drafts";
 import { programFor, tipOfTheDay } from "../lib/goals";
 import { restoreImages } from "../lib/images";
 import { readPhoneSteps, readSteps } from "../lib/steps";
@@ -64,16 +65,34 @@ const categoryStyle: Record<MealCategory, string> = {
 export default function MainApp({ data, update, onLock, onReset, onImport }: MainAppProps) {
   const { profile, theme } = data;
   const today = todayKey();
-  const [activeTab, setActiveTab] = useState<Tab>("Accueil");
-  const [modal, setModal] = useState<ModalType>(null);
+  // Après une fermeture de l'app par Android : on revient sur le même onglet, et un repas
+  // en cours de saisie rouvre sa fenêtre avec son brouillon.
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const saved = lastTab.load();
+    return (["Accueil", "Suivi", "Activité", "Recettes", "Profil"] as string[]).includes(saved ?? "") ? (saved as Tab) : "Accueil";
+  });
+  useEffect(() => lastTab.save(activeTab), [activeTab]);
+  const [startDraft] = useState(() => {
+    const draft = mealDraft.load();
+    return draft?.open && hasContent(draft) ? draft : null;
+  });
+  const [modal, setModal] = useState<ModalType>(startDraft ? "meal" : null);
+  /** Brouillon repris dans la fenêtre d'ajout de repas (null : fenêtre vierge). */
+  const [restoredDraft, setRestoredDraft] = useState<MealDraft | null>(startDraft);
+  /** Change pour repartir d'une fenêtre vierge (« Effacer le brouillon »). */
+  const [composerKey, setComposerKey] = useState(0);
   /** Photo à analyser dans la fenêtre d'ajout de repas. */
   const [mealPhoto, setMealPhoto] = useState<File | null>(null);
   // La photo ne sert qu'à l'ouverture de cette fenêtre-là.
   /** Recette ouverte depuis le carnet : ajoutée au repas, on choisit les parts mangées. */
   const [mealRecipe, setMealRecipe] = useState<Recipe | null>(null);
   /** Repas déjà noté qu'on corrige (moment, jour, aliments). */
-  const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
-  useEffect(() => { if (modal !== "meal" && modal !== "portion") { setMealPhoto(null); setMealRecipe(null); setEditingMeal(null); } }, [modal]);
+  const [editingMeal, setEditingMeal] = useState<Meal | null>(() => (startDraft?.editingId ? data.meals.find((meal) => meal.id === startDraft.editingId) ?? null : null));
+  useEffect(() => {
+    if (modal !== "meal" && modal !== "portion") { setMealPhoto(null); setMealRecipe(null); setEditingMeal(null); }
+    // Fenêtre fermée : le brouillon reste, proposé à la prochaine ouverture.
+    if (modal !== "meal") mealDraft.close();
+  }, [modal]);
 
   // Repas et recettes notés avant le suivi des glucides : complétés une fois, en arrière-plan.
   useEffect(() => {
@@ -83,6 +102,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const editMeal = (meal: Meal) => {
+    const draft = mealDraft.load();
+    setRestoredDraft(draft?.editingId === meal.id ? draft : null);
     setEditingMeal(meal);
     setMealDate(meal.date);
     setModal("meal");
@@ -92,7 +113,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const [planDraft, setPlanDraft] = useState(() => draftFrom(profile, data.plan));
   const [planErrors, setPlanErrors] = useState<string[]>([]);
   /** Jour auquel le formulaire de repas ajoute l'entrée (aujourd'hui, ou un jour choisi dans le suivi). */
-  const [mealDate, setMealDate] = useState(today);
+  const [mealDate, setMealDate] = useState(startDraft?.date ?? today);
   const photoInput = useRef<HTMLInputElement>(null);
   /** Sans « capture » : Android ouvre la galerie au lieu de l'appareil photo. */
   const galleryInput = useRef<HTMLInputElement>(null);
@@ -191,6 +212,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
         : [...current.meals, { ...meal, id: Date.now() }];
       return { ...current, meals, leftovers };
     });
+    mealDraft.clear();
+    setRestoredDraft(null);
     setModal(null);
     flash(editingMeal ? `Repas modifié · ${meal.calories} kcal` : extras.leftover ? `Ma part : ${meal.calories} kcal · reste gardé` : `Repas enregistré · ${meal.calories} kcal`);
   };
@@ -202,6 +225,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   };
 
   const openMealForm = (date = today) => {
+    // Un repas commencé puis laissé de côté est repris.
+    const draft = mealDraft.load();
+    setRestoredDraft(hasContent(draft) && !draft!.editingId ? draft : null);
     setMealDate(date);
     setModal("meal");
   };
@@ -659,8 +685,11 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 <p className="eyebrow">Journal alimentaire</p>
                 <h2>{editingMeal ? "Modifier le repas" : "Ajouter un repas"}</h2>
                 <MealComposer
-                  key={editingMeal?.id ?? "nouveau"}
+                  key={`${editingMeal?.id ?? "nouveau"}-${composerKey}`}
                   editing={editingMeal ?? undefined}
+                  draft={restoredDraft ?? undefined}
+                  onDraft={(draft) => mealDraft.save(draft, true)}
+                  onDiscardDraft={() => { mealDraft.clear(); setRestoredDraft(null); setComposerKey((value) => value + 1); }}
                   initialPhoto={mealPhoto ?? undefined}
                   initialItems={mealRecipe ? [toMealItem(recipeResult(mealRecipe))] : undefined}
                   date={mealDate}

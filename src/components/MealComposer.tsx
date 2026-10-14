@@ -21,6 +21,7 @@ import {
   type FoodResult,
 } from "../lib/foods";
 import { referenceFor } from "../lib/coherence";
+import type { MealDraft } from "../lib/drafts";
 import { cookedFactor } from "../lib/dryGoods";
 import { energyBrands, energyDrinks } from "../lib/energyDrinks";
 import { analyzeMealPhoto, liveScanAvailable, photoRecognitionAvailable, scanBarcode, scanBarcodePhoto, type PhotoAnalysis, type ScanResult } from "../lib/foodPhoto";
@@ -46,6 +47,11 @@ type MealComposerProps = {
   initialItems?: MealItem[];
   /** Repas déjà noté, à modifier (moment, jour, aliments, quantités). */
   editing?: Meal;
+  /** Saisie reprise après une fermeture de l'app ou de la fenêtre. */
+  draft?: MealDraft;
+  /** Chaque changement de la saisie, pour l'enregistrer comme brouillon. */
+  onDraft?: (draft: MealDraft) => void;
+  onDiscardDraft?: () => void;
 };
 
 type Line = MealItem & { key: number };
@@ -74,12 +80,12 @@ const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma rece
 const unitName = (label?: string) => (label ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, "").slice(0, 14);
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 
-export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, editing, leftovers, onDiscardLeftover }: MealComposerProps) {
+export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, editing, draft, onDraft, onDiscardDraft, leftovers, onDiscardLeftover }: MealComposerProps) {
   const today = todayKey();
-  const [date, setDate] = useState(editing?.date ?? initialDate);
-  const [category, setCategory] = useState(editing?.category ?? initialCategory);
-  const [query, setQuery] = useState("");
-  const [lines, setLines] = useState<Line[]>(() => (editing ? itemsOf(editing) : initialItems ?? []).map((item, index) => ({ ...item, key: index + 1 })));
+  const [date, setDate] = useState(draft?.date ?? editing?.date ?? initialDate);
+  const [category, setCategory] = useState(draft?.category ?? editing?.category ?? initialCategory);
+  const [query, setQuery] = useState(draft?.query ?? "");
+  const [lines, setLines] = useState<Line[]>(() => (draft ? draft.lines : editing ? itemsOf(editing) : initialItems ?? []).map((item, index) => ({ ...item, key: index + 1 })));
   const [showAllRecipes, setShowAllRecipes] = useState(false);
   // Recettes du carnet, les plus récentes d'abord.
   const myRecipes = useMemo(() => [...recipes].sort((a, b) => b.id - a.id), [recipes]);
@@ -92,14 +98,20 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const [custom, setCustom] = useState({ name: "", kcal: "", protein: "", carbs: "", fat: "", portion: "", perPortion: false, keep: true });
   const searchInput = useRef<HTMLInputElement>(null);
   // Assiette maison : plat préparé pour plusieurs personnes, dont on mange une part.
-  const [mode, setMode] = useState<"meal" | "plate">(editing?.plate ? "plate" : "meal");
-  const [plateName, setPlateName] = useState(editing?.plate && !editing.name.startsWith("Assiette maison : ") ? editing.name : "");
-  const [servings, setServings] = useState(editing?.plate?.servings ?? 2);
+  const [mode, setMode] = useState<"meal" | "plate">(draft?.mode ?? (editing?.plate ? "plate" : "meal"));
+  const [plateName, setPlateName] = useState(draft?.plateName ?? (editing?.plate && !editing.name.startsWith("Assiette maison : ") ? editing.name : ""));
+  const [servings, setServings] = useState(draft?.servings ?? editing?.plate?.servings ?? 2);
   // Part mangée retrouvée : en demi-parts, le reste en réglage fin.
-  const [parts, setParts] = useState(editing?.plate ? Math.max(0.5, Math.round(editing.plate.share * editing.plate.servings * 2) / 2) : 1);
+  const [parts, setParts] = useState(draft ? draft.parts : editing?.plate ? Math.max(0.5, Math.round(editing.plate.share * editing.plate.servings * 2) / 2) : 1);
   /** Réglage fin, en points de pourcentage : « un peu plus » que la part. */
-  const [adjust, setAdjust] = useState(editing?.plate ? Math.round(editing.plate.share * 100 - (Math.max(0.5, Math.round(editing.plate.share * editing.plate.servings * 2) / 2) / editing.plate.servings) * 100) : 0);
-  const [keepLeftover, setKeepLeftover] = useState(true);
+  const [adjust, setAdjust] = useState(draft ? draft.adjust : editing?.plate ? Math.round(editing.plate.share * 100 - (Math.max(0.5, Math.round(editing.plate.share * editing.plate.servings * 2) / 2) / editing.plate.servings) * 100) : 0);
+  const [keepLeftover, setKeepLeftover] = useState(draft?.keepLeftover ?? true);
+
+  // Brouillon enregistré à chaque changement : rien n'est perdu si Android ferme l'app.
+  useEffect(() => {
+    onDraft?.({ editingId: editing?.id, date, category, mode, lines: lines.map(({ key: _key, ...item }) => item), plateName, servings, parts, adjust, keepLeftover, query });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, category, mode, lines, plateName, servings, parts, adjust, keepLeftover, query]);
   const searching = query.trim().length > 0;
   const [drinks, setDrinks] = useState<FoodResult[]>([]);
   const [showAllDrinks, setShowAllDrinks] = useState(false);
@@ -332,6 +344,12 @@ export default function MealComposer({ date: initialDate, category: initialCateg
 
   return (
     <div className="meal-composer">
+      {draft && (
+        <div className="draft-banner" role="status">
+          <span>Brouillon repris là où vous l'aviez laissé.</span>
+          <button type="button" className="text-button" onClick={onDiscardDraft}>Recommencer</button>
+        </div>
+      )}
       <div className="meal-composer-when">
         <label>Jour<input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} /></label>
         <label>Moment

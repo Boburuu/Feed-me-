@@ -3,6 +3,7 @@ import Icon from "./Icon";
 import RecipeDetail from "./RecipeDetail";
 import RecipeForm from "./RecipeForm";
 import StoredImage from "./StoredImage";
+import { recipeDraft, type RecipeDraft } from "../lib/drafts";
 import { deleteImage } from "../lib/images";
 import { applyChoice } from "../lib/recipeChoice";
 import { allSteps, categoryLabel, categoryOf, ingredientSummary, recipeCategories } from "../lib/recipes";
@@ -21,8 +22,13 @@ const normalize = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, ""
 export default function RecipesTab({ recipes, update, onAddToJournal, flash }: RecipesTabProps) {
   const [filter, setFilter] = useState<RecipeCategory | "toutes">("toutes");
   const [search, setSearch] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  // Recette en cours de saisie quand l'app a été fermée : le formulaire se rouvre avec elle.
+  const [startDraft] = useState(() => recipeDraft.load());
+  const [creating, setCreating] = useState(!!startDraft && !startDraft.recipeId);
+  const [editingId, setEditingId] = useState<number | null>(startDraft?.recipeId ?? null);
+  const [restored, setRestored] = useState<RecipeDraft | null>(startDraft);
+  const [formKey, setFormKey] = useState(0);
+  const closeForm = () => { recipeDraft.clear(); setRestored(null); setCreating(false); setEditingId(null); };
   const [openId, setOpenId] = useState<number | null>(null);
   /** Sélection de plusieurs recettes à supprimer (null : mode normal). */
   const [selection, setSelection] = useState<Set<number> | null>(null);
@@ -47,6 +53,8 @@ export default function RecipesTab({ recipes, update, onAddToJournal, flash }: R
         : [recipe, ...current.recipes],
     }));
     flash(editingId ? "Recette modifiée" : "Recette ajoutée");
+    recipeDraft.clear();
+    setRestored(null);
     setCreating(false);
     setEditingId(null);
     setOpenId(recipe.id);
@@ -88,10 +96,13 @@ export default function RecipesTab({ recipes, update, onAddToJournal, flash }: R
           {!editing && <p>Importez une capture d'écran (Instagram, site, livre…), collez le texte, ou écrivez-la vous-même.</p>}
         </section>
         <RecipeForm
-          key={editing?.id ?? "new"}
+          key={`${editing?.id ?? "new"}-${formKey}`}
           initial={editing ?? undefined}
           onSave={save}
-          onCancel={() => { setCreating(false); setEditingId(null); }}
+          onCancel={closeForm}
+          draft={restored ?? undefined}
+          onDraft={recipeDraft.save}
+          onDiscardDraft={() => { recipeDraft.clear(); setRestored(null); setFormKey((value) => value + 1); }}
           flash={flash}
         />
       </div>
