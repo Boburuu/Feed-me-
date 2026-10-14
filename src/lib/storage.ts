@@ -72,7 +72,8 @@ export type Leftover = {
 };
 
 /** D'où viennent les valeurs nutritionnelles d'un aliment. */
-export type FoodSource = "ciqual" | "off" | "recette" | "perso";
+/** « enseigne » : carte officielle d'un fast-food (voir fastFood/). */
+export type FoodSource = "ciqual" | "off" | "recette" | "perso" | "enseigne";
 
 /**
  * Un aliment du repas. Les valeurs sont pour 100 g (unité « g ») ou pour une

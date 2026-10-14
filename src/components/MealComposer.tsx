@@ -32,6 +32,8 @@ import { cookedFactor } from "../lib/dryGoods";
 import { energyBrands, energyDrinks } from "../lib/energyDrinks";
 import { analyzeMealPhoto, photoRecognitionAvailable, type PhotoAnalysis } from "../lib/foodPhoto";
 import BarcodePanel from "./BarcodePanel";
+import FastFoodPanel from "./FastFoodPanel";
+import { fastFoodResult, searchFastFood } from "../lib/fastFood";
 import { applyCorrection } from "../lib/corrections";
 import { useCorrections } from "../lib/correctionsContext";
 import { mealCategories, todayKey, type CustomFood, type Leftover, type Meal, type MealCategory, type MealItem, type Recipe } from "../lib/storage";
@@ -87,9 +89,9 @@ function itemsOf(meal: Meal): MealItem[] {
 }
 
 /** Nombre de résultats montrés avant « Voir plus » : la recherche doit rester lisible. */
-const SHOWN = { common: 4, ciqual: 4, own: 3, brands: 3 };
+const SHOWN = { common: 4, ciqual: 4, own: 3, brands: 3, fastFood: 3 };
 
-const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma recette", perso: "Mon aliment" } as const;
+const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma recette", perso: "Mon aliment", enseigne: "Carte officielle" } as const;
 /** « 1 banane » → « banane », « 1 portion (200 ml) » → « portion ». */
 const unitName = (label?: string) => (label ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, "").slice(0, 14);
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
@@ -108,7 +110,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const [ciqual, setCiqual] = useState<FoodResult[]>([]);
   const [brands, setBrands] = useState<FoodResult[]>([]);
   const [brandState, setBrandState] = useState<"idle" | "loading" | "error" | "offline">("idle");
-  const [expanded, setExpanded] = useState({ common: false, ciqual: false, own: false, brands: false, variants: false });
+  const [expanded, setExpanded] = useState({ common: false, ciqual: false, own: false, brands: false, variants: false, fastFood: false });
   const [creating, setCreating] = useState(false);
   const [custom, setCustom] = useState({ name: "", kcal: "", protein: "", carbs: "", fat: "", portion: "", perPortion: false, keep: true });
   const searchInput = useRef<HTMLInputElement>(null);
@@ -157,7 +159,8 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   /** Scanner de code-barres (caméra en direct) : le produit exact, via Open Food Facts. */
   /** Code-barres : caméra, photo de la galerie ou chiffres tapés (panneau dédié). */
   const [barcodeOpen, setBarcodeOpen] = useState(false);
-  const scan = () => { setScanNote(""); setBarcodeOpen(true); };
+  const [fastFoodOpen, setFastFoodOpen] = useState(false);
+  const scan = () => { setScanNote(""); setFastFoodOpen(false); setBarcodeOpen(true); };
 
   useEffect(() => {
     if (initialPhoto) analyzePhoto(initialPhoto);
@@ -165,6 +168,8 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   }, []);
 
   const own = useMemo(() => (searching ? searchOwn(query, recipes, customFoods) : []), [query, searching, recipes, customFoods]);
+  /** Cartes officielles des fast-foods (« whopper », « bk frites »). */
+  const fastFood = useMemo(() => (searching && query.trim().length >= 3 ? searchFastFood(query).map(fastFoodResult) : []), [query, searching]);
 
   // Aliments déjà utilisés, du plus récent au plus ancien.
   const recents = useMemo(() => {
@@ -184,7 +189,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
     return list.slice(0, 6);
   }, [meals]);
 
-  useEffect(() => setExpanded({ common: false, ciqual: false, own: false, brands: false, variants: false }), [query]);
+  useEffect(() => setExpanded({ common: false, ciqual: false, own: false, brands: false, variants: false, fastFood: false }), [query]);
 
   // Ciqual : instantané, hors ligne. Les aliments courants d'abord, sous un nom simple ;
   // les autres variantes de la table ensuite, sans doublon.
@@ -417,6 +422,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
             </>
           ) : section("Aliments et plats · Ciqual (ANSES)", ciqual, "ciqual")}
           {section("Mes recettes et aliments", own, "own")}
+          {section("Fast-food · cartes officielles", fastFood, "fastFood")}
           {query.trim().length >= 3 && (
             expanded.brands ? (
               <>
@@ -478,9 +484,20 @@ export default function MealComposer({ date: initialDate, category: initialCateg
           <button type="button" className="add-part" onClick={scan}>
             <Icon name="target" size={16} /> Code-barres
           </button>
+          <button type="button" className="add-part" onClick={() => { setBarcodeOpen(false); setFastFoodOpen(true); }}>
+            <Icon name="flame" size={16} /> Fast-food
+          </button>
         </div>
       )}
       {scanNote && !searching && <p className="food-hint">{scanNote}</p>}
+      {fastFoodOpen && !searching && !creating && (
+        <FastFoodPanel
+          onAdd={(foods) => { foods.forEach(add); setFastFoodOpen(false); }}
+          onClose={() => setFastFoodOpen(false)}
+          onSearch={(text) => { setFastFoodOpen(false); setQuery(text); setExpanded((value) => ({ ...value, brands: true })); searchInput.current?.focus(); }}
+          onCreate={(name) => { setFastFoodOpen(false); setCustom((value) => ({ ...value, name })); setCreating(true); }}
+        />
+      )}
       {barcodeOpen && !searching && !creating && (
         <BarcodePanel
           onFound={(food) => { add(food); setBarcodeOpen(false); }}

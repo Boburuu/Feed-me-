@@ -18,7 +18,7 @@ export const resultDetail = (result: FoodResult) => {
   return parts.join(" · ");
 };
 
-export const sourceIcon = { ciqual: "apple", off: "target", recette: "book", perso: "user" } as const;
+export const sourceIcon = { ciqual: "apple", off: "target", recette: "book", perso: "user", enseigne: "flame" } as const;
 
 type FoodResultRowProps = {
   result: FoodResult;

@@ -16,7 +16,7 @@ type MealLineEditorProps = {
   hideHydration?: boolean;
 };
 
-const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma recette", perso: "Mon aliment" } as const;
+const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma recette", perso: "Mon aliment", enseigne: "carte officielle" } as const;
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
 /** « 1 banane » → « banane », « 1 portion (200 ml) » → « portion ». */
 const unitName = (label?: string) => (label ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, "").slice(0, 16);

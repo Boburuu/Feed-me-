@@ -29,7 +29,8 @@ export function correctionKey(item: Pick<MealItem, "source" | "ref" | "name">) {
 
 /** Fiche à 100 g comparable à une étiquette (pas une recette, pas une valeur « par portion » seule). */
 export function canCheckLabel(item: MealItem) {
-  return item.source !== "recette" && !item.ref?.startsWith("reste:") && !(item.unit === "portion" && !item.portionGrams);
+  // Un fast-food n'a pas d'étiquette : ses valeurs viennent de la carte de l'enseigne.
+  return item.source !== "recette" && item.source !== "enseigne" && !item.ref?.startsWith("reste:") && !(item.unit === "portion" && !item.portionGrams);
 }
 
 /** Aliment avec la version corrigée du produit, s'il y en a une. */
@@ -75,5 +76,6 @@ export function reliabilityOf(item: MealItem): { label: string; tone: "sure" | "
   if (item.source === "ciqual") return { label: "vérifié · table Ciqual", tone: "sure" };
   if (item.source === "off") return { label: "communautaire · à vérifier", tone: "community" };
   if (item.source === "perso") return { label: "saisi à la main", tone: "manual" };
+  if (item.source === "enseigne") return { label: "officiel · indicatif", tone: "sure" };
   return { label: "calculé d'après la recette", tone: "manual" };
 }
