@@ -19,6 +19,7 @@ import { restoreImages } from "../lib/images";
 import { readPhoneSteps, readSteps } from "../lib/steps";
 import { recipeResult, toMealItem } from "../lib/foods";
 import { hydrationOf } from "../lib/hydration";
+import { eatenMeals, isPlanned } from "../lib/planning";
 import { formatWater, WATER_MAX, waterAmounts, waterGoal } from "../lib/water";
 import { computePlan, observedMaintenance } from "../lib/nutrition";
 import { bodyErrors, draftFrom, goalErrors, parseDraft } from "../lib/planDraft";
@@ -130,11 +131,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const goal = result.target;
   const program = programFor(plan.program);
   const showProtein = plan.program === "seche" || plan.program === "masse";
-  const todayMeals = data.meals.filter((meal) => meal.date === today);
+  // Repas mangés aujourd'hui ; les repas prévus attendent un « J'ai mangé ».
+  const todayMeals = eatenMeals(data.meals).filter((meal) => meal.date === today);
+  const plannedToday = data.meals.filter((meal) => meal.date === today && isPlanned(meal));
   const consumed = todayMeals.reduce((sum, meal) => sum + meal.calories, 0);
   const proteinToday = todayMeals.reduce((sum, meal) => sum + (meal.protein ?? 0), 0);
   const carbsToday = todayMeals.reduce((sum, meal) => sum + (meal.carbs ?? 0), 0);
-  const observed = observedMaintenance(data.meals, data.weights, today);
+  const observed = observedMaintenance(eatenMeals(data.meals), data.weights, today);
 
   // Aperçu en direct pendant la saisie ; la valeur enregistrée sinon.
   const draftValid = !bodyErrors(planDraft).length && !goalErrors(planDraft).length;
@@ -218,13 +221,22 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     flash(editingMeal ? `Repas modifié · ${meal.calories} kcal` : extras.leftover ? `Ma part : ${meal.calories} kcal · reste gardé` : `Repas enregistré · ${meal.calories} kcal`);
   };
 
+  /** Repas prévu confirmé « mangé tel quel » : il compte à partir de maintenant. */
+  const confirmPlanned = (meal: Meal) => {
+    update((current) => ({ ...current, meals: current.meals.map((item) => (item.id === meal.id ? { ...item, status: undefined, drinksCounted: true } : item)) }));
+    flash(`Mangé · ${meal.calories} kcal`);
+  };
+
   const discardLeftover = (id: number) => {
     if (window.confirm("Jeter ce reste ? Il ne sera plus proposé.")) {
       update((current) => ({ ...current, leftovers: current.leftovers.filter((item) => item.id !== id) }));
     }
   };
 
-  const openMealForm = (date = today) => {
+  /** Repas prévu, ouvert depuis le planning. */
+  const [planning, setPlanning] = useState(false);
+  const openMealForm = (date = today, planned = false) => {
+    setPlanning(planned);
     // Un repas commencé puis laissé de côté est repris.
     const draft = mealDraft.load();
     setRestoredDraft(hasContent(draft) && !draft!.editingId ? draft : null);
@@ -505,6 +517,26 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             </div>
             <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={takeMealPhoto} />
             <input ref={galleryInput} className="hidden-input" type="file" accept="image/*" onChange={takeMealPhoto} />
+            {/* Prévus aujourd'hui : rien n'est compté avant « Mangé ». */}
+            {plannedToday.length > 0 && (
+              <div className="planned-today">
+                <p className="food-section">À confirmer · prévu aujourd'hui</p>
+                {plannedToday.map((meal) => (
+                  <div className="plan-meal planned" key={meal.id}>
+                    <span className="plan-meal-text">
+                      <small>{mealCategories.find((item) => item.id === meal.category)?.label} · Prévu</small>
+                      <strong>{meal.name}</strong>
+                    </span>
+                    <em>{meal.calories} kcal</em>
+                    <div className="plan-meal-actions">
+                      <button type="button" className="plan-confirm" onClick={() => confirmPlanned(meal)}><Icon name="check" size={14} /> Mangé tel quel</button>
+                      <button type="button" className="icon-button" onClick={() => editMeal(meal)} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={15} /></button>
+                      <button type="button" className="icon-button" onClick={() => deleteMeal(meal)} aria-label={`Annuler ${meal.name}`}><Icon name="close" size={15} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="meal-list">
               {todayMeals.length === 0 && (
                 <button className="meal-row empty" onClick={() => openMealForm()}>
@@ -540,6 +572,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           onSaveWeight={saveWeight}
           onDeleteWeight={deleteWeight}
           onEditMeal={editMeal}
+          onPlanMeal={(date) => openMealForm(date, true)}
+          flash={flash}
         />
       )}
 
@@ -691,6 +725,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   onDraft={(draft) => mealDraft.save(draft, true)}
                   onDiscardDraft={() => { mealDraft.clear(); setRestoredDraft(null); setComposerKey((value) => value + 1); }}
                   initialPhoto={mealPhoto ?? undefined}
+                  planned={planning}
                   initialItems={mealRecipe ? [toMealItem(recipeResult(mealRecipe))] : undefined}
                   date={mealDate}
                   category={defaultCategory()}

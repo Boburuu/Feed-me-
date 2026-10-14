@@ -52,6 +52,8 @@ type MealComposerProps = {
   /** Chaque changement de la saisie, pour l'enregistrer comme brouillon. */
   onDraft?: (draft: MealDraft) => void;
   onDiscardDraft?: () => void;
+  /** Ouvert depuis le planning : repas prévu, pas encore mangé. */
+  planned?: boolean;
 };
 
 type Line = MealItem & { key: number };
@@ -80,7 +82,7 @@ const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma rece
 const unitName = (label?: string) => (label ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, "").slice(0, 14);
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 
-export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, editing, draft, onDraft, onDiscardDraft, leftovers, onDiscardLeftover }: MealComposerProps) {
+export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, editing, draft, onDraft, onDiscardDraft, planned: plannedAtStart, leftovers, onDiscardLeftover }: MealComposerProps) {
   const today = todayKey();
   const [date, setDate] = useState(draft?.date ?? editing?.date ?? initialDate);
   const [category, setCategory] = useState(draft?.category ?? editing?.category ?? initialCategory);
@@ -106,12 +108,16 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   /** Réglage fin, en points de pourcentage : « un peu plus » que la part. */
   const [adjust, setAdjust] = useState(draft ? draft.adjust : editing?.plate ? Math.round(editing.plate.share * 100 - (Math.max(0.5, Math.round(editing.plate.share * editing.plate.servings * 2) / 2) / editing.plate.servings) * 100) : 0);
   const [keepLeftover, setKeepLeftover] = useState(draft?.keepLeftover ?? true);
+  /** Prévu : affiché au planning, compté nulle part tant qu'il n'est pas confirmé « mangé ». */
+  const [plannedChoice, setPlannedChoice] = useState(draft?.planned ?? (editing ? editing.status === "planned" : !!plannedAtStart));
+  // Un repas d'un jour à venir ne peut pas déjà avoir été mangé.
+  const planned = plannedChoice || date > today;
 
   // Brouillon enregistré à chaque changement : rien n'est perdu si Android ferme l'app.
   useEffect(() => {
-    onDraft?.({ editingId: editing?.id, date, category, mode, lines: lines.map(({ key: _key, ...item }) => item), plateName, servings, parts, adjust, keepLeftover, query });
+    onDraft?.({ editingId: editing?.id, date, category, mode, lines: lines.map(({ key: _key, ...item }) => item), plateName, servings, parts, adjust, keepLeftover, query, planned: plannedChoice });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, category, mode, lines, plateName, servings, parts, adjust, keepLeftover, query]);
+  }, [date, category, mode, lines, plateName, servings, parts, adjust, keepLeftover, query, plannedChoice]);
   const searching = query.trim().length > 0;
   const [drinks, setDrinks] = useState<FoodResult[]>([]);
   const [showAllDrinks, setShowAllDrinks] = useState(false);
@@ -290,7 +296,8 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       .filter((line) => line.ref?.startsWith("reste:"))
       .map((line) => ({ id: Number(line.ref!.slice(6)), parts: line.quantity }));
     onSave({
-      date: date > today ? today : date,
+      date,
+      ...(planned ? { status: "planned" as const } : {}),
       category,
       name: shortName,
       calories: Math.round(total * share),
@@ -303,9 +310,9 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       ...(isPlate ? { plate: { servings, share } } : {}),
     }, {
       // Modification : les restes ont déjà été comptés à l'enregistrement du repas.
-      usedLeftovers: editing ? [] : usedLeftovers,
-      leftover: !editing && isPlate && keepLeftover && leftoverParts > 0
-        ? { name: shortName, date: date > today ? today : date, partsLeft: leftoverParts, kcalPerPart: Math.round(total / servings), proteinPerPart: Math.round(protein / servings), carbsPerPart: Math.round(carbs / servings), fatPerPart: Math.round(fat / servings) }
+      usedLeftovers: editing || planned ? [] : usedLeftovers,
+      leftover: !editing && !planned && isPlate && keepLeftover && leftoverParts > 0
+        ? { name: shortName, date, partsLeft: leftoverParts, kcalPerPart: Math.round(total / servings), proteinPerPart: Math.round(protein / servings), carbsPerPart: Math.round(carbs / servings), fatPerPart: Math.round(fat / servings) }
         : undefined,
     });
   };
@@ -351,13 +358,19 @@ export default function MealComposer({ date: initialDate, category: initialCateg
         </div>
       )}
       <div className="meal-composer-when">
-        <label>Jour<input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} /></label>
+        <label>Jour<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
         <label>Moment
           <select value={category} onChange={(e) => setCategory(e.target.value as MealCategory)}>
             {mealCategories.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
       </div>
+      {date >= today && (
+        <label className="awake-toggle planned-toggle">
+          <input type="checkbox" checked={planned} disabled={date > today} onChange={(e) => setPlannedChoice(e.target.checked)} />
+          <span>{date > today ? "Repas prévu (jour à venir) : il comptera quand vous l'aurez confirmé « mangé »" : "Prévu, pas encore mangé (ne compte pas tant qu'il n'est pas confirmé)"}</span>
+        </label>
+      )}
 
       <div className="sex-selector meal-mode" role="radiogroup" aria-label="Type de repas">
         <button type="button" role="radio" aria-checked={!isPlate} className={!isPlate ? "selected" : ""} onClick={() => setMode("meal")}>Repas</button>
@@ -560,7 +573,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
                 </span>
                 <strong>{Math.round(total * share)} kcal</strong>
               </div>
-              {leftoverParts > 0 && !editing && (
+              {leftoverParts > 0 && !editing && !planned && (
                 <label className="awake-toggle">
                   <input type="checkbox" checked={keepLeftover} onChange={(e) => setKeepLeftover(e.target.checked)} />
                   <span>Garder le reste ({leftoverParts.toLocaleString("fr-FR")} part{leftoverParts > 1 ? "s" : ""} · {Math.round(total / servings)} kcal la part) pour un prochain repas</span>
@@ -648,7 +661,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
           )}
 
           <button type="button" className="submit-button" onClick={save} disabled={!lines.length}>
-            <Icon name="check" /> {!lines.length ? "Ajoutez au moins un aliment" : editing ? `Enregistrer les modifications · ${Math.round(total * share)} kcal` : isPlate ? `Ajouter ma part · ${Math.round(total * share)} kcal` : `Enregistrer le repas · ${Math.round(total)} kcal`}
+            <Icon name="check" /> {!lines.length ? "Ajoutez au moins un aliment" : planned ? `Prévoir ce repas · ${Math.round(total * share)} kcal` : editing ? `Enregistrer les modifications · ${Math.round(total * share)} kcal` : isPlate ? `Ajouter ma part · ${Math.round(total * share)} kcal` : `Enregistrer le repas · ${Math.round(total)} kcal`}
           </button>
         </>
       )}

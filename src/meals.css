@@ -130,6 +130,41 @@
 
 /* --- Photo / code-barres, contenants des boissons ------------------------------------ */
 .energy-list { display: grid; gap: 8px; }
+.planned-toggle span { font-size: 12px; }
+.tracking-view { margin-top: 14px; }
+.week-planner, .shopping-list { display: grid; gap: 10px; margin-top: 14px; }
+.week-head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; text-align: center; }
+.week-head strong { font-size: 15px; }
+.copy-bar { display: grid; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--mint); font-size: 12px; font-weight: 700; }
+.plan-day { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--white); }
+.plan-day.today { border-color: var(--green); }
+.plan-day header { display: grid; gap: 3px; }
+.plan-day header strong { font-size: 14px; text-transform: capitalize; }
+.plan-day header small { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.plan-day header small .planned { color: var(--blue-strong); }
+.plan-meal { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 8px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px; }
+.plan-meal.planned { border-style: dashed; border-color: var(--blue-strong); }
+.plan-meal-text { display: grid; gap: 2px; min-width: 0; }
+.plan-meal-text small { color: var(--muted); font-size: 11px; font-weight: 700; }
+.plan-meal-text strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.plan-meal em { color: var(--green-text); font-size: 12px; font-style: normal; font-weight: 700; white-space: nowrap; }
+.plan-meal-actions { display: flex; grid-column: 1 / -1; justify-content: flex-end; align-items: center; gap: 4px; }
+.plan-meal-actions .icon-button { width: 30px; height: 30px; }
+.plan-confirm { display: flex; align-items: center; gap: 4px; margin-right: auto; padding: 6px 10px; border: 0; border-radius: 99px; color: var(--on-accent); background: var(--green); font-size: 12px; font-weight: 700; cursor: pointer; }
+.plan-day-actions { display: flex; justify-content: space-between; gap: 8px; }
+.plan-day-actions .text-button { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.planned-today { display: grid; gap: 8px; margin-bottom: 10px; }
+.shop-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 13px; color: var(--ink); background: var(--white); text-align: left; cursor: pointer; }
+.shop-line.done { opacity: .5; }
+.shop-line.done strong { text-decoration: line-through; }
+.shop-text { display: grid; gap: 2px; min-width: 0; }
+.shop-text strong { font-size: 14px; }
+.shop-text small { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.shop-line em { color: var(--green-text); font-size: 13px; font-style: normal; font-weight: 700; white-space: nowrap; }
+.shop-line .check-circle { display: grid; width: 24px; height: 24px; padding: 0; place-items: center; border: 2px solid var(--green); border-radius: 50%; color: var(--on-accent); background: transparent; cursor: pointer; }
+.shop-line.done .check-circle { background: var(--green); }
+.shop-add { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.shop-add input { padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--white); font-size: 14px; }
 .draft-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-radius: 12px; color: var(--green-text); background: var(--mint); font-size: 12px; font-weight: 700; }
 .draft-banner .text-button { flex: none; font-size: 12px; }
 .portion-picker { display: grid; gap: 12px; }

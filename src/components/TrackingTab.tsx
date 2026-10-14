@@ -1,9 +1,11 @@
 import { useState } from "react";
 import Icon from "./Icon";
+import WeekPlanner from "./WeekPlanner";
 import WeightTracker from "./WeightTracker";
 import { sessionLabel } from "../lib/activity";
 import { mealCategories, todayKey, type AppData, type GoalType, type Meal } from "../lib/storage";
 import { hydrationOf } from "../lib/hydration";
+import { eatenMeals } from "../lib/planning";
 import { formatWater, WATER_MAX } from "../lib/water";
 
 type TrackingTabProps = {
@@ -16,6 +18,8 @@ type TrackingTabProps = {
   onSaveWeight: (date: string, kg: number) => void;
   onDeleteWeight: (id: number) => void;
   onEditMeal: (meal: Meal) => void;
+  onPlanMeal: (date: string) => void;
+  flash: (message: string) => void;
 };
 
 type DayStatus = "none" | "partial" | "ok" | "over" | "under";
@@ -36,14 +40,16 @@ const WATER_STEP = 200;
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const hours = (ms: number) => `${Math.floor(ms / 3_600_000)} h ${String(Math.floor((ms % 3_600_000) / 60_000)).padStart(2, "0")}`;
 
-export default function TrackingTab({ data, update, target, goal, waterGoal, onAddMeal, onSaveWeight, onDeleteWeight, onEditMeal }: TrackingTabProps) {
+export default function TrackingTab({ data, update, target, goal, waterGoal, onAddMeal, onSaveWeight, onDeleteWeight, onEditMeal, onPlanMeal, flash }: TrackingTabProps) {
+  const [view, setView] = useState<"calendar" | "week">("calendar");
   const today = todayKey();
   const [selected, setSelected] = useState(today);
   const [month, setMonth] = useState(() => today.slice(0, 7));
 
   const mealsByDay = new Map<string, Meal[]>();
   data.meals.forEach((meal) => mealsByDay.set(meal.date, [...(mealsByDay.get(meal.date) ?? []), meal]));
-  const caloriesOf = (day: string) => (mealsByDay.get(day) ?? []).reduce((sum, meal) => sum + meal.calories, 0);
+  // Seuls les repas mangés comptent ; les repas prévus sont affichés à part.
+  const caloriesOf = (day: string) => eatenMeals(mealsByDay.get(day) ?? []).reduce((sum, meal) => sum + meal.calories, 0);
 
   const statusOf = (day: string): DayStatus => {
     const consumed = caloriesOf(day);
@@ -82,9 +88,10 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
   // --- Jour sélectionné -----------------------------------------------------------
   const dayMeals = mealsByDay.get(selected) ?? [];
   const dayCalories = caloriesOf(selected);
-  const dayProtein = dayMeals.reduce((sum, meal) => sum + (meal.protein ?? 0), 0);
-  const dayCarbs = dayMeals.reduce((sum, meal) => sum + (meal.carbs ?? 0), 0);
-  const dayFat = dayMeals.reduce((sum, meal) => sum + (meal.fat ?? 0), 0);
+  const dayEaten = eatenMeals(dayMeals);
+  const dayProtein = dayEaten.reduce((sum, meal) => sum + (meal.protein ?? 0), 0);
+  const dayCarbs = dayEaten.reduce((sum, meal) => sum + (meal.carbs ?? 0), 0);
+  const dayFat = dayEaten.reduce((sum, meal) => sum + (meal.fat ?? 0), 0);
   const dayWater = data.water[selected] ?? 0;
   const dayHydration = hydrationOf(data, selected);
   const dayWeight = data.weights.find((entry) => entry.date === selected);
@@ -110,6 +117,14 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
         <h2>Jour après jour</h2>
         <p>Retrouvez chaque journée : repas, eau, poids, sport et jeûne. Touchez un jour du calendrier pour le détail.</p>
       </section>
+
+      <div className="sex-selector tracking-view" role="radiogroup" aria-label="Affichage">
+        <button type="button" role="radio" aria-checked={view === "calendar"} className={view === "calendar" ? "selected" : ""} onClick={() => setView("calendar")}>Calendrier</button>
+        <button type="button" role="radio" aria-checked={view === "week"} className={view === "week" ? "selected" : ""} onClick={() => setView("week")}>Semaine et courses</button>
+      </div>
+      {view === "week" ? (
+        <WeekPlanner data={data} update={update} target={target} onPlanMeal={onPlanMeal} onEditMeal={onEditMeal} flash={flash} />
+      ) : (<>
 
       <section className="weekly-card">
         <div>
@@ -225,7 +240,7 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
       </section>
 
       <WeightTracker weights={data.weights} onAdd={onSaveWeight} onDelete={onDeleteWeight} />
-
+      </>)}
     </div>
   );
 }

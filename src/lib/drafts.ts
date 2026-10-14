@@ -47,6 +47,8 @@ export type MealDraft = {
   adjust: number;
   keepLeftover: boolean;
   query: string;
+  /** Repas prévu, pas encore mangé. */
+  planned?: boolean;
 };
 
 const MEAL_KEY = "feedme:brouillon-repas";

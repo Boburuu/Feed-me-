@@ -31,6 +31,9 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
   const [mode, setMode] = useState<Mode>(recipe.pieces ? "pieces" : "parts");
   const [date, setDate] = useState(today);
   const [category, setCategory] = useState(initialCategory);
+  /** Prévu : compté nulle part tant qu'il n'est pas confirmé « mangé » (jour à venir : toujours). */
+  const [plannedChoice, setPlannedChoice] = useState(false);
+  const planned = plannedChoice || date > today;
   const [parts, setParts] = useState(1);
   const [pieces, setPieces] = useState(String(recipe.pieces ?? 12));
   const [eatenPieces, setEatenPieces] = useState(1);
@@ -73,7 +76,8 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
   const save = () => {
     if (!valid) return;
     onSave({
-      date: date > today ? today : date,
+      date,
+      ...(planned ? { status: "planned" as const } : {}),
       category,
       name: `${recipe.name} (${describe()})`,
       calories: kcal,
@@ -114,13 +118,20 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
   return (
     <div className="portion-picker">
       <div className="meal-composer-when">
-        <label>Jour<input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} /></label>
+        <label>Jour<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
         <label>Moment
           <select value={category} onChange={(e) => setCategory(e.target.value as MealCategory)}>
             {mealCategories.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
       </div>
+
+      {date >= today && (
+        <label className="awake-toggle planned-toggle">
+          <input type="checkbox" checked={planned} disabled={date > today} onChange={(e) => setPlannedChoice(e.target.checked)} />
+          <span>{date > today ? "Repas prévu (jour à venir) : il comptera une fois confirmé « mangé »" : "Prévu, pas encore mangé"}</span>
+        </label>
+      )}
 
       <div className="sex-selector portion-modes" role="radiogroup" aria-label="Comment compter">
         {modes.map((item) => (
@@ -181,7 +192,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
       {!recipe.calories && <p className="food-hint">Calories de la recette pas encore calculées : modifiez la recette pour les ajouter.</p>}
 
       <button type="button" className="submit-button" onClick={save} disabled={!valid}>
-        <Icon name="check" /> {valid ? `Ajouter à mes repas · ${kcal} kcal` : "Ajouter à mes repas"}
+        <Icon name="check" /> {valid ? `${planned ? "Prévoir ce repas" : "Ajouter à mes repas"} · ${kcal} kcal` : "Ajouter à mes repas"}
       </button>
     </div>
   );

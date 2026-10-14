@@ -49,6 +49,8 @@ export type Meal = {
    * anciens n'y comptent pas, pour ne pas doubler les verres ajoutés à la main).
    */
   drinksCounted?: boolean;
+  /** « planned » : repas prévu, pas encore mangé (compté nulle part tant qu'il n'est pas confirmé). */
+  status?: "planned";
   source: SourceType;
   /** Détail des aliments, pour les repas composés avec la recherche. */
   items?: MealItem[];
@@ -228,6 +230,8 @@ export type AppData = {
   stepGoal: number;
   /** D'où viennent les pas : podomètre du téléphone, Health Connect, ou saisie seule. */
   stepsSource: StepsSource;
+  /** Liste de courses : lignes cochées (par nom) et lignes ajoutées à la main. */
+  shopping?: { checked: string[]; extras: { id: number; text: string; done: boolean }[] };
   /** Les exemples de recettes de boissons ont déjà été proposés (pour ne pas les rajouter). */
   drinkRecipesOffered?: boolean;
 };

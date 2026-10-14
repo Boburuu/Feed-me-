@@ -33,7 +33,8 @@ export function drinkMl(item: MealItem) {
 
 /** Boissons d'un repas (part de l'assiette maison comprise). */
 export function mealDrinks(meal: Meal) {
-  if (!meal.drinksCounted || !meal.items) return { totalMl: 0, waterMl: 0 };
+  // Une boisson prévue ne compte qu'une fois bue (repas confirmé).
+  if (!meal.drinksCounted || !meal.items || meal.status === "planned") return { totalMl: 0, waterMl: 0 };
   const share = meal.plate?.share ?? 1;
   let totalMl = 0;
   let waterMl = 0;
