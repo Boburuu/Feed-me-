@@ -130,7 +130,22 @@
 
 /* --- Photo / code-barres, contenants des boissons ------------------------------------ */
 .energy-list { display: grid; gap: 8px; }
-.planned-toggle span { font-size: 12px; }
+.barcode-panel { display: grid; gap: 10px; padding: 12px; border: 2px solid var(--mint-bright); border-radius: 16px; background: var(--white); }
+.barcode-head { display: flex; align-items: center; justify-content: space-between; }
+.barcode-head strong { font-size: 14px; }
+.barcode-choices { display: grid; gap: 8px; }
+.barcode-choices .add-part { justify-content: flex-start; margin: 0; }
+.barcode-hint { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.barcode-actions { display: flex; align-items: center; justify-content: space-between; }
+.barcode-manual { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; }
+.barcode-manual .food-hint { grid-column: 1 / -1; margin: 0; }
+.barcode-manual input { padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--cream); font-size: 17px; letter-spacing: .06em; }
+.crop-area { position: relative; overflow: hidden; border-radius: 12px; touch-action: none; user-select: none; }
+.crop-area img { display: block; width: 100%; max-height: 380px; object-fit: contain; background: #000; pointer-events: none; }
+.crop-box { position: absolute; border: 2px solid var(--green); border-radius: 6px; box-shadow: 0 0 0 999px rgba(0, 0, 0, .45); pointer-events: none; }
+.planned-toggle { display: flex !important; align-items: flex-start; gap: 8px; }
+.planned-toggle input { flex: none; width: 18px; height: 18px; margin: 1px 0 0; }
+.planned-toggle span { font-size: 12px; line-height: 1.35; }
 .plate-sentence { margin: 0; padding: 8px 10px; border-radius: 10px; color: var(--ink); background: var(--mint); font-size: 13px; font-weight: 700; }
 .tracking-view { margin-top: 14px; }
 .week-planner, .shopping-list { display: grid; gap: 10px; margin-top: 14px; }

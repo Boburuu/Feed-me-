@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import FoodResultRow from "./FoodResultRow";
 import Icon from "./Icon";
 import { normalize, searchCiqual, searchCommon, searchOpenFoodFacts, type FoodResult } from "../lib/foods";
-import { analyzeMealPhoto, liveScanAvailable, photoRecognitionAvailable, scanBarcode, scanBarcodePhoto, type PhotoAnalysis, type ScanResult } from "../lib/foodPhoto";
+import { analyzeMealPhoto, photoRecognitionAvailable, type PhotoAnalysis } from "../lib/foodPhoto";
+import BarcodePanel from "./BarcodePanel";
 
 type FoodPickerProps = {
   onPick: (food: FoodResult) => void;
@@ -24,8 +25,6 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
   const photoInput = useRef<HTMLInputElement>(null);
   /** Sans « capture » : Android ouvre la galerie au lieu de l'appareil photo. */
   const galleryInput = useRef<HTMLInputElement>(null);
-  /** Navigateur (iPhone) : le code-barres se prend en photo. */
-  const barcodeInput = useRef<HTMLInputElement>(null);
   const native = photoRecognitionAvailable();
   /** Aliment choisi : la recherche se vide pour revoir la liste, comme dans un repas. */
   const onPick = (food: FoodResult) => { setQuery(""); setPhoto(null); pick(food); };
@@ -59,35 +58,9 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
       .catch(() => setPhoto((current) => current && { ...current, state: "error" }));
   };
 
-  /** Résultat d'un scan, en direct (Android) ou en photo (iPhone). */
-  const showScan = (result: ScanResult) => {
-    if (result.status === "found") onPick(result.food);
-    else if (result.status === "unknown") setNote(`Code ${result.code} inconnu d'Open Food Facts : cherchez le produit par son nom.`);
-    else if (result.status === "installing") setNote("Installation du scanner par Android… Réessayez dans quelques secondes.");
-    else if (result.status === "unreadable") setNote("Code-barres illisible : reprenez-le de près, bien net et à plat.");
-  };
-
-  const scan = async () => {
-    setNote("");
-    // Navigateur (iPhone) : pas de scanner en direct, le code-barres se prend en photo.
-    if (!liveScanAvailable()) { barcodeInput.current?.click(); return; }
-    try {
-      showScan(await scanBarcode());
-    } catch {
-      setNote(navigator.onLine ? "Le scan n'a pas abouti. Réessayez, bien éclairé." : "Hors connexion : le scan a besoin d'internet.");
-    }
-  };
-
-  const scanPhoto = async (picked: File) => {
-    setNote("Lecture du code-barres…");
-    try {
-      const result = await scanBarcodePhoto(picked);
-      setNote("");
-      showScan(result);
-    } catch {
-      setNote(navigator.onLine ? "Le code-barres n'a pas pu être lu." : "Hors connexion : le scan a besoin d'internet.");
-    }
-  };
+  /** Code-barres : caméra, photo de la galerie ou chiffres tapés (panneau dédié). */
+  const [barcodeOpen, setBarcodeOpen] = useState(false);
+  const scan = () => { setNote(""); setBarcodeOpen(true); };
 
   const analysis = photo?.analysis;
   const photoFoods = analysis ? [...(analysis.barcode ? [analysis.barcode] : []), ...analysis.packaging, ...analysis.dishes.map((dish) => dish.food)] : [];
@@ -116,8 +89,10 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
       )}
       <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) analyzePhoto(file); }} />
       <input ref={galleryInput} className="hidden-input" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) analyzePhoto(file); }} />
-      <input ref={barcodeInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void scanPhoto(file); }} />
       {note && <p className="food-hint">{note}</p>}
+      {barcodeOpen && !query.trim() && (
+        <BarcodePanel onFound={(food) => { setBarcodeOpen(false); onPick(food); }} onClose={() => setBarcodeOpen(false)} onSearchByName={() => setBarcodeOpen(false)} />
+      )}
 
       {photo && !query.trim() && (
         <section className="photo-analysis">
