@@ -109,3 +109,18 @@ describe("rappels", () => {
     expect(plannedNotifications({ meals: [] })).toEqual([]);
   });
 });
+
+describe("repas déjà notés : fibres & co. ajoutées", () => {
+  it("aliment Ciqual (code simple ou « code:nom ») complété, calories inchangées", async () => {
+    const { backfillExtras } = await import("./carbsBackfill");
+    const peche = { name: "Pêche", source: "ciqual" as const, ref: "13195:peche", quantity: 207, unit: "g" as const, kcal100: 46, protein100: 0.6 };
+    const lentilles = { name: "Lentille corail, sèche", source: "ciqual" as const, ref: "20535", quantity: 80, unit: "g" as const, kcal100: 328, protein100: 27.7 };
+    const data = { ...base, recipes: [], meals: [{ ...meal(1, "2026-10-14", 95), items: [peche, lentilles] }] } as unknown as AppData;
+    const apply = await backfillExtras(data);
+    const after = apply!(data).meals[0];
+    expect(after.calories).toBe(95);
+    expect(after.items![0].fiber100).not.toBeUndefined();
+    expect(after.items![1]).toMatchObject({ fiber100: 15.4, sugars100: 1.29, kcal100: 328 });
+    expect(await backfillExtras(apply!(data))).toBeNull();
+  });
+});
