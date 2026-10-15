@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { amountLabel, pastFoods, recentMeals, repeatItems, searchPast } from "./history";
 import { drinkMl, hydrationOf, isPreparedDrink } from "./hydration";
+import { defaultDensity, nutrientGrams, offDrink } from "./foods";
 import type { Meal, MealItem } from "./storage";
 
 // La soupe Knorr de Camille, notée deux fois le 14 (en mug, puis dans une assiette pour 2).
@@ -60,5 +61,23 @@ describe("thé en sachet", () => {
     const day = hydrationOf({ meals: [{ id: 9, date: "2026-10-15", category: "dejeuner", name: "Thé", calories: 0, source: "manual", drinksCounted: true, items: [{ ...sachet, waterMl: 250 }] }], water: {} }, "2026-10-15");
     expect(day.totalMl).toBe(250);
     expect(day.sources[0].category).toBe("the");
+  });
+});
+
+describe("unités et densité", () => {
+  it("Open Food Facts : une catégorie « boissons » suffit, un thé en sachet se prépare", () => {
+    expect(offDrink("125 g (50 sachets)", ["en:beverages", "en:beverage-preparations", "en:teas"])).toEqual({ prepared: true });
+    expect(offDrink("1 kg", ["en:beverages", "en:fruit-juices"])).toEqual({ liquid: true });
+    expect(offDrink("1000 ml", ["en:soups"])).toEqual({ liquid: true });
+    expect(offDrink("400 g", ["en:soups"])).toEqual({});
+  });
+
+  it("lait Ciqual (pour 100 g) : 250 ml × 1,03 = 257,5 g comptés", () => {
+    const lait: MealItem = { name: "Lait demi-écrémé, UHT", source: "ciqual", ref: "19041", quantity: 250, unit: "g", liquid: true, kcal100: 46, protein100: 3.3, density: defaultDensity("Lait demi-écrémé, UHT") };
+    expect(lait.density).toBe(1.03);
+    expect(nutrientGrams(lait)).toBeCloseTo(257.5);
+    // L'hydratation compte le volume bu, pas le poids.
+    expect(drinkMl(lait)).toBe(250);
+    expect(defaultDensity("Boisson à l'amande")).toBeUndefined();
   });
 });

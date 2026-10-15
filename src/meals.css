@@ -285,3 +285,9 @@
 .prepared-drink .container-chips { align-items: center; }
 .prepared-custom { flex: none; white-space: nowrap; }
 .meal-line .prepared-drink label.prepared-custom { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+.volume-unit { padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--cream); font-size: 13px; font-weight: 700; }
+.meal-line label.density-line { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.density-line input { width: 64px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--cream); font-size: 13px; }
+.density-line small { font-size: 12px; }
+.meal-line-amount .volume-unit { width: auto; flex: none; }
+.meal-total strong { white-space: nowrap; }

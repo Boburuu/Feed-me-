@@ -89,7 +89,7 @@ export const commonFoods: CommonFood[] = [
   { name: "Crème fraîche légère", ciqual: "Crème de lait, 15 à 20% MG, légère, épaisse, rayon frais", aliases: ["creme legere"], portion: { label: "1 c. à soupe", grams: 15 }, packageGrams: 200 },
   // Produits laitiers, œufs
   { name: "Œuf", ciqual: "Oeuf, dur", aliases: ["oeuf", "oeufs"], portion: { label: "1 œuf", grams: 55 } },
-  { name: "Lait demi-écrémé", ciqual: "Lait demi-écrémé, UHT", aliases: ["lait"], portion: { label: "1 verre", grams: 200 } },
+  { name: "Lait demi-écrémé", ciqual: "Lait demi-écrémé, UHT", aliases: ["lait"], portion: { label: "1 verre", grams: 200 }, drink: true },
   { name: "Yaourt nature", ciqual: "Yaourt ou spécialité laitière nature (aliment moyen)", aliases: ["yaourt", "yogourt"], portion: { label: "1 pot", grams: 125 } },
   { name: "Yaourt aux fruits", ciqual: "Yaourt ou spécialité laitière aux fruits (aliment moyen)", portion: { label: "1 pot", grams: 125 } },
   { name: "Yaourt à la grecque", ciqual: "Yaourt à la grecque, nature", aliases: ["yaourt grec"], portion: { label: "1 pot", grams: 150 } },

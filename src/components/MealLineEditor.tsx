@@ -47,11 +47,19 @@ const fractions = [
   { label: "entière", value: 1 },
 ];
 const PACKAGE_LABEL = "1 boîte";
+type VolumeUnit = NonNullable<MealItem["volumeUnit"]>;
+const volumeUnits: { id: VolumeUnit; ml: number }[] = [{ id: "ml", ml: 1 }, { id: "cl", ml: 10 }, { id: "dl", ml: 100 }, { id: "L", ml: 1000 }];
 
 /** Une ligne d'aliment : quantité et unité (portion, boîte, contenant, grammes ou ml). */
 export default function MealLineEditor({ line, onChange, onRemove, hideHydration }: MealLineEditorProps) {
   const grams = itemGrams(line);
   const corrections = useCorrections();
+  /** Boisson comptée en volume : l'unité affichée (la quantité reste en ml). */
+  const inVolume = !!line.liquid && line.unit === "g";
+  const volumeUnit: VolumeUnit = inVolume ? line.volumeUnit ?? "ml" : "ml";
+  const volumeFactor = volumeUnits.find((unit) => unit.id === volumeUnit)!.ml;
+  /** Fiche Ciqual : valeurs pour 100 g, même pour une boisson. */
+  const per100g = line.source === "ciqual";
   const [checking, setChecking] = useState(false);
   const reliability = reliabilityOf(line);
   const perPortionOnly = line.unit === "portion" && !line.portionGrams;
@@ -111,13 +119,19 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
             type="number"
             inputMode="decimal"
             min="0"
-            value={Math.round(line.quantity * 100) / 100}
-            onChange={(e) => onChange({ quantity: Math.max(0, Number(e.target.value)) })}
+            value={Math.round((line.quantity / volumeFactor) * 100) / 100}
+            onChange={(e) => onChange({ quantity: Math.max(0, Number(e.target.value)) * volumeFactor })}
             aria-label={`Quantité de ${line.name}`}
           />
           <button type="button" onClick={() => step(1)} aria-label="Plus"><Icon name="plus" size={15} /></button>
         </div>
-        {(line.liquid || perPortionOnly || options.length < 2) && (
+        {/* Boisson en volume : saisie en ml, cl, dl ou L (gardée en ml). */}
+        {inVolume && (
+          <select className="volume-unit" value={volumeUnit} onChange={(e) => onChange({ volumeUnit: e.target.value as VolumeUnit })} aria-label="Unité de volume">
+            {volumeUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.id}</option>)}
+          </select>
+        )}
+        {!inVolume && (line.liquid || perPortionOnly || options.length < 2) && (
           <span className="unit-fixed">
             {line.unit === "g" ? massUnit : servings ? `part${plural(line.quantity)} sur ${servings}` : `${unitName(line.portionLabel)}${line.quantity > 1 && line.liquid ? "s" : ""}`}
           </span>
@@ -232,8 +246,16 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
       </div>
       {checking && <LabelCheck line={line} onChange={onChange} onClose={() => setChecking(false)} />}
       <small className="meal-line-detail">
-        {servings ? `Ma recette pour ${servings} pers. · ${Math.round(line.kcal100)} kcal la part` : `Base : ${n(Math.round(line.kcal100))} kcal ${perPortionOnly ? "par portion" : `pour 100 ${line.liquid ? "ml" : "g"}`} · ${line.matchedName ? `${line.matchedName} (${sourceName[line.source]})` : sourceName[line.source]}`}
+        {servings ? `Ma recette pour ${servings} pers. · ${Math.round(line.kcal100)} kcal la part` : `Base : ${n(Math.round(line.kcal100))} kcal ${perPortionOnly ? "par portion" : `pour 100 ${line.liquid && !per100g ? "ml" : "g"}`} · ${line.matchedName ? `${line.matchedName} (${sourceName[line.source]})` : sourceName[line.source]}`}
       </small>
+      {/* Liquide dont la fiche est pour 100 g (Ciqual) : densité pour passer des ml aux grammes. */}
+      {per100g && inVolume && (
+        <label className="density-line">
+          <small>1 ml ≈</small>
+          <input type="number" inputMode="decimal" min="0.3" max="3" step="0.01" value={line.density ?? 1} onChange={(e) => { const value = Number(e.target.value); onChange({ density: value > 0 && value !== 1 ? value : undefined }); }} aria-label="Densité en grammes par ml" />
+          <small>g · {n(Math.round(nutrientGrams(line)))} g comptés</small>
+        </label>
+      )}
     </div>
   );
 }

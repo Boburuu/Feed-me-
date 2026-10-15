@@ -108,6 +108,12 @@ export type MealItem = {
    * boisson préparée, en ml, compté dans l'hydratation (les calories restent celles du produit).
    */
   waterMl?: number;
+  /** Liquide dont la fiche est pour 100 g : grammes par ml (absent : 1). */
+  density?: number;
+  /** Boisson en volume : unité de saisie choisie (la quantité reste en ml). */
+  volumeUnit?: "ml" | "cl" | "dl" | "L";
+  /** Préparation de boisson selon Open Food Facts (thé, café, sirop) : se prépare avec de l'eau. */
+  prepared?: boolean;
   /** Part d'une recette dont le volume final est connu : ml bus par part. */
   drinkMlPerPart?: number;
   /** Valeur habituelle (Ciqual) pour ce type d'aliment, pour signaler une fiche douteuse. */
@@ -244,6 +250,8 @@ export type AppData = {
   hydrationCoefficients?: Partial<Record<"eau" | "the" | "lait" | "jus" | "soda" | "soupe" | "cafe" | "alcool" | "autre", number>>;
   /** Liste de courses : lignes cochées (par nom) et lignes ajoutées à la main. */
   shopping?: { checked: string[]; extras: { id: number; text: string; done: boolean }[] };
+  /** Durée de conservation des brouillons de repas, en heures (24 par défaut). */
+  draftHours?: number;
   /** Fiches produits corrigées d'après l'étiquette (par produit, voir corrections.ts). */
   productCorrections?: Record<string, import("./corrections").ProductCorrection>;
   /** Les exemples de recettes de boissons ont déjà été proposés (pour ne pas les rajouter). */

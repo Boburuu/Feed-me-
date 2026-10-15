@@ -18,7 +18,7 @@ import { exportBackup } from "../lib/backup";
 import { backfillCarbs } from "../lib/carbsBackfill";
 import { correctPastMeals, mealsWithProduct } from "../lib/corrections";
 import { CorrectionsContext, type CorrectionsApi } from "../lib/correctionsContext";
-import { hasContent, lastTab, mealDraft, type MealDraft } from "../lib/drafts";
+import { DRAFT_HOURS, hasContent, lastTab, mealDraft, setDraftHours, type MealDraft } from "../lib/drafts";
 import { programFor, tipOfTheDay } from "../lib/goals";
 import { restoreImages } from "../lib/images";
 import { readPhoneSteps, readSteps } from "../lib/steps";
@@ -79,9 +79,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   });
   useEffect(() => lastTab.save(activeTab), [activeTab]);
   const [startDraft] = useState(() => {
-    const draft = mealDraft.load();
-    return draft?.open && hasContent(draft) ? draft : null;
+    setDraftHours(data.draftHours);
+    // L'app a été fermée pendant une saisie : le repas ouvert à ce moment-là revient.
+    const draft = mealDraft.all().find((entry) => entry.open && hasContent(entry)) ?? null;
+    if (draft) mealDraft.resume(draft);
+    return draft;
   });
+  useEffect(() => setDraftHours(data.draftHours), [data.draftHours]);
   const [modal, setModal] = useState<ModalType>(startDraft ? "meal" : null);
   /** Brouillon repris dans la fenêtre d'ajout de repas (null : fenêtre vierge). */
   const [restoredDraft, setRestoredDraft] = useState<MealDraft | null>(startDraft);
@@ -157,8 +161,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const editMeal = (meal: Meal) => {
-    const draft = mealDraft.load();
-    setRestoredDraft(draft?.editingId === meal.id ? draft : null);
+    const draft = mealDraft.loadEditing(meal.id);
+    if (draft) mealDraft.resume(draft);
+    setRestoredDraft(draft);
     setEditingMeal(meal);
     setMealDate(meal.date);
     setModal("meal");
@@ -309,9 +314,11 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const [offeredDraft, setOfferedDraft] = useState<MealDraft | null>(null);
   const openMealForm = (date = today, planned = false) => {
     setPlanning(planned);
-    const draft = mealDraft.load();
+    // Brouillon du moment de repas en cours (dîner le soir…), sinon le plus récent.
+    const drafts = mealDraft.all().filter((entry) => !entry.editingId && hasContent(entry));
+    const draft = drafts.find((entry) => entry.category === defaultCategory()) ?? drafts[0] ?? null;
     setRestoredDraft(null);
-    setOfferedDraft(hasContent(draft) && !draft!.editingId ? draft : null);
+    setOfferedDraft(draft);
     setMealDate(date);
     setModal("meal");
   };
@@ -768,6 +775,21 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           </section>
 
           <section className="section-block">
+            <div className="section-title"><div><p className="eyebrow">Saisie</p><h2>Repas en cours</h2></div></div>
+            <p className="theme-description">Un repas commencé puis laissé de côté est gardé, un par moment de la journée (petit-déjeuner, déjeuner, dîner, collation), et proposé à la réouverture pendant :</p>
+            <div className="container-chips" role="radiogroup" aria-label="Durée de conservation des brouillons">
+              {DRAFT_HOURS.map((hours) => {
+                const selected = (data.draftHours ?? 24) === hours;
+                return (
+                  <button type="button" role="radio" aria-checked={selected} key={hours} className={selected ? "selected" : ""} onClick={() => update((current) => ({ ...current, draftHours: hours === 24 ? undefined : hours }))}>
+                    {hours < 48 ? `${hours} h` : hours === 168 ? "1 semaine" : `${hours / 24} jours`}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="section-block">
             <div className="section-title"><div><p className="eyebrow">Confidentialité</p><h2>Mes données</h2></div></div>
             <p className="theme-description">Tout est enregistré uniquement sur cet appareil. Désinstaller l'application efface les données : exportez une sauvegarde régulièrement.</p>
             <div className="settings-list">
@@ -829,9 +851,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   draft={restoredDraft ?? undefined}
                   draftNotice={sharedMealNotice}
                   onDraft={(draft) => mealDraft.save(draft, true)}
-                  onDiscardDraft={() => { mealDraft.clear(); setRestoredDraft(null); setOfferedDraft(null); setComposerKey((value) => value + 1); }}
+                  onDiscardDraft={() => { const shown = restoredDraft ?? offeredDraft; if (shown) mealDraft.discard(shown); mealDraft.clear(); setRestoredDraft(null); setOfferedDraft(null); setComposerKey((value) => value + 1); }}
                   offeredDraft={offeredDraft ?? undefined}
-                  onResumeDraft={() => { setRestoredDraft(offeredDraft); setOfferedDraft(null); setComposerKey((value) => value + 1); }}
+                  onResumeDraft={() => { if (offeredDraft) mealDraft.resume(offeredDraft); setRestoredDraft(offeredDraft); setOfferedDraft(null); setComposerKey((value) => value + 1); }}
                   initialPhoto={mealPhoto ?? undefined}
                   planned={planning}
                   initialItems={mealRecipe ? [toMealItem(recipeResult(mealRecipe))] : undefined}

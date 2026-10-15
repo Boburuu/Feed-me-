@@ -242,7 +242,20 @@ async function getJson(url: string) {
 }
 
 type OffNutriments = Record<string, number | undefined>;
-type OffHit = { code?: string; product_name?: string; product_name_fr?: string; brands?: string[] | string; nutriments?: OffNutriments; quantity?: string };
+type OffHit = { code?: string; product_name?: string; product_name_fr?: string; brands?: string[] | string; nutriments?: OffNutriments; quantity?: string; categories_tags?: string[] };
+
+/**
+ * Boisson d'après Open Food Facts : contenance en cl / ml, ou catégorie « boissons ».
+ * Une préparation (thé en sachet, café, sirop) se boit une fois préparée avec de l'eau.
+ */
+export function offDrink(quantity: string | undefined, categories: string[] | undefined): { liquid?: true; prepared?: true } {
+  const tags = categories ?? [];
+  const inMl = /\d\s*(cl|ml|l)\b/i.test(quantity ?? "");
+  const preparation = tags.some((tag) => /^en:(beverage-preparations|teas|herbal-teas|coffees|instant-coffees|ground-coffees|coffee-capsules|syrups|cocoa-and-chocolate-powders)$/.test(tag));
+  if (preparation && !inMl) return { prepared: true };
+  if (inMl || tags.includes("en:beverages")) return preparation ? { liquid: true, prepared: true } : { liquid: true };
+  return {};
+}
 
 /**
  * Contenance d'un emballage, telle qu'Open Food Facts l'écrit : « 150g », « 440 gr »,
@@ -286,7 +299,7 @@ function wordsFound(query: string, text: string) {
 const brandOf = (brands: OffHit["brands"]) => (Array.isArray(brands) ? brands[0] : brands?.split(",")[0])?.trim() ?? "";
 
 export async function searchOpenFoodFacts(query: string, signal?: { cancelled: boolean }): Promise<FoodResult[]> {
-  const fields = "code,product_name,product_name_fr,brands,nutriments,quantity";
+  const fields = "code,product_name,product_name_fr,brands,nutriments,quantity,categories_tags";
   // Le moteur récent refuse les requêtes venant d'un site web (version iPhone) :
   // dans un navigateur, on passe par l'ancien, qui les accepte.
   const url = Capacitor.isNativePlatform()
@@ -312,7 +325,7 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
         brand: brand || undefined,
         packageGrams,
         ...parsePieces(`${hit.quantity ?? ""} ${name}`, packageGrams),
-        liquid: /\d\s*(cl|ml|l)\b/i.test(hit.quantity ?? "") || undefined,
+        ...offDrink(hit.quantity, hit.categories_tags),
         detail: brand ? `${brand} · Open Food Facts` : "Open Food Facts",
       };
     })
@@ -340,7 +353,7 @@ export function offKcal(nutriments: OffNutriments | undefined): number | null {
 }
 
 export async function openFoodFactsByBarcode(code: string): Promise<FoodResult | null> {
-  const data = await getJson(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}?fields=product_name,product_name_fr,brands,nutriments,serving_size,serving_quantity,quantity`);
+  const data = await getJson(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}?fields=product_name,product_name_fr,brands,nutriments,serving_size,serving_quantity,quantity,categories_tags`);
   const product = data.product;
   const kcal = offKcal(product?.nutriments);
   if (data.status !== 1 || kcal === null) return null;
@@ -358,8 +371,8 @@ export async function openFoodFactsByBarcode(code: string): Promise<FoodResult |
     fat100: product.nutriments.fat_100g ?? null,
     portionGrams: grams > 0 ? grams : undefined,
     portionLabel: grams > 0 ? shortServing(String(product.serving_size ?? ""), grams) : undefined,
-    // Boisson : contenance en cl / ml sur l'emballage.
-    liquid: /\d\s*(cl|ml|l)\b/i.test(String(product.quantity ?? "")) || undefined,
+    // Boisson : contenance en cl / ml, ou catégorie « boissons » d'Open Food Facts.
+    ...offDrink(product.quantity, product.categories_tags),
     packageGrams,
     ...parsePieces(`${product.quantity ?? ""} ${name}`, packageGrams),
     brand: brand || undefined,
@@ -459,7 +472,22 @@ const perPortion = (item: MealItem) => item.unit === "portion" && !item.portionG
  */
 export function nutrientGrams(item: MealItem) {
   const grams = itemGrams(item) ?? 0;
-  return item.unit === "g" && item.weighedCooked && item.cookedFactor ? grams / item.cookedFactor : grams;
+  if (item.unit === "g" && item.weighedCooked && item.cookedFactor) return grams / item.cookedFactor;
+  // Boisson saisie en ml, fiche pour 100 g : ml × densité (lait 1,03 g/ml…).
+  return item.liquid && item.density ? grams * item.density : grams;
+}
+
+/**
+ * Densité habituelle (g/ml) des liquides dont la fiche Ciqual est pour 100 g. Valeurs
+ * physiques courantes, arrondies ; 1 par défaut, modifiable sur la ligne.
+ */
+export function defaultDensity(name: string) {
+  const simple = normalize(name);
+  if (/\bhuile\b/.test(simple)) return 0.92;
+  if (/\bsirop\b/.test(simple) && !/\bdilue\b/.test(simple)) return 1.32;
+  if (/\blait\b/.test(simple) && !/\b(vegetale|amande|avoine|riz|coco|soja)\b/.test(simple)) return 1.03;
+  if (/\b(jus|nectar|smoothie)\b/.test(simple)) return 1.04;
+  return undefined;
 }
 
 /** Valeur d'un nutriment pour la quantité mangée ; null si la fiche ne la donne pas. */
@@ -501,7 +529,7 @@ export function carbsOf(items: MealItem[]) {
 
 /** Aliment prêt à ajouter : une portion si on la connaît, sinon 100 g. */
 export function toMealItem(result: FoodResult): MealItem {
-  const { source, ref, kcal100, protein100, carbs100, fat100, brand, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart } = result;
+  const { source, ref, kcal100, protein100, carbs100, fat100, brand, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart } = result;
   // Sans portion indiquée, un paquet vendu à la pièce se compte en pièces (« 1 tranche »).
   const portionGrams = result.portionGrams ?? pieceGrams;
   const portionLabel = result.portionGrams ? result.portionLabel : pieceLabel ?? result.portionLabel;
@@ -512,7 +540,9 @@ export function toMealItem(result: FoodResult): MealItem {
   const dry = result.perPortionOnly ? null : cookedFactor(result.name, kcal100);
   return {
     ...(dry ? { cookedFactor: dry.factor } : {}),
-    name, source, ref, kcal100, protein100, carbs100, fat100, portionGrams, portionLabel, liquid, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart,
+    // Liquide Ciqual (valeurs pour 100 g) : densité pour passer des ml aux grammes.
+    ...(source === "ciqual" && liquid && defaultDensity(result.name) ? { density: defaultDensity(result.name) } : {}),
+    name, source, ref, kcal100, protein100, carbs100, fat100, portionGrams, portionLabel, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart,
     servingGrams: portionGrams, servingLabel: portionLabel,
     quantity: byPortion ? 1 : 100, unit: byPortion ? "portion" : "g",
   };

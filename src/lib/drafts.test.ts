@@ -1,6 +1,6 @@
 // Brouillons (cahier § 4) : rien n'est perdu si Android ferme l'app pendant une saisie.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { hasContent, mealDraft, recipeDraft, type MealDraft } from "./drafts";
+import { hasContent, mealDraft, recipeDraft, setDraftHours, type MealDraft } from "./drafts";
 
 // Stockage du téléphone, simulé.
 const store = new Map<string, string>();
@@ -49,6 +49,55 @@ describe("brouillon de repas", () => {
   it("un stockage illisible ne bloque pas l'app", () => {
     store.set("feedme:brouillon-repas", "{abîmé");
     expect(mealDraft.load()).toBeNull();
+  });
+
+  it("un brouillon par moment : le dîner ne remplace pas le déjeuner laissé en plan", () => {
+    mealDraft.save(assiette, true);
+    mealDraft.close();
+    mealDraft.save({ ...assiette, category: "diner", plateName: "Soupe" }, true);
+    expect(mealDraft.load("dejeuner")?.plateName).toBe("Colin riz");
+    expect(mealDraft.load("diner")?.plateName).toBe("Soupe");
+    // Repas du soir enregistré : seul son brouillon disparaît.
+    mealDraft.clear();
+    expect(mealDraft.load("diner")).toBeNull();
+    expect(mealDraft.load("dejeuner")?.plateName).toBe("Colin riz");
+  });
+
+  it("changer de moment pendant la saisie déplace le brouillon", () => {
+    mealDraft.save(assiette, true);
+    mealDraft.save({ ...assiette, category: "collation" }, true);
+    expect(mealDraft.load("dejeuner")).toBeNull();
+    expect(mealDraft.load("collation")).not.toBeNull();
+    mealDraft.clear();
+  });
+
+  it("modifier un repas noté ne touche pas au brouillon d'un nouveau repas", () => {
+    mealDraft.save(assiette, true);
+    mealDraft.close();
+    mealDraft.save({ ...assiette, editingId: 42, plateName: "Modif" }, true);
+    expect(mealDraft.load("dejeuner")?.plateName).toBe("Colin riz");
+    expect(mealDraft.loadEditing(42)?.plateName).toBe("Modif");
+    mealDraft.clear();
+  });
+
+  it("« Abandonner » un brouillon proposé le supprime", () => {
+    mealDraft.save(assiette, true);
+    mealDraft.close();
+    mealDraft.discard(mealDraft.load("dejeuner")!);
+    expect(mealDraft.load("dejeuner")).toBeNull();
+  });
+
+  it("durée réglable : gardé 3 jours si on l'a choisi", () => {
+    store.set("feedme:brouillon-repas:diner", JSON.stringify({ ...assiette, category: "diner", open: false, savedAt: Date.now() - 50 * 3_600_000 }));
+    expect(mealDraft.load("diner")).toBeNull();
+    setDraftHours(72);
+    expect(mealDraft.load("diner")).not.toBeNull();
+    setDraftHours(undefined);
+  });
+
+  it("l'ancien brouillon unique (avant la séparation) est encore repris", () => {
+    store.set("feedme:brouillon-repas", JSON.stringify({ ...assiette, open: true, savedAt: Date.now() }));
+    expect(mealDraft.load("dejeuner")?.plateName).toBe("Colin riz");
   });
 });
 

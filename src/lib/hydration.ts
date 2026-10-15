@@ -20,7 +20,8 @@ export function couldHydrate(item: Pick<MealItem, "name">) {
 }
 
 /** Produit sec qui se boit une fois préparé avec de l'eau (thé en sachet, café soluble, sirop…). */
-export function isPreparedDrink(item: Pick<MealItem, "name" | "liquid">) {
+export function isPreparedDrink(item: Pick<MealItem, "name" | "liquid" | "prepared">) {
+  if (item.prepared) return true;
   const name = normalize(item.name);
   if (/\bsirop\b/.test(name)) return true;
   if (item.liquid) return false;
