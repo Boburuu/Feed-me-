@@ -98,6 +98,8 @@ export type MealItem = {
    */
   cookedFactor?: number;
   weighedCooked?: boolean;
+  /** D'où vient le facteur sec → cuit : l'emballage (valeurs « préparé ») ou Ciqual. */
+  cookedBy?: "emballage";
   /**
    * Hydratation : true = compté comme boisson même s'il n'est pas liquide (soupe), false =
    * jamais compté. Absent : compté seulement si c'est une boisson (liquid).
@@ -250,6 +252,8 @@ export type AppData = {
   hydrationCoefficients?: Partial<Record<"eau" | "the" | "lait" | "jus" | "soda" | "soupe" | "cafe" | "alcool" | "autre", number>>;
   /** Liste de courses : lignes cochées (par nom) et lignes ajoutées à la main. */
   shopping?: { checked: string[]; extras: { id: number; text: string; done: boolean }[] };
+  /** Cru / cuit retenu par aliment (voir cooking.ts). */
+  cookPrefs?: Record<string, import("./cooking").CookPref>;
   /** Durée de conservation des brouillons de repas, en heures (24 par défaut). */
   draftHours?: number;
   /** Fiches produits corrigées d'après l'étiquette (par produit, voir corrections.ts). */

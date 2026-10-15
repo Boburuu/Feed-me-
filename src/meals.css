@@ -291,3 +291,6 @@
 .density-line small { font-size: 12px; }
 .meal-line-amount .volume-unit { width: auto; flex: none; }
 .meal-total strong { white-space: nowrap; }
+/* Matière grasse de cuisson proposée sous les aliments. */
+.cooking-fat { display: grid; gap: 6px; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 12px; }
+.cooking-fat > small { color: var(--muted); font-size: 12px; font-weight: 700; }

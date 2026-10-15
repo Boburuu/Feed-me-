@@ -20,6 +20,8 @@ export type FoodResult = Omit<MealItem, "quantity" | "unit"> & {
   brand?: string;
   /** Recette : valeurs par portion, sans poids connu. */
   perPortionOnly?: boolean;
+  /** Énergie pour 100 g du produit préparé (cuit), quand l'emballage la donne. */
+  preparedKcal100?: number;
 };
 
 // --- Normalisation ------------------------------------------------------------------
@@ -83,12 +85,12 @@ export function portionFor(name: string) {
 
 // --- Ciqual (hors ligne) ---------------------------------------------------------------
 
-type CiqualRow = [number, string, number, number | null, number | null, number | null, string];
+export type CiqualRow = [number, string, number, number | null, number | null, number | null, string];
 type CiqualIndex = { rows: CiqualRow[]; keys: string[] };
 let ciqual: Promise<CiqualIndex> | null = null;
 
 /** La table n'est chargée qu'à la première recherche. */
-function loadCiqual() {
+export function loadCiqual() {
   ciqual ??= import("../data/ciqual.json").then((module) => {
     const rows = (module.default as unknown as { foods: CiqualRow[] }).foods;
     return { rows, keys: rows.map((row) => normalize(row[1])) };
@@ -320,6 +322,7 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
         ref: hit.code,
         kcal100: offKcal(hit.nutriments)!,
         protein100: hit.nutriments!.proteins_100g ?? null,
+        preparedKcal100: hit.nutriments!["energy-kcal_prepared_100g"],
         carbs100: hit.nutriments!.carbohydrates_100g ?? null,
         fat100: hit.nutriments!.fat_100g ?? null,
         brand: brand || undefined,
@@ -367,6 +370,7 @@ export async function openFoodFactsByBarcode(code: string): Promise<FoodResult |
     ref: code,
     kcal100: kcal,
     protein100: product.nutriments.proteins_100g ?? null,
+    preparedKcal100: product.nutriments["energy-kcal_prepared_100g"],
     carbs100: product.nutriments.carbohydrates_100g ?? null,
     fat100: product.nutriments.fat_100g ?? null,
     portionGrams: grams > 0 ? grams : undefined,
@@ -537,9 +541,11 @@ export function toMealItem(result: FoodResult): MealItem {
   const name = brand && !normalize(result.name).includes(normalize(brand)) ? `${result.name} · ${brand}` : result.name;
   const byPortion = result.perPortionOnly || !!portionGrams;
   // Riz, pâtes… vendus secs : on retient le rapport cuit / sec pour « pesé cuit ».
-  const dry = result.perPortionOnly ? null : cookedFactor(result.name, kcal100);
+  // Riz, pâtes… vendus secs : la conversion de l'emballage (valeurs « préparé ») d'abord, sinon Ciqual.
+  const packaging = !result.perPortionOnly && result.preparedKcal100 && kcal100 / result.preparedKcal100 >= 1.5 ? Math.round((kcal100 / result.preparedKcal100) * 100) / 100 : null;
+  const dry = result.perPortionOnly ? null : packaging ? { factor: packaging } : cookedFactor(result.name, kcal100);
   return {
-    ...(dry ? { cookedFactor: dry.factor } : {}),
+    ...(dry ? { cookedFactor: dry.factor, ...(packaging ? { cookedBy: "emballage" as const } : {}) } : {}),
     // Liquide Ciqual (valeurs pour 100 g) : densité pour passer des ml aux grammes.
     ...(source === "ciqual" && liquid && defaultDensity(result.name) ? { density: defaultDensity(result.name) } : {}),
     name, source, ref, kcal100, protein100, carbs100, fat100, portionGrams, portionLabel, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart,

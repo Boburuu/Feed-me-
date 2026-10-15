@@ -37,6 +37,7 @@ import ShareSheet from "./ShareSheet";
 import { mealPayload } from "../lib/share";
 import { fastFoodResult, searchFastFood } from "../lib/fastFood";
 import { applyCorrection } from "../lib/corrections";
+import { cookingVariants, cookKey, suggestCookingFat, withVariant } from "../lib/cooking";
 import { amountLabel, pastFoods, recentMeals, repeatItems, searchPast } from "../lib/history";
 import { useCorrections } from "../lib/correctionsContext";
 import { mealCategories, todayKey, type CustomFood, type Leftover, type Meal, type MealCategory, type MealItem, type Recipe } from "../lib/storage";
@@ -233,8 +234,16 @@ export default function MealComposer({ date: initialDate, category: initialCateg
     const key = Date.now();
     // Une fiche corrigée d'après l'étiquette prime sur celle de la base.
     const item = applyCorrection(toMealItem(result), corrections?.corrections);
-    setLines((current) => [...current, { ...item, ...(item.cookedFactor ? { weighedCooked: mode === "meal" } : {}), key }]);
+    // Sec ou cuit, cru ou cuit : le choix de la dernière fois pour cet aliment.
+    const pref = corrections?.cookPrefs[cookKey(item)];
+    setLines((current) => [...current, { ...item, ...(item.cookedFactor ? { weighedCooked: pref?.weighedCooked ?? mode === "meal" } : {}), key }]);
     setQuery("");
+    if (pref?.variantRef && pref.variantRef !== item.ref && item.unit === "g") {
+      cookingVariants(item).then((list) => {
+        const variant = list.find((entry) => entry.ref === pref.variantRef);
+        if (variant) setLines((current) => current.map((line) => (line.key === key ? { ...line, ...withVariant(line, variant) } : line)));
+      }).catch(() => undefined);
+    }
     // Produit de marque : comparé à la valeur habituelle de ce type d'aliment (fiche douteuse ?).
     if (!item.corrected) referenceFor(item).then((reference) => {
       if (reference) setLines((current) => current.map((line) => (line.key === key ? { ...line, ...reference } : line)));
@@ -253,8 +262,18 @@ export default function MealComposer({ date: initialDate, category: initialCateg
     }
   };
 
-  const update = (key: number, change: Partial<MealItem>) =>
+  const update = (key: number, change: Partial<MealItem>) => {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...change } : line)));
+    // Passé en grammes (pesé) : cru ou cuit, comme la dernière fois pour cet aliment.
+    const line = lines.find((entry) => entry.key === key);
+    const pref = line && change.unit === "g" && line.unit !== "g" ? corrections?.cookPrefs[cookKey(line)] : undefined;
+    if (line && pref?.variantRef && pref.variantRef !== line.ref) {
+      cookingVariants(line).then((list) => {
+        const variant = list.find((entry) => entry.ref === pref.variantRef);
+        if (variant) setLines((current) => current.map((entry) => (entry.key === key ? { ...entry, ...withVariant(entry, variant) } : entry)));
+      }).catch(() => undefined);
+    }
+  };
 
   const createFood = (event: React.FormEvent) => {
     event.preventDefault();
@@ -351,6 +370,14 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const addMealAgain = (meal: Meal) => {
     const start = Date.now();
     setLines((current) => [...current, ...repeatItems(meal).map((item, index) => ({ ...applyCorrection(item, corrections?.corrections), key: start + index }))]);
+  };
+  /** Matière grasse de cuisson proposée une fois par repas (« sans » la fait disparaître). */
+  const [fatDismissed, setFatDismissed] = useState(false);
+  const addFat = async (name: string, grams: number, label: string) => {
+    const [fat] = await searchCommon(name, 1).catch(() => []);
+    if (!fat) return;
+    const item = toMealItem(fat);
+    setLines((current) => [...current, { ...item, unit: "g", quantity: grams, matchedName: `${label} pour la cuisson`, key: Date.now() }]);
   };
   const shortDate = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 
@@ -593,6 +620,18 @@ export default function MealComposer({ date: initialDate, category: initialCateg
                   onRemove={() => setLines((current) => current.filter((item) => item.key !== line.key))}
                 />
               ))}
+              {/* Viande, poisson ou aliment poêlé sans matière grasse notée : on la propose. */}
+              {!fatDismissed && suggestCookingFat(lines) && (
+                <div className="cooking-fat" role="group" aria-label="Matière grasse de cuisson">
+                  <small>🍳 Cuit avec de la matière grasse ?</small>
+                  <div className="container-chips">
+                    <button type="button" onClick={() => void addFat("huile d'olive", 5, "1 c. à café")}>huile <small>1 c. à café · 5 g</small></button>
+                    <button type="button" onClick={() => void addFat("huile d'olive", 10, "1 c. à soupe")}>huile <small>1 c. à soupe · 10 g</small></button>
+                    <button type="button" onClick={() => void addFat("beurre", 10, "1 noisette")}>beurre <small>10 g</small></button>
+                    <button type="button" onClick={() => setFatDismissed(true)}>sans</button>
+                  </div>
+                </div>
+              )}
               <div className="meal-total">
                 <span>
                   {isPlate ? `Plat entier (pour ${servings} pers.)` : "Total du repas"}

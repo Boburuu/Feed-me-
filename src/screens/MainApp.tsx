@@ -232,6 +232,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
       return recountPast ? correctPastMeals(next, key, correction) : next;
     }),
     pastMeals: (key, correction) => mealsWithProduct(data.meals, key, correction).length,
+    cookPrefs: data.cookPrefs ?? {},
+    saveCookPref: (key, pref) => update((current) => ({ ...current, cookPrefs: { ...current.cookPrefs, [key]: { ...current.cookPrefs?.[key], ...pref } } })),
   };
   const goalWater = waterGoal(profile.sex);
   const stepsToday = data.steps[today];

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Icon from "./Icon";
 import LabelCheck from "./LabelCheck";
 import { canCheckLabel, reliabilityOf } from "../lib/corrections";
+import { cookingBase, cookingVariants, cookKey, withVariant, type CookingVariant } from "../lib/cooking";
 import { useCorrections } from "../lib/correctionsContext";
 import { coherenceWarnings, quantityWarning } from "../lib/coherence";
 import { couldHydrate, drinkMl, isPreparedDrink } from "../lib/hydration";
@@ -62,6 +63,25 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
   const per100g = line.source === "ciqual";
   const [checking, setChecking] = useState(false);
   const reliability = reliabilityOf(line);
+  // Fiches crue et cuites du même aliment (Ciqual), chargées avec la table.
+  const [variants, setVariants] = useState<CookingVariant[]>([]);
+  const variantKey = line.source === "ciqual" ? cookingBase(line.name) : "";
+  useEffect(() => {
+    let alive = true;
+    if (!variantKey) { setVariants([]); return; }
+    cookingVariants(line).then((list) => { if (alive) setVariants(list); }).catch(() => undefined);
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variantKey]);
+  /** Le choix est retenu pour la prochaine fois que cet aliment est ajouté. */
+  const pickVariant = (variant: CookingVariant) => {
+    onChange(withVariant(line, variant));
+    corrections?.saveCookPref(cookKey(line), { variantRef: variant.ref });
+  };
+  const pickDry = (cooked: boolean) => {
+    onChange({ weighedCooked: cooked });
+    corrections?.saveCookPref(cookKey(line), { weighedCooked: cooked });
+  };
   const perPortionOnly = line.unit === "portion" && !line.portionGrams;
   const isPackage = line.unit === "portion" && line.portionLabel === PACKAGE_LABEL && !!line.packageGrams;
   const isPiece = line.unit === "portion" && !!line.pieceGrams && line.portionGrams === line.pieceGrams && line.portionLabel === line.pieceLabel;
@@ -189,15 +209,30 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
         </div>
       )}
 
+      {/* Viande, poisson, œuf (Ciqual) pesés : la fiche crue ou la fiche cuite. Compté à la pièce
+          (« 1 filet »), le poids est celui du cru : pas de choix. */}
+      {variants.length > 1 && line.unit === "g" && (
+        <div className="container-chips" role="radiogroup" aria-label="Pesé cru ou cuit">
+          <small className="chips-label">Pesé :</small>
+          {variants.map((variant) => {
+            const selected = variant.ref === line.ref;
+            return (
+              <button type="button" role="radio" aria-checked={selected} key={variant.ref} className={selected ? "selected" : ""} onClick={() => pickVariant(variant)}>
+                {variant.label} <small>{variant.kcal100} kcal</small>
+              </button>
+            );
+          })}
+        </div>
+      )}
       {/* Riz, pâtes… vendus secs : pesés secs (avant cuisson) ou cuits (dans l'assiette). */}
       {line.cookedFactor && line.unit === "g" && (
         <>
           <div className="container-chips" role="radiogroup" aria-label="Pesé">
             <small className="chips-label">Pesé :</small>
-            <button type="button" role="radio" aria-checked={!line.weighedCooked} className={!line.weighedCooked ? "selected" : ""} onClick={() => onChange({ weighedCooked: false })}>sec, avant cuisson</button>
-            <button type="button" role="radio" aria-checked={!!line.weighedCooked} className={line.weighedCooked ? "selected" : ""} onClick={() => onChange({ weighedCooked: true })}>cuit</button>
+            <button type="button" role="radio" aria-checked={!line.weighedCooked} className={!line.weighedCooked ? "selected" : ""} onClick={() => pickDry(false)}>sec, avant cuisson</button>
+            <button type="button" role="radio" aria-checked={!!line.weighedCooked} className={line.weighedCooked ? "selected" : ""} onClick={() => pickDry(true)}>cuit</button>
           </div>
-          {line.weighedCooked && <small className="meal-line-detail">{n(Math.round(line.quantity))} g cuits ≈ {n(Math.round(nutrientGrams(line)))} g secs (la fiche est celle du produit sec)</small>}
+          {line.weighedCooked && <small className="meal-line-detail">{n(Math.round(line.quantity))} g cuits ≈ {n(Math.round(nutrientGrams(line)))} g secs ≈ {n(Math.round(itemCalories(line)))} kcal ({line.cookedBy === "emballage" ? "conversion indiquée sur l'emballage" : "la fiche est celle du produit sec"})</small>}
         </>
       )}
       {(itemCarbs(line) !== null || itemFat(line) !== null) && (
