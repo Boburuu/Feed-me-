@@ -10,6 +10,7 @@ import { normalize, type FoodResult } from "../foods";
 import { BK_SOURCE, burgerKing, type BkRow } from "./burgerKing";
 import { MCDO_SOURCE, mcdonalds, type McdoRow } from "./mcdonalds";
 import { SUBWAY_SOURCE, subway, type SubwayRow } from "./subway";
+import { KFC_SOURCE, kfc, type KfcRow } from "./kfc";
 
 export type BrandId = "bk" | "mcdo" | "kfc" | "subway" | "quick" | "dominos" | "pizzahut" | "marie";
 
@@ -32,7 +33,8 @@ export const brands: Brand[] = [
   {
     id: "kfc",
     name: "KFC",
-    missing: "KFC France ne publie en ligne que le Nutri-Score de ses produits, sans les calories : rien n'est embarqué. Les valeurs sont parfois affichées en restaurant ou dans l'appli KFC : crée l'aliment avec ces valeurs.",
+    catalogue: { source: KFC_SOURCE.name, url: KFC_SOURCE.url, date: KFC_SOURCE.date },
+    note: "KFC ne publie que les calories : protéines, glucides et lipides restent inconnus.",
   },
   {
     id: "subway",
@@ -80,13 +82,14 @@ export type FastFoodItem = {
 
 const fromBk = ([name, category, grams, ml, kcal, protein, carbs, sugars, fat, satFat, salt]: BkRow): FastFoodItem => ({ brand: "bk", name, category, grams, ml, kcal, protein, carbs, fat, sugars, satFat, salt });
 const fromMcdo = ([name, category, grams, ml, kcal, protein, carbs, sugars, fat, satFat, salt, fiber]: McdoRow): FastFoodItem => ({ brand: "mcdo", name, category, grams, ml, kcal, protein, carbs, fat, sugars, satFat, salt, fiber });
+const fromKfc = ([name, category, kcal]: KfcRow): FastFoodItem => ({ brand: "kfc", name, category, grams: null, ml: null, kcal, protein: null, carbs: null, fat: null, sugars: null, satFat: null, salt: null, portionLabel: "1 produit" });
 const fromSubway = ([name, category, kcal, portionLabel]: SubwayRow): FastFoodItem => ({ brand: "subway", name, category, grams: null, ml: null, kcal, protein: null, carbs: null, fat: null, sugars: null, satFat: null, salt: null, portionLabel });
 
 /** Ordre d'affichage : le plat d'abord, la boisson et la sauce à la fin. */
 const categoryOrder = ["Burgers", "Sandwichs", "Poulet & snacks", "Wraps & tortillas", "Salades & bowls", "Petit-déjeuner", "Frites & accompagnements", "Desserts", "Boissons", "Sauces"];
 const orderOf = (category: string) => (categoryOrder.includes(category) ? categoryOrder.indexOf(category) : categoryOrder.length);
 
-export const fastFoodItems: FastFoodItem[] = [...burgerKing.map(fromBk), ...mcdonalds.map(fromMcdo), ...subway.map(fromSubway)].sort((a, b) => orderOf(a.category) - orderOf(b.category) || a.name.localeCompare(b.name, "fr"));
+export const fastFoodItems: FastFoodItem[] = [...burgerKing.map(fromBk), ...mcdonalds.map(fromMcdo), ...subway.map(fromSubway), ...kfc.map(fromKfc)].sort((a, b) => orderOf(a.category) - orderOf(b.category) || a.name.localeCompare(b.name, "fr"));
 
 export const categoriesOf = (brand: BrandId) => [...new Set(fastFoodItems.filter((item) => item.brand === brand).map((item) => item.category))];
 

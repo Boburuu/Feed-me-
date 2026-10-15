@@ -51,7 +51,7 @@ describe("menus et recherche", () => {
   });
 
   it("les enseignes sans valeurs publiées le disent, sans rien inventer", () => {
-    for (const id of ["kfc", "quick", "dominos", "pizzahut"]) {
+    for (const id of ["quick", "dominos", "pizzahut"]) {
       expect(brands.find((brand) => brand.id === id)?.missing).toBeTruthy();
       expect(fastFoodItems.some((item) => item.brand === id)).toBe(false);
     }
@@ -79,5 +79,14 @@ describe("McDonald's et Subway (relevés officiels produit par produit)", () => 
   it("menu avec un produit Subway : total partiel signalé", () => {
     const thon = fastFoodItems.find((item) => item.brand === "subway" && item.name === "Thon")!;
     expect(menuTotal({ main: thon }).partial).toBe(true);
+  });
+});
+
+describe("KFC (document Nutri-Score officiel)", () => {
+  it("calories par produit, le reste inconnu", () => {
+    const colonel = toMealItem(fastFoodResult(fastFoodItems.find((item) => item.brand === "kfc" && item.name === "Colonel Original")!));
+    expect(colonel).toMatchObject({ unit: "portion", portionLabel: "1 produit", protein100: null });
+    expect(itemCalories(colonel)).toBe(607);
+    expect(fastFoodItems.filter((item) => item.brand === "kfc")).toHaveLength(43);
   });
 });
