@@ -51,7 +51,7 @@ describe("menus et recherche", () => {
   });
 
   it("les enseignes sans valeurs publiées le disent, sans rien inventer", () => {
-    for (const id of ["mcdo", "kfc", "subway"]) {
+    for (const id of ["mcdo", "kfc", "subway", "quick", "dominos", "pizzahut"]) {
       expect(brands.find((brand) => brand.id === id)?.missing).toBeTruthy();
       expect(fastFoodItems.some((item) => item.brand === id)).toBe(false);
     }

@@ -9,7 +9,7 @@
 import { normalize, type FoodResult } from "../foods";
 import { BK_SOURCE, burgerKing, type BkRow } from "./burgerKing";
 
-export type BrandId = "bk" | "mcdo" | "kfc" | "subway" | "marie";
+export type BrandId = "bk" | "mcdo" | "kfc" | "subway" | "quick" | "dominos" | "pizzahut" | "marie";
 
 export type Brand = {
   id: BrandId;
@@ -38,6 +38,21 @@ export const brands: Brand[] = [
     id: "subway",
     name: "Subway",
     missing: "Subway France ne publie pas de valeurs exploitables (fiches vides ou incomplètes) : rien n'est embarqué. Crée le sandwich avec les valeurs affichées en restaurant, ou compose-le avec ses ingrédients.",
+  },
+  {
+    id: "quick",
+    name: "Quick",
+    missing: "Quick ne publie pas les valeurs nutritionnelles de ses produits sur son site (seulement leur description) : rien n'est embarqué. Crée le produit avec les valeurs affichées en restaurant ou dans l'appli Quick.",
+  },
+  {
+    id: "dominos",
+    name: "Domino's",
+    missing: "Domino's France ne publie en ligne que le Nutri-Score de ses pizzas, sans les calories : rien n'est embarqué. Crée la pizza avec les valeurs de l'appli Domino's, ou compose-la avec ses ingrédients.",
+  },
+  {
+    id: "pizzahut",
+    name: "Pizza Hut",
+    missing: "Pizza Hut France publie un tableau des allergènes, mais pas de valeurs nutritionnelles : rien n'est embarqué. Crée la pizza avec les valeurs affichées en restaurant.",
   },
   { id: "marie", name: "Marie", offQuery: "Marie" },
 ];
