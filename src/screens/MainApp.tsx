@@ -9,6 +9,9 @@ import PlanEditor from "../components/PlanEditor";
 import PlanResults from "../components/PlanResults";
 import RecipePortionPicker from "../components/RecipePortionPicker";
 import RecipesTab from "../components/RecipesTab";
+import QuickWeigh from "../components/QuickWeigh";
+import ReminderSettings from "../components/ReminderSettings";
+import { REMINDER_EVENT, syncReminders, takeReminderTarget, type ReminderTarget } from "../lib/reminders";
 import ShareImport from "../components/ShareImport";
 import { mealPayload, shareInHash, type SharedMeal, type SharedRecipe, type SharePayload } from "../lib/share";
 import ShareSheet from "../components/ShareSheet";
@@ -21,7 +24,9 @@ import { backfillCarbs, backfillExtras } from "../lib/carbsBackfill";
 import { correctPastMeals, mealsWithProduct } from "../lib/corrections";
 import { CorrectionsContext, type CorrectionsApi } from "../lib/correctionsContext";
 import { DRAFT_HOURS, hasContent, lastTab, mealDraft, setDraftHours, type MealDraft } from "../lib/drafts";
-import { programFor, tipOfTheDay } from "../lib/goals";
+import { programFor } from "../lib/goals";
+import { dailyTip, tips, tipThemes } from "../lib/tips";
+import TipSplash from "../components/TipSplash";
 import { restoreImages } from "../lib/images";
 import { readPhoneSteps, readSteps } from "../lib/steps";
 import { recipeResult, toMealItem } from "../lib/foods";
@@ -53,7 +58,7 @@ type MainAppProps = {
 };
 
 type Tab = "Accueil" | "Suivi" | "Activité" | "Recettes" | "Profil";
-type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | "share-out" | null;
+type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | "share-out" | "weigh" | null;
 
 function defaultCategory(date = new Date()): MealCategory {
   const hour = date.getHours() + date.getMinutes() / 60;
@@ -123,6 +128,37 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     window.addEventListener("hashchange", receive);
     window.addEventListener(INCOMING_EVENT, fromApp);
     return () => { window.removeEventListener("hashchange", receive); window.removeEventListener(INCOMING_EVENT, fromApp); };
+  }, []);
+  // Conseil du jour : le même toute la journée ; écran à l'ouverture (une fois par lancement).
+  const todayTip = dailyTip(today);
+  const favoriteTips = data.tips?.favorites ?? [];
+  const toggleFavoriteTip = (id: number) => update((current) => {
+    const favorites = current.tips?.favorites ?? [];
+    return { ...current, tips: { ...current.tips, favorites: favorites.includes(id) ? favorites.filter((entry) => entry !== id) : [...favorites, id] } };
+  });
+  const [showSplash, setShowSplash] = useState(() => {
+    if (data.tips?.splash === false || startDraft) return false;
+    try {
+      if (sessionStorage.getItem("feedme:conseil-montre") === today) return false;
+      sessionStorage.setItem("feedme:conseil-montre", today);
+    } catch { /* montré quand même */ }
+    return true;
+  });
+  // Rappels reprogrammés quand les réglages ou les repas prévus changent.
+  const plannedKey = data.meals.filter(isPlanned).map((meal) => `${meal.id}:${meal.date}:${meal.category}`).join(",");
+  useEffect(() => { void syncReminders(data).catch(() => undefined); }, [JSON.stringify(data.reminders ?? null), plannedKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Notification touchée : pesée rapide, bilan de la semaine ou repas prévu à confirmer.
+  useEffect(() => {
+    const open = (target: ReminderTarget | null) => {
+      if (target === "pesee") setModal("weigh");
+      else if (target === "bilan") goTo("Suivi", "bilan-semaine");
+      else if (target === "prevu") goTo("Accueil");
+    };
+    const onTap = (event: Event) => { takeReminderTarget(); open((event as CustomEvent<ReminderTarget>).detail); };
+    open(takeReminderTarget());
+    window.addEventListener(REMINDER_EVENT, onTap);
+    return () => window.removeEventListener(REMINDER_EVENT, onTap);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const openShareImport = () => { setShareText(undefined); setModal("share"); };
   /** Envoyer un repas (à son ou sa partenaire…) : il ou elle choisit ses quantités en l'ajoutant. */
@@ -498,6 +534,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
 
   return (
     <CorrectionsContext.Provider value={correctionsApi}>
+      {showSplash && modal === null && (
+        <TipSplash tip={todayTip} favorite={favoriteTips.includes(todayTip.id)} onToggleFavorite={() => toggleFavoriteTip(todayTip.id)} onClose={() => setShowSplash(false)} />
+      )}
       <header className="topbar">
         <div>
           <p className="eyebrow">{dateLabel}</p>
@@ -533,7 +572,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
 
           <section className="tip-card">
             <span className="metric-icon"><Icon name="apple" /></span>
-            <div><p className="eyebrow">Conseil du jour · {program.short}</p><p>{tipOfTheDay(plan.goal, plan.program)}</p></div>
+            <div><p className="eyebrow">Conseil du jour · {tipThemes[todayTip.theme]}</p><p>{todayTip.text}</p></div>
+            <button type="button" className={`tip-star${favoriteTips.includes(todayTip.id) ? " on" : ""}`} onClick={() => toggleFavoriteTip(todayTip.id)} aria-pressed={favoriteTips.includes(todayTip.id)} aria-label={favoriteTips.includes(todayTip.id) ? "Retirer des favoris" : "Garder ce conseil en favori"}>{favoriteTips.includes(todayTip.id) ? "★" : "☆"}</button>
           </section>
 
           <section className="section-block">
@@ -678,6 +718,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           target={goal}
           goal={plan.goal}
           waterGoal={goalWater}
+          proteinGoal={result.macros.protein}
           onAddMeal={openMealForm}
           onSaveWeight={saveWeight}
           onDeleteWeight={deleteWeight}
@@ -791,6 +832,29 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           </section>
 
           <section className="section-block">
+            <div className="section-title"><div><p className="eyebrow">Notifications</p><h2>Rappels</h2></div></div>
+            <ReminderSettings value={data.reminders} onChange={(reminders) => update((current) => ({ ...current, reminders }))} flash={flash} />
+          </section>
+
+          <section className="section-block">
+            <div className="section-title"><div><p className="eyebrow">Conseils</p><h2>Conseil du jour</h2></div></div>
+            <label className="planned-toggle">
+              <input type="checkbox" checked={data.tips?.splash !== false} onChange={(e) => update((current) => ({ ...current, tips: { ...current.tips, splash: e.target.checked ? undefined : false } }))} />
+              <span>Afficher le conseil du jour à l'ouverture de l'appli (3 secondes, « Passer » pour fermer)</span>
+            </label>
+            {favoriteTips.length > 0 ? (
+              <ul className="favorite-tips">
+                {tips.filter((tip) => favoriteTips.includes(tip.id)).map((tip) => (
+                  <li key={tip.id}>
+                    <span><small>{tipThemes[tip.theme]}</small>{tip.text}</span>
+                    <button type="button" className="icon-button" onClick={() => toggleFavoriteTip(tip.id)} aria-label="Retirer des favoris"><Icon name="close" size={14} /></button>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="theme-description">Touche ☆ sur un conseil pour le retrouver ici. {tips.length} conseils, un par jour.</p>}
+          </section>
+
+          <section className="section-block">
             <div className="section-title"><div><p className="eyebrow">Saisie</p><h2>Repas en cours</h2></div></div>
             <p className="theme-description">Un repas commencé puis laissé de côté est gardé, un par moment de la journée (petit-déjeuner, déjeuner, dîner, collation), et proposé à la réouverture pendant :</p>
             <div className="container-chips" role="radiogroup" aria-label="Durée de conservation des brouillons">
@@ -891,10 +955,17 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 <h2>Que souhaitez-vous ajouter ?</h2>
                 <div className="choice-list">
                   <button onClick={() => openMealForm()}><span className="meal-icon breakfast"><Icon name="apple" /></span><span><strong>Un repas</strong><small>Suivre les calories consommées</small></span><Icon name="chevron" /></button>
-                  <button onClick={goToWeight}><span className="meal-icon dinner"><Icon name="scale" /></span><span><strong>Une pesée</strong><small>Suivre l'évolution de mon poids</small></span><Icon name="chevron" /></button>
+                  <button onClick={() => setModal("weigh")}><span className="meal-icon dinner"><Icon name="scale" /></span><span><strong>Une pesée</strong><small>Pesée rapide, le dernier poids pré-rempli</small></span><Icon name="chevron" /></button>
                   <button onClick={() => goTo("Activité")}><span className="meal-icon mint-icon"><Icon name="shoe" /></span><span><strong>Une séance de sport</strong><small>Marche, course, musculation, yoga…</small></span><Icon name="chevron" /></button>
                   <button onClick={openShareImport}><span className="meal-icon lunch"><Icon name="link" /></span><span><strong>Un partage reçu</strong><small>Recette, assiette ou repas envoyé par un ami</small></span><Icon name="chevron" /></button>
                 </div>
+              </>
+            )}
+            {modal === "weigh" && (
+              <>
+                <p className="eyebrow">Pesée rapide</p>
+                <h2>Mon poids aujourd'hui</h2>
+                <QuickWeigh weights={data.weights} onSave={(date, kg) => { saveWeight(date, kg); setModal(null); flash(`Pesée enregistrée : ${kg.toLocaleString("fr-FR")} kg`); }} onOpenTracking={goToWeight} />
               </>
             )}
             {modal === "share-out" && outgoingShare && (

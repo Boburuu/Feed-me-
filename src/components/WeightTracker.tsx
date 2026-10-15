@@ -1,9 +1,12 @@
 import { useState } from "react";
 import Icon from "./Icon";
 import { limits, todayKey, type WeightEntry } from "../lib/storage";
+import { inRange, RANGES, trend, weighingTips, withMovingAverage, type RangeId } from "../lib/weight";
 
 type WeightTrackerProps = {
   weights: WeightEntry[];
+  /** Objectif de maintien : la tendance est donnée sans alerte. */
+  maintenance?: boolean;
   onAdd: (date: string, kg: number) => void;
   onDelete: (id: number) => void;
 };
@@ -16,7 +19,9 @@ const shortDate = (date: string) =>
   new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 const kgLabel = (kg: number) => `${kg.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} kg`;
 
-export default function WeightTracker({ weights, onAdd, onDelete }: WeightTrackerProps) {
+export default function WeightTracker({ weights, maintenance, onAdd, onDelete }: WeightTrackerProps) {
+  const [range, setRange] = useState<RangeId>("3m");
+  const [showTips, setShowTips] = useState(false);
   const [date, setDate] = useState(todayKey());
   const [kg, setKg] = useState("");
   const [error, setError] = useState("");
@@ -24,21 +29,28 @@ export default function WeightTracker({ weights, onAdd, onDelete }: WeightTracke
   const [showAll, setShowAll] = useState(false);
 
   const sorted = [...weights].sort((a, b) => a.date.localeCompare(b.date));
-  const points = sorted.slice(-30);
+  // Pesées de la période, avec leur moyenne sur 7 jours (la vraie tendance).
+  const points = inRange(withMovingAverage(weights), range, todayKey()).map((point, index) => ({ ...point, id: index }));
+  const periodTrend = trend(points);
   const latest = sorted.at(-1);
   const first = sorted[0];
   const delta = latest && first ? latest.kg - first.kg : 0;
 
   // Échelle Y : 1 kg de marge, graduations entières.
-  const values = points.map((point) => point.kg);
+  const values = points.flatMap((point) => [point.kg, point.average]);
   const yMin = Math.floor(Math.min(...values, Infinity) - 1);
   const yMax = Math.ceil(Math.max(...values, -Infinity) + 1);
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
-  const x = (index: number) => PAD.left + (points.length > 1 ? (index / (points.length - 1)) * innerW : innerW / 2);
+  // Axe du temps réel : deux pesées à une semaine d'écart ne sont pas collées.
+  const t = (date: string) => new Date(`${date}T12:00:00`).getTime();
+  const t0 = points.length ? t(points[0].date) : 0;
+  const span = points.length > 1 ? t(points.at(-1)!.date) - t0 : 0;
+  const x = (index: number) => PAD.left + (span ? ((t(points[index].date) - t0) / span) * innerW : innerW / 2);
   const y = (value: number) => PAD.top + (1 - (value - yMin) / (yMax - yMin || 1)) * innerH;
   const ticks = [yMin, Math.round((yMin + yMax) / 2), yMax];
   const line = points.map((point, index) => `${index ? "L" : "M"}${x(index).toFixed(1)},${y(point.kg).toFixed(1)}`).join(" ");
+  const averageLine = points.map((point, index) => `${index ? "L" : "M"}${x(index).toFixed(1)},${y(point.average).toFixed(1)}`).join(" ");
 
   const track = (event: React.PointerEvent<SVGSVGElement>) => {
     if (!points.length) return;
@@ -94,11 +106,26 @@ export default function WeightTracker({ weights, onAdd, onDelete }: WeightTracke
         </div>
       </div>
 
+      {sorted.length > 1 && (
+        <div className="container-chips" role="radiogroup" aria-label="Période du graphique">
+          {RANGES.map((item) => (
+            <button type="button" role="radio" aria-checked={range === item.id} key={item.id} className={range === item.id ? "selected" : ""} onClick={() => setRange(item.id)}>{item.label}</button>
+          ))}
+        </div>
+      )}
+      {periodTrend && (
+        <p className="weight-trend">
+          Tendance (moyenne 7 j) : <strong>{periodTrend.change > 0 ? "+" : periodTrend.change < 0 ? "−" : "±"}{kgLabel(Math.abs(periodTrend.change))}</strong> en {periodTrend.days} jours
+          {maintenance
+            ? Math.abs(periodTrend.perWeek) <= 0.2 ? " · poids stable, objectif tenu." : ` · ${periodTrend.perWeek > 0 ? "+" : "−"}${Math.abs(periodTrend.perWeek).toLocaleString("fr-FR")} kg par semaine.`
+            : ` · ${periodTrend.perWeek > 0 ? "+" : periodTrend.perWeek < 0 ? "−" : ""}${Math.abs(periodTrend.perWeek).toLocaleString("fr-FR")} kg par semaine.`}
+        </p>
+      )}
       {points.length > 0 && (
         <figure className="weight-chart">
           <figcaption className="sr-only">Évolution du poids sur les {points.length} dernières pesées</figcaption>
           <div className="chart-tooltip" aria-live="polite">
-            {active ? <><strong>{kgLabel(active.kg)}</strong> · {shortDate(active.date)}</> : "Touchez le graphique pour voir une valeur"}
+            {active ? <><strong>{kgLabel(active.kg)}</strong> · {shortDate(active.date)} · moyenne 7 j {kgLabel(active.average)}</> : "Touchez le graphique pour voir une valeur"}
           </div>
           <svg
             viewBox={`0 0 ${W} ${H}`}
@@ -117,7 +144,8 @@ export default function WeightTracker({ weights, onAdd, onDelete }: WeightTracke
             <text className="chart-axis" x={PAD.left} y={H - 6}>{shortDate(points[0].date)}</text>
             {points.length > 1 && <text className="chart-axis" x={W - PAD.right} y={H - 6} textAnchor="end">{shortDate(points.at(-1)!.date)}</text>}
             {active && <line className="chart-crosshair" x1={x(hover!)} x2={x(hover!)} y1={PAD.top} y2={H - PAD.bottom} />}
-            {points.length > 1 && <path className="chart-line" d={line} />}
+            {points.length > 1 && <path className="chart-line chart-line-raw" d={line} />}
+            {points.length > 1 && <path className="chart-line chart-line-average" d={averageLine} />}
             {points.map((point, index) => (
               <circle
                 key={point.id}
@@ -130,6 +158,7 @@ export default function WeightTracker({ weights, onAdd, onDelete }: WeightTracke
           </svg>
         </figure>
       )}
+      {points.length > 1 && <div className="chart-legend"><span><i className="legend-raw" />Pesées</span><span><i className="legend-average" />Moyenne sur 7 jours</span></div>}
 
       <form className="weight-form" onSubmit={submit} noValidate>
         <label><span>Date</span><input type="date" value={date} max={todayKey()} onChange={(e) => setDate(e.target.value)} required /></label>
@@ -138,6 +167,8 @@ export default function WeightTracker({ weights, onAdd, onDelete }: WeightTracke
       </form>
       {error && <p className="form-error" role="alert">{error}</p>}
       <p className="weight-note">Une seule pesée par jour : une nouvelle valeur à la même date remplace la précédente.</p>
+      <button type="button" className="text-button" onClick={() => setShowTips((value) => !value)} aria-expanded={showTips}>{showTips ? "Masquer les conseils" : "Bien se peser : 5 conseils"}</button>
+      {showTips && <ul className="weighing-tips">{weighingTips.map((tip) => <li key={tip}>{tip}</li>)}</ul>}
 
       {history.length > 0 && (
         <ul className="weight-history">

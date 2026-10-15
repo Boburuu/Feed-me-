@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Icon from "./Icon";
 import WeekPlanner from "./WeekPlanner";
 import WeightTracker from "./WeightTracker";
+import WeeklyReportCard from "./WeeklyReportCard";
 import { sessionLabel } from "../lib/activity";
 import { mealCategories, todayKey, type AppData, type GoalType, type Meal } from "../lib/storage";
 import { hydrationOf } from "../lib/hydration";
@@ -14,6 +15,8 @@ type TrackingTabProps = {
   target: number;
   goal: GoalType;
   waterGoal: number;
+  /** Protéines visées par jour (plan), pour le bilan de la semaine. */
+  proteinGoal: number;
   onAddMeal: (date: string) => void;
   onSaveWeight: (date: string, kg: number) => void;
   onDeleteWeight: (id: number) => void;
@@ -42,7 +45,8 @@ const WATER_STEP = 200;
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const hours = (ms: number) => `${Math.floor(ms / 3_600_000)} h ${String(Math.floor((ms % 3_600_000) / 60_000)).padStart(2, "0")}`;
 
-export default function TrackingTab({ data, update, target, goal, waterGoal, onAddMeal, onSaveWeight, onDeleteWeight, onEditMeal, onShareMeal, onPlanMeal, flash }: TrackingTabProps) {
+export default function TrackingTab({ data, update, target, goal, waterGoal, proteinGoal, onAddMeal, onSaveWeight, onDeleteWeight, onEditMeal, onShareMeal, onPlanMeal, flash }: TrackingTabProps) {
+  const reportTargets = useMemo(() => ({ kcal: target, protein: proteinGoal, waterMl: waterGoal, stepGoal: data.stepGoal, goal }), [target, proteinGoal, waterGoal, data.stepGoal, goal]);
   const [view, setView] = useState<"calendar" | "week">("calendar");
   const today = todayKey();
   const [selected, setSelected] = useState(today);
@@ -243,7 +247,8 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
         <button className="ghost-button day-add" onClick={() => onAddMeal(selected)}><Icon name="plus" size={17} /> Ajouter un repas {selected === today ? "aujourd'hui" : "à ce jour"}</button>
       </section>
 
-      <WeightTracker weights={data.weights} onAdd={onSaveWeight} onDelete={onDeleteWeight} />
+      <WeeklyReportCard data={data} targets={reportTargets} today={todayKey()} />
+      <WeightTracker weights={data.weights} maintenance={goal === "maintien"} onAdd={onSaveWeight} onDelete={onDeleteWeight} />
       </>)}
     </div>
   );

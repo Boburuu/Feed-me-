@@ -11,6 +11,7 @@ import '@fontsource/manrope/latin-700.css'
 import '@fontsource/manrope/latin-800.css'
 import App from './App'
 import { listenForSharedLinks } from './lib/incomingShare'
+import { listenForReminderTaps } from './lib/reminders'
 import './index.css'
 import './screens.css'
 import './goals.css'
@@ -20,6 +21,8 @@ import './meals.css'
 
 // Lien de partage ouvert avec l'appli Android : gardé jusqu'au déverrouillage.
 void listenForSharedLinks().catch(() => undefined)
+// Notification touchée (pesée, bilan, repas prévu) : l'écran voulu s'ouvre après le code.
+void listenForReminderTaps().catch(() => undefined)
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
