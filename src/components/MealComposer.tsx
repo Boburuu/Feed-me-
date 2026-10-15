@@ -33,6 +33,8 @@ import { energyBrands, energyDrinks } from "../lib/energyDrinks";
 import { analyzeMealPhoto, photoRecognitionAvailable, type PhotoAnalysis } from "../lib/foodPhoto";
 import BarcodePanel from "./BarcodePanel";
 import FastFoodPanel from "./FastFoodPanel";
+import ShareSheet from "./ShareSheet";
+import { mealPayload } from "../lib/share";
 import { fastFoodResult, searchFastFood } from "../lib/fastFood";
 import { applyCorrection } from "../lib/corrections";
 import { useCorrections } from "../lib/correctionsContext";
@@ -68,6 +70,8 @@ type MealComposerProps = {
   onResumeDraft?: () => void;
   /** Ouvert depuis le planning : repas prévu, pas encore mangé. */
   planned?: boolean;
+  /** Message à la place de « Repas en cours repris » (repas reçu en partage). */
+  draftNotice?: string;
 };
 
 type Line = MealItem & { key: number };
@@ -96,7 +100,9 @@ const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma rece
 const unitName = (label?: string) => (label ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, "").slice(0, 14);
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 
-export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, editing, draft, onDraft, onDiscardDraft, offeredDraft, onResumeDraft, planned: plannedAtStart, leftovers, onDiscardLeftover }: MealComposerProps) {
+export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, editing, draft, onDraft, onDiscardDraft, offeredDraft, onResumeDraft, planned: plannedAtStart, leftovers, onDiscardLeftover, draftNotice }: MealComposerProps) {
+  const [sharing, setSharing] = useState(false);
+  const sharePayload = useMemo(() => (sharing && editing ? mealPayload(editing) : null), [sharing, editing]);
   const today = todayKey();
   const [date, setDate] = useState(draft?.date ?? editing?.date ?? initialDate);
   const [category, setCategory] = useState(draft?.category ?? editing?.category ?? initialCategory);
@@ -350,7 +356,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
     <div className="meal-composer">
       {draft && (
         <div className="draft-banner" role="status">
-          <span>Repas en cours repris là où vous l'aviez laissé.</span>
+          <span>{draftNotice ?? "Repas en cours repris là où vous l'aviez laissé."}</span>
           <button type="button" className="text-button" onClick={onDiscardDraft}>Abandonner</button>
         </div>
       )}
@@ -692,6 +698,10 @@ export default function MealComposer({ date: initialDate, category: initialCateg
             <p className="food-hint">Tapez un aliment, un plat ou un produit. Les valeurs viennent de la table officielle Ciqual (ANSES) et d'Open Food Facts pour les marques.</p>
           )}
 
+          {!!editing?.items?.length && !sharePayload && (
+            <button type="button" className="text-button share-meal" onClick={() => setSharing(true)}><Icon name="share" size={15} /> Partager {editing.plate ? "cette assiette" : "ce repas"}</button>
+          )}
+          {sharePayload && <ShareSheet payload={sharePayload} onClose={() => setSharing(false)} />}
           <button type="button" className="submit-button" onClick={save} disabled={!lines.length}>
             <Icon name="check" /> {!lines.length ? "Ajoutez au moins un aliment" : planned ? `Prévoir ce repas · ${Math.round(total * share)} kcal` : editing ? `Enregistrer les modifications · ${Math.round(total * share)} kcal` : isPlate ? `Ajouter ma part · ${Math.round(total * share)} kcal` : `Enregistrer le repas · ${Math.round(total)} kcal`}
           </button>

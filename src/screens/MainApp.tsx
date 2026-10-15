@@ -9,6 +9,9 @@ import PlanEditor from "../components/PlanEditor";
 import PlanResults from "../components/PlanResults";
 import RecipePortionPicker from "../components/RecipePortionPicker";
 import RecipesTab from "../components/RecipesTab";
+import ShareImport from "../components/ShareImport";
+import { shareInHash, type SharedMeal, type SharedRecipe } from "../lib/share";
+import type { MealItem } from "../lib/storage";
 import StepsPanel from "../components/StepsPanel";
 import TrackingTab from "../components/TrackingTab";
 import { exportBackup } from "../lib/backup";
@@ -48,7 +51,7 @@ type MainAppProps = {
 };
 
 type Tab = "Accueil" | "Suivi" | "Activité" | "Recettes" | "Profil";
-type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | null;
+type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | null;
 
 function defaultCategory(date = new Date()): MealCategory {
   const hour = date.getHours() + date.getMinutes() / 60;
@@ -91,7 +94,56 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const [mealRecipe, setMealRecipe] = useState<Recipe | null>(null);
   /** Repas déjà noté qu'on corrige (moment, jour, aliments). */
   const [editingMeal, setEditingMeal] = useState<Meal | null>(() => (startDraft?.editingId ? data.meals.find((meal) => meal.id === startDraft.editingId) ?? null : null));
+  // Partage reçu : lien ouvert (#partage=…) ou collé dans « Recevoir un partage ».
+  const [shareText, setShareText] = useState<string | undefined>(undefined);
+  const [focusRecipeId, setFocusRecipeId] = useState<number | null>(null);
+  /** Repas ouvert depuis un partage : message dédié à la place de « repas en cours repris ». */
+  const [sharedMealNotice, setSharedMealNotice] = useState<string | undefined>(undefined);
   useEffect(() => {
+    const receive = () => {
+      const link = shareInHash(window.location.hash);
+      if (!link) return;
+      // Le lien est lu une fois : on le retire de l'adresse pour ne pas le rouvrir.
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      setShareText(link);
+      setModal("share");
+    };
+    receive();
+    // Lien ouvert alors que l'appli web est déjà ouverte dans cet onglet.
+    window.addEventListener("hashchange", receive);
+    return () => window.removeEventListener("hashchange", receive);
+  }, []);
+  const openShareImport = () => { setShareText(undefined); setModal("share"); };
+  const addSharedRecipe = (recipe: SharedRecipe) => {
+    const id = Date.now();
+    update((current) => ({ ...current, recipes: [...current.recipes, { ...recipe, id }] }));
+    flash(`« ${recipe.name} » ajoutée à ton carnet`);
+    focusRecipe(id);
+  };
+  /** Ouvre une recette du carnet une seule fois (pas à chaque retour sur l'onglet). */
+  const focusRecipe = (id: number) => {
+    goTo("Recettes");
+    setFocusRecipeId(id);
+    window.setTimeout(() => setFocusRecipeId(null), 300);
+  };
+  const openSharedMeal = (meal: SharedMeal & { items: MealItem[] }) => {
+    const plate = meal.plate;
+    setPlanning(false);
+    setOfferedDraft(null);
+    setEditingMeal(null);
+    setRestoredDraft({
+      date: today, category: meal.category, mode: plate ? "plate" : "meal", lines: meal.items,
+      plateName: plate ? meal.name : "", servings: plate?.servings ?? 2,
+      parts: plate ? Math.max(0.5, Math.round(plate.share * plate.servings * 2) / 2) : 1,
+      adjust: 0, keepLeftover: false, query: "",
+    });
+    setSharedMealNotice("Repas reçu en partage : choisis le jour, le moment et ta quantité, puis enregistre.");
+    setMealDate(today);
+    setComposerKey((value) => value + 1);
+    setModal("meal");
+  };
+  useEffect(() => {
+    if (modal !== "meal") setSharedMealNotice(undefined);
     if (modal !== "meal" && modal !== "portion") { setMealPhoto(null); setMealRecipe(null); setEditingMeal(null); }
     // Fenêtre fermée : le brouillon reste, proposé à la prochaine ouverture.
     if (modal !== "meal") mealDraft.close();
@@ -730,7 +782,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
         </div>
       )}
 
-      {activeTab === "Recettes" && <RecipesTab recipes={data.recipes} update={update} onAddToJournal={addRecipeToJournal} flash={flash} />}
+      {activeTab === "Recettes" && <RecipesTab recipes={data.recipes} update={update} onAddToJournal={addRecipeToJournal} flash={flash} onReceive={openShareImport} focusRecipeId={focusRecipeId} />}
 
       {notice && <div className="toast" role="status">{notice}</div>}
 
@@ -775,6 +827,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   key={`${editingMeal?.id ?? "nouveau"}-${composerKey}`}
                   editing={editingMeal ?? undefined}
                   draft={restoredDraft ?? undefined}
+                  draftNotice={sharedMealNotice}
                   onDraft={(draft) => mealDraft.save(draft, true)}
                   onDiscardDraft={() => { mealDraft.clear(); setRestoredDraft(null); setOfferedDraft(null); setComposerKey((value) => value + 1); }}
                   offeredDraft={offeredDraft ?? undefined}
@@ -802,7 +855,23 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   <button onClick={() => openMealForm()}><span className="meal-icon breakfast"><Icon name="apple" /></span><span><strong>Un repas</strong><small>Suivre les calories consommées</small></span><Icon name="chevron" /></button>
                   <button onClick={goToWeight}><span className="meal-icon dinner"><Icon name="scale" /></span><span><strong>Une pesée</strong><small>Suivre l'évolution de mon poids</small></span><Icon name="chevron" /></button>
                   <button onClick={() => goTo("Activité")}><span className="meal-icon mint-icon"><Icon name="shoe" /></span><span><strong>Une séance de sport</strong><small>Marche, course, musculation, yoga…</small></span><Icon name="chevron" /></button>
+                  <button onClick={openShareImport}><span className="meal-icon lunch"><Icon name="link" /></span><span><strong>Un partage reçu</strong><small>Recette, assiette ou repas envoyé par un ami</small></span><Icon name="chevron" /></button>
                 </div>
+              </>
+            )}
+            {modal === "share" && (
+              <>
+                <p className="eyebrow">Partage</p>
+                <h2>Recevoir un partage</h2>
+                <ShareImport
+                  key={shareText ?? "vide"}
+                  recipes={data.recipes}
+                  initialText={shareText}
+                  onAddRecipe={addSharedRecipe}
+                  onOpenMeal={openSharedMeal}
+                  onOpenRecipe={(recipe) => focusRecipe(recipe.id)}
+                  onClose={() => setModal(null)}
+                />
               </>
             )}
             {modal === "steps" && (

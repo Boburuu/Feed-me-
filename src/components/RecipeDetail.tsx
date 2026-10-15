@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Icon from "./Icon";
+import ShareSheet from "./ShareSheet";
+import { recipePayload } from "../lib/share";
 import StoredImage from "./StoredImage";
 import { choicesOf } from "../lib/ingredientMatch";
 import { allIngredients, categoryLabel, categoryOf, formatIngredient } from "../lib/recipes";
@@ -45,6 +47,8 @@ export default function RecipeDetail({ recipe, onClose, onEdit, onDelete, onAddT
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [doneSteps, setDoneSteps] = useState<Set<string>>(new Set());
   const [awake, setAwake] = useState(true);
+  const [sharing, setSharing] = useState(false);
+  const payload = useMemo(() => (sharing ? recipePayload(recipe) : null), [sharing, recipe]);
   useWakeLock(awake);
 
   const factor = portions / recipe.portions;
@@ -63,10 +67,12 @@ export default function RecipeDetail({ recipe, onClose, onEdit, onDelete, onAddT
       <header className="recipe-detail-bar">
         <button className="modal-close" onClick={onClose} aria-label="Fermer"><Icon name="close" /></button>
         <span>
+          <button className="icon-button" onClick={() => setSharing((value) => !value)} aria-label="Partager la recette" aria-pressed={sharing}><Icon name="share" size={18} /></button>
           <button className="icon-button" onClick={onEdit} aria-label="Modifier la recette"><Icon name="edit" size={18} /></button>
           <button className="icon-button" onClick={onDelete} aria-label="Supprimer la recette"><Icon name="trash" size={18} /></button>
         </span>
       </header>
+      {payload && <div className="recipe-share"><ShareSheet payload={payload} onClose={() => setSharing(false)} /></div>}
 
       <div className="recipe-detail-scroll">
         {recipe.images?.length ? (

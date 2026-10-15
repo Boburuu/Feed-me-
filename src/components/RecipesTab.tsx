@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Icon from "./Icon";
 import RecipeDetail from "./RecipeDetail";
 import RecipeForm from "./RecipeForm";
@@ -14,12 +14,16 @@ type RecipesTabProps = {
   update: (change: (data: AppData) => AppData) => void;
   onAddToJournal: (recipe: Recipe) => void;
   flash: (message: string) => void;
+  /** Recevoir un partage (lien ou fichier). */
+  onReceive: () => void;
+  /** Recette à ouvrir tout de suite (partage déjà dans le carnet, ou tout juste ajouté). */
+  focusRecipeId?: number | null;
 };
 
 /** Ignore la casse et les accents : « creme » trouve « Crème ». */
 const normalize = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export default function RecipesTab({ recipes, update, onAddToJournal, flash }: RecipesTabProps) {
+export default function RecipesTab({ recipes, update, onAddToJournal, flash, onReceive, focusRecipeId }: RecipesTabProps) {
   const [filter, setFilter] = useState<RecipeCategory | "toutes">("toutes");
   const [search, setSearch] = useState("");
   // Recette en cours de saisie quand l'app a été fermée : le formulaire se rouvre avec elle.
@@ -29,7 +33,8 @@ export default function RecipesTab({ recipes, update, onAddToJournal, flash }: R
   const [restored, setRestored] = useState<RecipeDraft | null>(startDraft);
   const [formKey, setFormKey] = useState(0);
   const closeForm = () => { recipeDraft.clear(); setRestored(null); setCreating(false); setEditingId(null); };
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<number | null>(focusRecipeId ?? null);
+  useEffect(() => { if (focusRecipeId) setOpenId(focusRecipeId); }, [focusRecipeId]);
   /** Sélection de plusieurs recettes à supprimer (null : mode normal). */
   const [selection, setSelection] = useState<Set<number> | null>(null);
 
@@ -121,6 +126,12 @@ export default function RecipesTab({ recipes, update, onAddToJournal, flash }: R
       <button className="create-recipe" onClick={() => setCreating(true)}>
         <span><Icon name="plus" /></span>
         <div><strong>Ajouter une recette</strong><small>Depuis une capture d'écran, un texte ou à la main</small></div>
+        <Icon name="chevron" size={18} />
+      </button>
+
+      <button className="create-recipe receive-share" onClick={onReceive}>
+        <span><Icon name="link" /></span>
+        <div><strong>Recevoir un partage</strong><small>Coller le lien ou ouvrir le fichier reçu</small></div>
         <Icon name="chevron" size={18} />
       </button>
 

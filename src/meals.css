@@ -259,3 +259,18 @@
 .fastfood-panel .barcode-actions { gap: 12px; }
 .fastfood-panel .barcode-actions .plan-confirm { margin-left: auto; }
 .menu-recap-line { grid-template-columns: 122px minmax(0, 1fr) auto; gap: 10px; }
+/* Partage : envoi (lien, fichier) et réception (aperçu avant tout ajout). */
+.share-sheet { margin-top: 12px; }
+.share-import { display: grid; gap: 10px; }
+.share-import textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--cream); font-size: 13px; resize: vertical; word-break: break-all; }
+.share-preview { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--white); }
+.share-preview h3 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.share-preview .eyebrow { margin: 0; }
+.share-preview ul { display: grid; gap: 4px; margin: 0; padding-left: 18px; font-size: 13px; }
+.share-preview li b { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.share-preview small { color: var(--muted); font-size: 12px; }
+.share-preview-facts { margin: 0; color: var(--muted); font-size: 13px; font-weight: 600; }
+.recipe-share { padding: 0 16px; }
+.share-meal { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+.barcode-actions .plan-confirm { margin-right: 0; margin-left: auto; }
+.barcode-actions { gap: 12px; }
