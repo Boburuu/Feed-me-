@@ -10,7 +10,9 @@ import PlanResults from "../components/PlanResults";
 import RecipePortionPicker from "../components/RecipePortionPicker";
 import RecipesTab from "../components/RecipesTab";
 import ShareImport from "../components/ShareImport";
-import { shareInHash, type SharedMeal, type SharedRecipe } from "../lib/share";
+import { mealPayload, shareInHash, type SharedMeal, type SharedRecipe, type SharePayload } from "../lib/share";
+import ShareSheet from "../components/ShareSheet";
+import { INCOMING_EVENT, takeIncomingShare } from "../lib/incomingShare";
 import type { MealItem } from "../lib/storage";
 import StepsPanel from "../components/StepsPanel";
 import TrackingTab from "../components/TrackingTab";
@@ -51,7 +53,7 @@ type MainAppProps = {
 };
 
 type Tab = "Accueil" | "Suivi" | "Activité" | "Recettes" | "Profil";
-type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | null;
+type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | "share-out" | null;
 
 function defaultCategory(date = new Date()): MealCategory {
   const hour = date.getHours() + date.getMinutes() / 60;
@@ -112,12 +114,20 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
       setShareText(link);
       setModal("share");
     };
+    // Appli Android : lien touché dans une conversation (gardé si l'écran du code était affiché).
+    const openLink = (link: string | null) => { if (link) { takeIncomingShare(); setShareText(link); setModal("share"); } };
+    const fromApp = (event: Event) => openLink((event as CustomEvent<string>).detail);
     receive();
+    openLink(takeIncomingShare());
     // Lien ouvert alors que l'appli web est déjà ouverte dans cet onglet.
     window.addEventListener("hashchange", receive);
-    return () => window.removeEventListener("hashchange", receive);
+    window.addEventListener(INCOMING_EVENT, fromApp);
+    return () => { window.removeEventListener("hashchange", receive); window.removeEventListener(INCOMING_EVENT, fromApp); };
   }, []);
   const openShareImport = () => { setShareText(undefined); setModal("share"); };
+  /** Envoyer un repas (à son ou sa partenaire…) : il ou elle choisit ses quantités en l'ajoutant. */
+  const [outgoingShare, setOutgoingShare] = useState<SharePayload | null>(null);
+  const shareMeal = (meal: Meal) => { setOutgoingShare(mealPayload(meal)); setModal("share-out"); };
   const addSharedRecipe = (recipe: SharedRecipe) => {
     const id = Date.now();
     update((current) => ({ ...current, recipes: [...current.recipes, { ...recipe, id }] }));
@@ -645,7 +655,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   <span className={`meal-icon ${categoryStyle[meal.category]}`}><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
                   <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
                   <span className="meal-calories"><strong>{meal.calories}</strong><small>kcal</small></span>
-                  <button className="icon-button" onClick={(event) => { event.stopPropagation(); editMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
+                  {meal.items?.length
+                    ? <button className="icon-button" onClick={(event) => { event.stopPropagation(); shareMeal(meal); }} aria-label={`Partager ${meal.name}`}><Icon name="share" size={16} /></button>
+                    : <button className="icon-button" onClick={(event) => { event.stopPropagation(); editMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>}
                   <button className="icon-button" onClick={(event) => { event.stopPropagation(); deleteMeal(meal); }} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
                 </div>
               ))}
@@ -667,6 +679,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           onSaveWeight={saveWeight}
           onDeleteWeight={deleteWeight}
           onEditMeal={editMeal}
+          onShareMeal={shareMeal}
           onPlanMeal={(date) => openMealForm(date, true)}
           flash={flash}
         />
@@ -879,6 +892,14 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   <button onClick={() => goTo("Activité")}><span className="meal-icon mint-icon"><Icon name="shoe" /></span><span><strong>Une séance de sport</strong><small>Marche, course, musculation, yoga…</small></span><Icon name="chevron" /></button>
                   <button onClick={openShareImport}><span className="meal-icon lunch"><Icon name="link" /></span><span><strong>Un partage reçu</strong><small>Recette, assiette ou repas envoyé par un ami</small></span><Icon name="chevron" /></button>
                 </div>
+              </>
+            )}
+            {modal === "share-out" && outgoingShare && (
+              <>
+                <p className="eyebrow">Partage</p>
+                <h2>Envoyer ce repas</h2>
+                <p className="theme-description">La personne le verra en aperçu, puis choisira le jour, le moment et ses propres quantités avant de l'ajouter.</p>
+                <ShareSheet payload={outgoingShare} onClose={() => setModal(null)} />
               </>
             )}
             {modal === "share" && (

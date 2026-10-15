@@ -58,7 +58,7 @@ export default function ShareSheet({ payload, onClose }: ShareSheetProps) {
   }, [payload]);
 
   const long = !!link && link.length > LINK_COMFORT_LENGTH;
-  const message = link ? `${name} — ${what} partagée depuis Feed Me. Ouvre le lien, ou colle-le dans Feed Me (Recettes › Recevoir un partage) :\n${link}` : "";
+  const message = link ? `${name} — ${what} partagée depuis Feed Me. Touche le lien pour l'ouvrir, ou colle-le dans Feed Me (bouton « + » › Un partage reçu) :\n${link}` : "";
   const run = (action: () => Promise<unknown>, done: string) => action().then(() => { if (done) setNote(done); }).catch((error: unknown) => {
     // Feuille de partage fermée sans choisir : ce n'est pas une erreur.
     if (error instanceof Error && /cancel|abort/i.test(`${error.name} ${error.message}`)) return;

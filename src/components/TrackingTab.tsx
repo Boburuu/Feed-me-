@@ -18,6 +18,8 @@ type TrackingTabProps = {
   onSaveWeight: (date: string, kg: number) => void;
   onDeleteWeight: (id: number) => void;
   onEditMeal: (meal: Meal) => void;
+  /** Envoyer un repas à quelqu'un (il ou elle choisit ses quantités). */
+  onShareMeal: (meal: Meal) => void;
   onPlanMeal: (date: string) => void;
   flash: (message: string) => void;
 };
@@ -40,7 +42,7 @@ const WATER_STEP = 200;
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const hours = (ms: number) => `${Math.floor(ms / 3_600_000)} h ${String(Math.floor((ms % 3_600_000) / 60_000)).padStart(2, "0")}`;
 
-export default function TrackingTab({ data, update, target, goal, waterGoal, onAddMeal, onSaveWeight, onDeleteWeight, onEditMeal, onPlanMeal, flash }: TrackingTabProps) {
+export default function TrackingTab({ data, update, target, goal, waterGoal, onAddMeal, onSaveWeight, onDeleteWeight, onEditMeal, onShareMeal, onPlanMeal, flash }: TrackingTabProps) {
   const [view, setView] = useState<"calendar" | "week">("calendar");
   const today = todayKey();
   const [selected, setSelected] = useState(today);
@@ -231,7 +233,9 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, onA
               <span className="meal-icon breakfast"><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
               <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
               <span className="meal-calories"><strong>{meal.calories}</strong><small>kcal</small></span>
-              <button className="icon-button" onClick={(event) => { event.stopPropagation(); onEditMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
+              {meal.items?.length
+                ? <button className="icon-button" onClick={(event) => { event.stopPropagation(); onShareMeal(meal); }} aria-label={`Partager ${meal.name}`}><Icon name="share" size={16} /></button>
+                : <button className="icon-button" onClick={(event) => { event.stopPropagation(); onEditMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>}
               <button className="icon-button" onClick={(event) => { event.stopPropagation(); deleteMeal(meal); }} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
             </div>
           ))}

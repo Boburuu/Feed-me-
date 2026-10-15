@@ -19,6 +19,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Liens de partage (recette, repas) : ouverts dans l'appli une fois autorisés dans
+                 Paramètres › Applications › Feed Me › Ouvrir par défaut. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="boburuu.github.io" android:pathPrefix="/Feed-me-" />
+            </intent-filter>
         </activity>
 
         <provider
