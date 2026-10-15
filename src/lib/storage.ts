@@ -92,6 +92,11 @@ export type MealItem = {
   carbs100?: number | null;
   /** Lipides, comme kcal100. Absent : pas encore lu ; null : inconnu. */
   fat100?: number | null;
+  /** Sucres, AG saturés, fibres et sel, comme kcal100 (absents : inconnus). */
+  sugars100?: number | null;
+  satFat100?: number | null;
+  fiber100?: number | null;
+  salt100?: number | null;
   /**
    * Féculent vendu sec (riz, pâtes…) : rapport poids cuit / poids sec. Avec weighedCooked,
    * les grammes saisis sont des grammes cuits, convertis en sec pour le calcul.

@@ -43,3 +43,14 @@ describe("matière grasse de cuisson", () => {
     expect(suggestCookingFat([{ name: "Banane" }])).toBe(false);
   });
 });
+
+describe("sucres, saturés, fibres, sel (Ciqual 2020)", () => {
+  it("lentilles corail sèches : 15,4 g de fibres et 1,29 g de sucres pour 100 g", () => {
+    const row = rows.find((entry) => entry[1] === "Lentille corail, sèche")!;
+    expect(row.slice(7)).toEqual([1.29, 0.14, 15.4, 0]);
+  });
+
+  it("toutes les fiches ont reçu leurs quatre valeurs (ou « inconnu »)", () => {
+    expect(rows.every((row) => row.length === 11)).toBe(true);
+  });
+});

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
-import { cleanProductCode, cropImage, readProductCodes, type CropRect } from "../lib/barcodeImage";
+import { cleanProductCode, cropImage, readPrintedCodes, readProductCodes, type CropRect } from "../lib/barcodeImage";
 import { liveScanAvailable, scanBarcode } from "../lib/foodPhoto";
 import { openFoodFactsByBarcode, type FoodResult } from "../lib/foods";
 
@@ -59,9 +59,16 @@ export default function BarcodePanel({ onFound, onClose, onSearchByName, onCreat
     setState({ step: "manual", error: "Toujours illisible : tapez les chiffres écrits sous les barres." });
   };
 
+  /** Barres illisibles : on lit les chiffres imprimés dessous. */
+  const withPrintedDigits = async (image: Blob, codes: string[]) => {
+    if (codes.length) return codes;
+    setState({ step: "reading", message: "Barres illisibles : lecture des chiffres…" });
+    return readPrintedCodes(image).catch(() => []);
+  };
+
   const readFile = async (file: File) => {
     setState({ step: "reading", message: "Lecture du code-barres…" });
-    handleCodes(await readProductCodes(file).catch(() => []), file, false);
+    handleCodes(await withPrintedDigits(file, await readProductCodes(file).catch(() => [])), file, false);
   };
 
   const readCrop = async () => {
@@ -69,7 +76,7 @@ export default function BarcodePanel({ onFound, onClose, onSearchByName, onCreat
     const file = state.file;
     setState({ step: "reading", message: "Lecture de la zone…" });
     const zone = await cropImage(file, crop).catch(() => null);
-    handleCodes(zone ? await readProductCodes(zone).catch(() => []) : [], file, true);
+    handleCodes(zone ? await withPrintedDigits(zone, await readProductCodes(zone).catch(() => [])) : [], file, true);
   };
 
   const camera = async () => {

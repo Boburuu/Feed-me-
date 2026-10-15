@@ -6,7 +6,7 @@ import { cookingBase, cookingVariants, cookKey, withVariant, type CookingVariant
 import { useCorrections } from "../lib/correctionsContext";
 import { coherenceWarnings, quantityWarning } from "../lib/coherence";
 import { couldHydrate, drinkMl, isPreparedDrink } from "../lib/hydration";
-import { itemCalories, itemCarbs, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
+import { itemCalories, itemCarbs, itemExtra, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
 import type { MealItem } from "../lib/storage";
 
 type MealLineEditorProps = {
@@ -63,6 +63,11 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
   const per100g = line.source === "ciqual";
   const [checking, setChecking] = useState(false);
   const reliability = reliabilityOf(line);
+  /** Sucres, saturés, fibres, sel : affichés quand la fiche les donne. */
+  const extras = ([["sugars100", "sucres"], ["satFat100", "saturés"], ["fiber100", "fibres"], ["salt100", "sel"]] as const).flatMap(([key, label]) => {
+    const value = itemExtra(line, key);
+    return value === null ? [] : [`${n(Math.round(value * 10) / 10)} g ${label === "sel" ? "de sel" : label === "fibres" ? "de fibres" : label === "sucres" ? "de sucres" : "d'AG saturés"}`];
+  });
   // Fiches crue et cuites du même aliment (Ciqual), chargées avec la table.
   const [variants, setVariants] = useState<CookingVariant[]>([]);
   const variantKey = line.source === "ciqual" ? cookingBase(line.name) : "";
@@ -240,6 +245,7 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
           {[itemCarbs(line) !== null ? `${n(Math.round(itemCarbs(line)! * 10) / 10)} g de glucides` : "", itemFat(line) !== null ? `${n(Math.round(itemFat(line)! * 10) / 10)} g de lipides` : ""].filter(Boolean).join(" · ")}
         </small>
       )}
+      {extras.length > 0 && <small className="meal-line-carbs meal-line-extras">{extras.join(" · ")}</small>}
       {/* Sachet de thé, café soluble, sirop… : la boisson préparée compte, pas le sachet. */}
       {!hideHydration && isPreparedDrink(line) && (
         <div className="prepared-drink">

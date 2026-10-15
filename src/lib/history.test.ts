@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { amountLabel, pastFoods, recentMeals, repeatItems, searchPast } from "./history";
 import { drinkMl, hydrationOf, isPreparedDrink } from "./hydration";
-import { defaultDensity, nutrientGrams, offDrink } from "./foods";
+import { defaultDensity, itemExtra, nutrientGrams, offDrink } from "./foods";
 import type { Meal, MealItem } from "./storage";
 
 // La soupe Knorr de Camille, notée deux fois le 14 (en mug, puis dans une assiette pour 2).
@@ -79,5 +79,13 @@ describe("unités et densité", () => {
     // L'hydratation compte le volume bu, pas le poids.
     expect(drinkMl(lait)).toBe(250);
     expect(defaultDensity("Boisson à l'amande")).toBeUndefined();
+  });
+});
+
+describe("fibres d'un aliment", () => {
+  it("80 g de lentilles corail sèches = 12,3 g de fibres", () => {
+    const lentilles: MealItem = { name: "Lentille corail, sèche", source: "ciqual", ref: "20535", quantity: 80, unit: "g", kcal100: 328, protein100: 27.7, fiber100: 15.4, sugars100: 1.29 };
+    expect(itemExtra(lentilles, "fiber100")).toBeCloseTo(12.32);
+    expect(itemExtra({ ...lentilles, salt100: undefined }, "salt100")).toBeNull();
   });
 });

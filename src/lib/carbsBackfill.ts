@@ -6,7 +6,7 @@
 // valeurs manquantes sont ajoutées : les calories des repas ne changent jamais.
 
 import { energyDrinks } from "./energyDrinks";
-import { carbsOf, ciqualNutrients, fatOf, normalize, openFoodFactsNutrients } from "./foods";
+import { carbsOf, ciqualNutrients, fatOf, loadCiqual, normalize, openFoodFactsNutrients } from "./foods";
 import { matchIngredient } from "./ingredientMatch";
 import { ingredientsNutrition } from "./recipes";
 import type { AppData, Ingredient, MealItem } from "./storage";
@@ -109,4 +109,32 @@ async function estimate(items: Ingredient[], portions: number) {
   if (found.length < measured.length * 0.6) return null;
   const totals = ingredientsNutrition(found.map((food) => ({ name: food.name, quantity: null, unit: "", food })));
   return { carbs: Math.round(totals.carbs / (portions || 1)), fat: Math.round(totals.fat / (portions || 1)) };
+}
+
+// --- Sucres, AG saturés, fibres et sel des aliments Ciqual déjà notés ---------------------------
+// Ajoutés à la table embarquée en octobre 2026 : les repas notés avant reçoivent ces valeurs
+// (lues dans la même fiche Ciqual). Rien d'autre ne change.
+
+const EXTRA_KEYS = ["sugars100", "satFat100", "fiber100", "salt100"] as const;
+const needsExtras = (item: MealItem) => item.source === "ciqual" && /^\d+/.test(item.ref ?? "") && item.fiber100 === undefined;
+
+export async function backfillExtras(data: AppData) {
+  const touched = (items: MealItem[] | undefined) => !!items?.some(needsExtras);
+  if (!data.meals.some((meal) => touched(meal.items)) && !data.recipes.some((recipe) => touched(foodsOf(recipe)))) return null;
+  const { rows } = await loadCiqual();
+  const byCode = new Map(rows.map((row) => [row[0], row]));
+  const complete = (item: MealItem): MealItem => {
+    if (!needsExtras(item)) return item;
+    const row = byCode.get(Number(item.ref!.split(":")[0]));
+    if (!row) return { ...item, sugars100: null, satFat100: null, fiber100: null, salt100: null };
+    const values = [row[7], row[8], row[9], row[10]];
+    return { ...item, ...Object.fromEntries(EXTRA_KEYS.map((key, index) => [key, values[index] ?? null])) };
+  };
+  return (current: AppData): AppData => ({
+    ...current,
+    meals: current.meals.map((meal) => (touched(meal.items) ? { ...meal, items: meal.items!.map(complete) } : meal)),
+    recipes: current.recipes.map((recipe) => (touched(foodsOf(recipe))
+      ? { ...recipe, ingredients: recipe.ingredients.map((group) => ({ ...group, items: group.items.map((item) => (item.food ? { ...item, food: complete(item.food) } : item)) })) }
+      : recipe)),
+  });
 }

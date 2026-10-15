@@ -14,6 +14,10 @@ export type ProductCorrection = {
   protein100: number | null;
   carbs100: number | null;
   fat100: number | null;
+  sugars100?: number | null;
+  satFat100?: number | null;
+  fiber100?: number | null;
+  salt100?: number | null;
   /** Valeurs de la fiche avant correction, pour pouvoir revenir en arrière. */
   original: { kcal100: number; protein100: number | null; carbs100?: number | null; fat100?: number | null };
   /** Jour de la correction (AAAA-MM-JJ). */
@@ -38,9 +42,11 @@ export function applyCorrection(item: MealItem, corrections: Corrections | undef
   const correction = corrections?.[correctionKey(item)];
   if (!correction) return item;
   const { kcal100, protein100, carbs100, fat100 } = correction;
+  // Sucres, saturés, fibres, sel : ceux de l'étiquette quand elle les donne.
+  const extra = Object.fromEntries((["sugars100", "satFat100", "fiber100", "salt100"] as const).filter((key) => correction[key] !== undefined && correction[key] !== null).map((key) => [key, correction[key]]));
   // La valeur « habituelle » servait à signaler une fiche douteuse : l'étiquette fait foi.
   const { refKcal100: _ref, refName: _name, ...rest } = item;
-  return { ...rest, kcal100, protein100, carbs100, fat100, corrected: true };
+  return { ...rest, kcal100, protein100, carbs100, fat100, ...extra, corrected: true };
 }
 
 /** Repas déjà notés qui contiennent ce produit avec d'autres valeurs que la correction. */

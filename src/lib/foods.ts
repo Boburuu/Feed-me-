@@ -85,7 +85,18 @@ export function portionFor(name: string) {
 
 // --- Ciqual (hors ligne) ---------------------------------------------------------------
 
-export type CiqualRow = [number, string, number, number | null, number | null, number | null, string];
+/** [code, nom, kcal, protéines, glucides, lipides, sous-groupe, sucres, AG saturés, fibres, sel] */
+export type CiqualRow = [number, string, number, number | null, number | null, number | null, string, (number | null)?, (number | null)?, (number | null)?, (number | null)?];
+
+/** Sucres, AG saturés, fibres et sel d'une ligne Ciqual. */
+const ciqualExtra = (row: CiqualRow) => ({ sugars100: row[7] ?? null, satFat100: row[8] ?? null, fiber100: row[9] ?? null, salt100: row[10] ?? null });
+/** Les mêmes, lus dans Open Food Facts. */
+const offExtra = (nutriments: OffNutriments) => ({
+  sugars100: nutriments.sugars_100g ?? null,
+  satFat100: nutriments["saturated-fat_100g"] ?? null,
+  fiber100: nutriments.fiber_100g ?? null,
+  salt100: nutriments.salt_100g ?? null,
+});
 type CiqualIndex = { rows: CiqualRow[]; keys: string[] };
 let ciqual: Promise<CiqualIndex> | null = null;
 
@@ -133,6 +144,7 @@ export async function searchCiqual(query: string, limit = 12): Promise<FoodResul
         protein100: protein,
         carbs100: carbs,
         fat100: fat,
+        ...ciqualExtra(rows[index]),
         portionGrams: portion?.grams,
         portionLabel: portion?.label,
         detail: "Ciqual (ANSES)",
@@ -208,6 +220,7 @@ function commonResult(food: CommonFood): FoodResult[] {
     protein100: row[3],
     carbs100: row[4],
     fat100: row[5],
+    ...ciqualExtra(row),
     portionGrams: food.portion?.grams,
     portionLabel: food.portion?.label,
     liquid: food.drink || undefined,
@@ -325,6 +338,7 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
         preparedKcal100: hit.nutriments!["energy-kcal_prepared_100g"],
         carbs100: hit.nutriments!.carbohydrates_100g ?? null,
         fat100: hit.nutriments!.fat_100g ?? null,
+        ...offExtra(hit.nutriments!),
         brand: brand || undefined,
         packageGrams,
         ...parsePieces(`${hit.quantity ?? ""} ${name}`, packageGrams),
@@ -373,6 +387,7 @@ export async function openFoodFactsByBarcode(code: string): Promise<FoodResult |
     preparedKcal100: product.nutriments["energy-kcal_prepared_100g"],
     carbs100: product.nutriments.carbohydrates_100g ?? null,
     fat100: product.nutriments.fat_100g ?? null,
+    ...offExtra(product.nutriments),
     portionGrams: grams > 0 ? grams : undefined,
     portionLabel: grams > 0 ? shortServing(String(product.serving_size ?? ""), grams) : undefined,
     // Boisson : contenance en cl / ml, ou catégorie « boissons » d'Open Food Facts.
@@ -515,6 +530,11 @@ export function itemCarbs(item: MealItem): number | null {
 }
 
 /** Lipides en g ; null quand la base ne les donne pas pour cet aliment. */
+/** Sucres, AG saturés, fibres ou sel en g pour la quantité mangée ; null si inconnu. */
+export function itemExtra(item: MealItem, key: "sugars100" | "satFat100" | "fiber100" | "salt100"): number | null {
+  return nutrient(item, item[key]);
+}
+
 export function itemFat(item: MealItem): number | null {
   return nutrient(item, item.fat100);
 }
@@ -533,7 +553,7 @@ export function carbsOf(items: MealItem[]) {
 
 /** Aliment prêt à ajouter : une portion si on la connaît, sinon 100 g. */
 export function toMealItem(result: FoodResult): MealItem {
-  const { source, ref, kcal100, protein100, carbs100, fat100, brand, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart } = result;
+  const { source, ref, kcal100, protein100, carbs100, fat100, sugars100, satFat100, fiber100, salt100, brand, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart } = result;
   // Sans portion indiquée, un paquet vendu à la pièce se compte en pièces (« 1 tranche »).
   const portionGrams = result.portionGrams ?? pieceGrams;
   const portionLabel = result.portionGrams ? result.portionLabel : pieceLabel ?? result.portionLabel;
@@ -548,7 +568,7 @@ export function toMealItem(result: FoodResult): MealItem {
     ...(dry ? { cookedFactor: dry.factor, ...(packaging ? { cookedBy: "emballage" as const } : {}) } : {}),
     // Liquide Ciqual (valeurs pour 100 g) : densité pour passer des ml aux grammes.
     ...(source === "ciqual" && liquid && defaultDensity(result.name) ? { density: defaultDensity(result.name) } : {}),
-    name, source, ref, kcal100, protein100, carbs100, fat100, portionGrams, portionLabel, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart,
+    name, source, ref, kcal100, protein100, carbs100, fat100, sugars100, satFat100, fiber100, salt100, portionGrams, portionLabel, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart,
     servingGrams: portionGrams, servingLabel: portionLabel,
     quantity: byPortion ? 1 : 100, unit: byPortion ? "portion" : "g",
   };

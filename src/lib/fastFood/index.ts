@@ -53,9 +53,12 @@ export type FastFoodItem = {
   protein: number;
   carbs: number;
   fat: number;
+  sugars: number | null;
+  satFat: number | null;
+  salt: number | null;
 };
 
-const fromBk = ([name, category, grams, ml, kcal, protein, carbs, _sugars, fat]: BkRow): FastFoodItem => ({ brand: "bk", name, category, grams, ml, kcal, protein, carbs, fat });
+const fromBk = ([name, category, grams, ml, kcal, protein, carbs, sugars, fat, satFat, salt]: BkRow): FastFoodItem => ({ brand: "bk", name, category, grams, ml, kcal, protein, carbs, fat, sugars, satFat, salt });
 
 /** Ordre d'affichage : le plat d'abord, la boisson et la sauce à la fin. */
 const categoryOrder = ["Burgers", "Poulet & snacks", "Wraps & tortillas", "Salades & bowls", "Frites & accompagnements", "Desserts", "Boissons", "Sauces"];
@@ -79,6 +82,11 @@ export function fastFoodResult(item: FastFoodItem): FoodResult {
     protein100: per100(item.protein),
     carbs100: per100(item.carbs),
     fat100: per100(item.fat),
+    // Sucres de la carte BK non repris : certaines valeurs officielles sont douteuses (30 g dans 10 nuggets).
+    sugars100: null,
+    satFat100: item.satFat === null ? null : per100(item.satFat),
+    fiber100: null,
+    salt100: item.salt === null ? null : per100(item.salt),
     // Sans poids publié, les valeurs restent « par portion ».
     ...(base ? { portionGrams: base, portionLabel: `1 portion (${base} ${item.ml ? "ml" : "g"})` } : { perPortionOnly: true, portionLabel: "1 portion" }),
     liquid: item.ml ? true : undefined,

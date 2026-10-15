@@ -53,6 +53,30 @@ export async function readProductCodes(file: Blob): Promise<string[]> {
   return [...new Set(codes)].filter(isValidProductCode);
 }
 
+/**
+ * Codes lus dans le texte d'une photo : les chiffres imprimés sous les barres
+ * (« 5 060947 541184 »). Seuls les codes au chiffre de contrôle valide sont gardés.
+ */
+export function codesInText(text: string): string[] {
+  const found = new Set<string>();
+  // Suites de chiffres, espaces et tirets compris (« 3 250390 000001 », « 5060947-541184 »).
+  for (const match of text.matchAll(/\d[\d \-]{6,20}\d/g)) {
+    const digits = match[0].replace(/[ -]/g, "");
+    if (isValidProductCode(digits)) { found.add(digits); continue; }
+    // Chiffres collés à un prix ou à un poids : le plus long code valide à la fin.
+    const size = [13, 12, 8].find((length) => digits.length > length && isValidProductCode(digits.slice(-length)));
+    if (size) found.add(digits.slice(-size));
+  }
+  return [...found];
+}
+
+/** Dernier recours : lire les chiffres sous les barres (reconnaissance de texte). */
+export async function readPrintedCodes(file: Blob): Promise<string[]> {
+  const { readImageText } = await import("./ocr");
+  const image = file instanceof File ? file : new File([file], "code.jpg", { type: file.type || "image/jpeg" });
+  return codesInText(await readImageText(image).catch(() => ""));
+}
+
 export type CropRect = { x: number; y: number; width: number; height: number };
 
 /** Zone choisie de la photo (coordonnées en fractions de l'image), agrandie pour la lecture. */

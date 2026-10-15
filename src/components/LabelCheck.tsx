@@ -73,6 +73,8 @@ export default function LabelCheck({ line, onChange, onClose }: LabelCheckProps)
     protein100: label.protein ?? line.protein100 ?? null,
     carbs100: label.carbs ?? line.carbs100 ?? null,
     fat100: label.fat ?? line.fat100 ?? null,
+    // Sucres, saturés, fibres, sel lus sur l'étiquette (ou tapés) : gardés aussi.
+    ...Object.fromEntries((["sugars", "satFat", "fiber", "salt"] as const).flatMap((key) => { const value = toNumber(values[key]); return value !== null && Number.isFinite(value) ? [[`${key}100`, value]] : []; })),
     original: { kcal100: line.kcal100, protein100: line.protein100, carbs100: line.carbs100, fat100: line.fat100 },
     date: new Date().toISOString().slice(0, 10),
   } : null;

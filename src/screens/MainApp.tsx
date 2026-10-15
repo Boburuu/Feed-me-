@@ -17,7 +17,7 @@ import type { MealItem } from "../lib/storage";
 import StepsPanel from "../components/StepsPanel";
 import TrackingTab from "../components/TrackingTab";
 import { exportBackup } from "../lib/backup";
-import { backfillCarbs } from "../lib/carbsBackfill";
+import { backfillCarbs, backfillExtras } from "../lib/carbsBackfill";
 import { correctPastMeals, mealsWithProduct } from "../lib/corrections";
 import { CorrectionsContext, type CorrectionsApi } from "../lib/correctionsContext";
 import { DRAFT_HOURS, hasContent, lastTab, mealDraft, setDraftHours, type MealDraft } from "../lib/drafts";
@@ -167,6 +167,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   useEffect(() => {
     let alive = true;
     backfillCarbs(data).then((apply) => { if (alive && apply) update(apply); }).catch(() => undefined);
+    backfillExtras(data).then((apply) => { if (alive && apply) update(apply); }).catch(() => undefined);
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
