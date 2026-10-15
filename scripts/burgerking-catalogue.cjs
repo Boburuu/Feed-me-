@@ -35,12 +35,17 @@ for (const page of pages) {
     all.push({ page, plu: m[2], name: m[3].split("\\u0026").join("&").replace(/\s+/g, " ").replace(/\s*\.$/, "").trim(), v });
   }
 }
+// Deuxième source (relevée produit par produit) : quand la carte officielle donne des valeurs
+// douteuses ou contradictoires, la valeur confirmée par cette source l'emporte.
+const confirmations = JSON.parse(fs.readFileSync(path.join(__dirname, "burgerking-confirmations.json"), "utf8")).products;
+const confirmedKcal = (name) => confirmations[key(name)]?.kcal;
 const rejected = [];
 const ok = [];
 for (const item of all) {
   const { v, name } = item;
   const e = v.energy, f = v.fat, c = v.carbs, p = v.protein;
   const why = (r) => { rejected.push(`${name} : ${r}`); };
+  const confirmed = confirmedKcal(name) !== undefined && Math.round(e?.p ?? -1) === confirmedKcal(name);
   if (!e || e.p == null || f?.p == null || c?.p == null || p?.p == null) { why("valeurs manquantes"); continue; }
   // Énergie cohérente avec les macronutriments (4 / 4 / 9), par portion.
   const atwater = 4 * c.p + 4 * p.p + 9 * f.p;
@@ -50,8 +55,12 @@ for (const item of all) {
   if (e.s > 0) {
     grams = (e.p / e.s) * 100;
     const others = [f, c, p].filter((x) => x.s >= 3 && x.p >= 3).map((x) => (x.p / x.s) * 100);
-    if (others.some((g) => Math.abs(g - grams) > 0.2 * grams)) { why(`colonnes « pour 100 g » incohérentes`); continue; }
-    if (grams < 5 || grams > 1500) { why(`poids impossible ${Math.round(grams)} g`); continue; }
+    if (others.some((g) => Math.abs(g - grams) > 0.2 * grams)) {
+      // Valeurs de la portion confirmées ailleurs : gardées, sans poids (colonne « 100 g » fausse).
+      if (!confirmed) { why(`colonnes « pour 100 g » incohérentes`); continue; }
+      grams = null;
+    }
+    if (grams !== null && (grams < 5 || grams > 1500)) { why(`poids impossible ${Math.round(grams)} g`); continue; }
   }
   const drink = /(\d+)\s*cl/i.exec(name);
   // Sucres ≤ glucides, saturés ≤ lipides : sinon la valeur est fausse et laissée inconnue.
@@ -67,7 +76,15 @@ for (const item of ok) { const k = key(item.name); if (!groups.has(k)) groups.se
 const bySig = new Map();
 for (const [k, list] of groups) for (const i of list) { const sg = [i.kcal, i.fat, i.carbs, i.protein].join("/"); if (!bySig.has(sg)) bySig.set(sg, new Set()); bySig.get(sg).add(k); }
 const copied = new Set([...bySig.entries()].filter(([sg, names]) => names.size >= 3 && Number(sg.split("/")[0]) > 5).map(([, names]) => names).flatMap((names) => [...names]));
-for (const k of copied) { rejected.push(groups.get(k)[0].name + " : mêmes valeurs que d'autres produits (copie)"); groups.delete(k); }
+for (const k of copied) {
+  // Le produit dont la valeur est confirmée ailleurs est l'original : seuls les autres sont des copies.
+  if (confirmations[k] && groups.get(k).some((i) => i.kcal === confirmations[k].kcal)) {
+    groups.set(k, groups.get(k).filter((i) => i.kcal === confirmations[k].kcal));
+    continue;
+  }
+  rejected.push(groups.get(k)[0].name + " : mêmes valeurs que d'autres produits (copie)");
+  groups.delete(k);
+}
 // Vraisemblance selon le nom : une eau ou un « zéro » sans calories, une boisson peu calorique.
 const per100 = (i) => (i.ml ? (i.kcal / i.ml) * 100 : i.grams ? (i.kcal / i.grams) * 100 : null);
 for (const [k, list] of groups) {
@@ -83,7 +100,10 @@ const final = [];
 for (const [k, list] of groups) {
   const sig = (i) => [i.kcal, i.fat, i.carbs, i.protein].join("/");
   const sigs = new Set(list.map(sig));
-  if (sigs.size > 1) {
+  // Plusieurs valeurs officielles : celle que la deuxième source confirme l'emporte.
+  if (sigs.size > 1 && confirmations[k] && list.some((i) => i.kcal === confirmations[k].kcal)) {
+    list.splice(0, list.length, ...list.filter((i) => i.kcal === confirmations[k].kcal));
+  } else if (sigs.size > 1) {
     // Une valeur majoritaire nette (au moins 2 fois plus fréquente) l'emporte, sinon on écarte.
     const counts = [...sigs].map((s) => [s, list.filter((i) => sig(i) === s).length]).sort((a, b) => b[1] - a[1]);
     if (counts[0][1] < 2 * counts[1][1]) { rejected.push(`${list[0].name} : plusieurs valeurs officielles (${[...sigs].join(" ; ")})`); continue; }

@@ -1,0 +1,12 @@
+{
+  "source": "FatSecret France (fatsecret.fr/calories-nutrition/burger-king), relevé produit par produit le 16/10/2026",
+  "usage": "Ne sert qu'à trancher entre des valeurs officielles douteuses ou contradictoires de burgerking.fr : les valeurs gardées restent celles de la carte officielle.",
+  "products": {
+    "big king": { "kcal": 482, "note": "4 autres produits reprennent exactement ces valeurs sur le site (copie) ; Big King confirmé" },
+    "king nuggets 7": { "kcal": 260, "note": "le site donne 262 et 260" },
+    "cbk": { "kcal": 795, "note": "le site donne 795 et 1120 (valeur du Double CBK)" },
+    "king fusion snickers": { "kcal": 422, "note": "le site donne 325 et 422" },
+    "king sundae caramel": { "kcal": 177, "note": "le site donne 174 et 177" },
+    "king fusion au nutella": { "kcal": 417, "note": "colonne « pour 100 g » incohérente sur le site ; valeurs de la portion confirmées" }
+  }
+}

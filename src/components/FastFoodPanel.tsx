@@ -96,7 +96,7 @@ export default function FastFoodPanel({ onAdd, onClose, onSearch, onCreate }: Fa
                 </button>
               ))}
               <div className="menu-recap-total">
-                <span>Menu complet<small>{Math.round(total.carbs)} g de glucides · {Math.round(total.protein)} g de protéines · {Math.round(total.fat)} g de lipides</small></span>
+                <span>Menu complet<small>{total.partial ? "Glucides, protéines, lipides : inconnus pour ce menu" : `${Math.round(total.carbs)} g de glucides · ${Math.round(total.protein)} g de protéines · ${Math.round(total.fat)} g de lipides`}</small></span>
                 <strong>{total.kcal} kcal</strong>
               </div>
             </div>
@@ -135,7 +135,8 @@ export default function FastFoodPanel({ onAdd, onClose, onSearch, onCreate }: Fa
           )}
 
           <small className="barcode-hint">
-            Valeurs officielles {brand.catalogue.source}, relevées le {dateLabel(brand.catalogue.date)} sur <a href={brand.catalogue.url} target="_blank" rel="noreferrer">burgerking.fr</a>. Indicatives : une recette peut varier d'un restaurant à l'autre. Les produits publiés avec des valeurs contradictoires ont été écartés.
+            {brand.note && <>{brand.note} </>}
+            Valeurs officielles {brand.catalogue.source}, relevées le {dateLabel(brand.catalogue.date)} (<a href={brand.catalogue.url} target="_blank" rel="noreferrer">source</a>). Indicatives : une recette peut varier d'un restaurant à l'autre. Les produits publiés avec des valeurs incohérentes ont été écartés.
           </small>
         </>
       )}
