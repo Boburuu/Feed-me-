@@ -37,6 +37,7 @@ import ShareSheet from "./ShareSheet";
 import { mealPayload } from "../lib/share";
 import { fastFoodResult, searchFastFood } from "../lib/fastFood";
 import { applyCorrection } from "../lib/corrections";
+import { amountLabel, pastFoods, recentMeals, repeatItems, searchPast } from "../lib/history";
 import { useCorrections } from "../lib/correctionsContext";
 import { mealCategories, todayKey, type CustomFood, type Leftover, type Meal, type MealCategory, type MealItem, type Recipe } from "../lib/storage";
 
@@ -315,7 +316,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       // Modification : les restes ont déjà été comptés à l'enregistrement du repas.
       usedLeftovers: editing || planned ? [] : usedLeftovers,
       leftover: !editing && !planned && isPlate && keepLeftover && leftoverParts > 0
-        ? { name: shortName, date, partsLeft: leftoverParts, kcalPerPart: Math.round(total / servings), proteinPerPart: Math.round(protein / servings), carbsPerPart: Math.round(carbs / servings), fatPerPart: Math.round(fat / servings) }
+        ? { name, date, partsLeft: leftoverParts, kcalPerPart: Math.round(total / servings), proteinPerPart: Math.round(protein / servings), carbsPerPart: Math.round(carbs / servings), fatPerPart: Math.round(fat / servings) }
         : undefined,
     });
   };
@@ -336,6 +337,22 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       portionLabel: "1 part",
     }]);
   };
+
+  /** Produits déjà mangés : « Déjà notés » en tête de la recherche, avec la quantité de la dernière fois. */
+  const past = useMemo(() => pastFoods(meals), [meals]);
+  const pastMatches = useMemo(() => (searching ? searchPast(past, query) : []), [past, query, searching]);
+  const lastMeals = useMemo(() => recentMeals(meals.filter((meal) => meal.id !== editing?.id), 20), [meals, editing]);
+  const [allLastMeals, setAllLastMeals] = useState(false);
+  const addPast = (item: MealItem) => {
+    setLines((current) => [...current, { ...applyCorrection({ ...item }, corrections?.corrections), key: Date.now() }]);
+    setQuery("");
+  };
+  /** Refaire un repas : ses aliments, chacun modifiable (la part mangée pour une assiette). */
+  const addMealAgain = (meal: Meal) => {
+    const start = Date.now();
+    setLines((current) => [...current, ...repeatItems(meal).map((item, index) => ({ ...applyCorrection(item, corrections?.corrections), key: start + index }))]);
+  };
+  const shortDate = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 
   const resultRow = (result: FoodResult, index: number) => (
     <FoodResultRow key={`${result.source}-${result.ref ?? result.name}-${index}`} result={result} onPick={add} />
@@ -418,6 +435,21 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       {/* Pendant la recherche : uniquement les résultats, rien ne se superpose. */}
       {searching && !creating && (
         <div className="food-results">
+          {pastMatches.length > 0 && (
+            <>
+              <p className="food-section">Déjà notés</p>
+              {pastMatches.map(({ item, date }) => (
+                <button type="button" className="food-result past-food" key={`passe-${item.source}-${item.ref ?? item.name}`} onClick={() => addPast(item)}>
+                  <span className="food-icon source-perso"><Icon name="clock" size={16} /></span>
+                  <span className="food-result-text">
+                    <strong>{item.name}</strong>
+                    <small>La dernière fois : {amountLabel(item)} · {shortDate(date)}</small>
+                  </span>
+                  <em>{Math.round(itemCalories(item))} kcal</em>
+                </button>
+              ))}
+            </>
+          )}
           {common.length > 0 ? (
             <>
               {section("Aliments courants", common, "common")}
@@ -685,6 +717,24 @@ export default function MealComposer({ date: initialDate, category: initialCateg
                   ))}
                   <small className="photo-note">Valeurs moyennes des canettes vendues en France (Open Food Facts). Le code-barres donne la valeur exacte.</small>
                 </div>
+              )}
+            </div>
+          )}
+          {!isPlate && !lines.length && lastMeals.length > 0 && (
+            <div className="food-results">
+              <p className="food-section">Refaire un repas</p>
+              {(allLastMeals ? lastMeals : lastMeals.slice(0, 4)).map((meal) => (
+                <button type="button" className="food-result past-food" key={`refaire-${meal.id}`} onClick={() => addMealAgain(meal)}>
+                  <span className="food-icon source-perso"><Icon name="clock" size={16} /></span>
+                  <span className="food-result-text">
+                    <strong>{meal.name.replace(/^Assiette maison : /, "")}</strong>
+                    <small>{shortDate(meal.date)} · {meal.items!.length} aliment{meal.items!.length > 1 ? "s" : ""}{meal.plate ? ` · ma part (${Math.round(meal.plate.share * 100)} %)` : ""} · quantités modifiables</small>
+                  </span>
+                  <em>{meal.calories} kcal</em>
+                </button>
+              ))}
+              {!allLastMeals && lastMeals.length > 4 && (
+                <button type="button" className="text-button food-more" onClick={() => setAllLastMeals(true)}>Voir {lastMeals.length - 4} repas de plus</button>
               )}
             </div>
           )}

@@ -19,13 +19,24 @@ export function couldHydrate(item: Pick<MealItem, "name">) {
   return /\b(soupe|veloute|bouillon|gaspacho|potage|lait|boisson|jus|nectar|smoothie|the|cafe|chocolat chaud|tisane|infusion|kefir|yaourt a boire|sirop|limonade|soda)\b/.test(normalize(item.name));
 }
 
+/** Produit sec qui se boit une fois préparé avec de l'eau (thé en sachet, café soluble, sirop…). */
+export function isPreparedDrink(item: Pick<MealItem, "name" | "liquid">) {
+  const name = normalize(item.name);
+  if (/\bsirop\b/.test(name)) return true;
+  if (item.liquid) return false;
+  return /\b(the|thes|tisane|tisanes|infusion|infusions|verveine|camomille|rooibos|mate|chicoree|cafe soluble|cafe instantane|cafe moulu|capsules?|dosettes?|nescafe|ricore|cacao en poudre|chocolat en poudre|poudre chocolatee|bouillon cube|cube)\b/.test(name)
+    && !/\b(ice tea|the glace|biscuits?|gateau|cake)\b/.test(name);
+}
+
 /**
  * Volume compté dans l'hydratation pour un aliment du repas, en ml :
+ * - produit préparé avec de l'eau (sachet de thé…) : le volume de la boisson préparée ;
  * - boisson (liquide, ou cochée « compte dans l'hydratation ») : sa quantité en ml ;
  * - part de recette dont le volume final est connu : parts × volume d'une part.
  */
 export function drinkMl(item: MealItem) {
   if (item.hydrates === false) return 0;
+  if (item.waterMl) return item.waterMl;
   if (item.drinkMlPerPart) return item.quantity * item.drinkMlPerPart;
   if (item.liquid || item.hydrates) return itemGrams(item) ?? 0;
   return 0;

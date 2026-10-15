@@ -114,7 +114,7 @@ function checkItem(value: unknown): MealItem | null {
     carbs100: nullable(item.carbs100), fat100: nullable(item.fat100),
     cookedFactor: number(item.cookedFactor, 1, 10), weighedCooked: item.weighedCooked === true || undefined,
     hydrates: typeof item.hydrates === "boolean" ? item.hydrates : undefined,
-    drinkMlPerPart: number(item.drinkMlPerPart), portionGrams: number(item.portionGrams), portionLabel: text(item.portionLabel, 120),
+    drinkMlPerPart: number(item.drinkMlPerPart), waterMl: number(item.waterMl, 0, 5000), portionGrams: number(item.portionGrams), portionLabel: text(item.portionLabel, 120),
     liquid: item.liquid === true || undefined, packageGrams: number(item.packageGrams), servingGrams: number(item.servingGrams), servingLabel: text(item.servingLabel, 120),
     pieceGrams: number(item.pieceGrams), pieceLabel: text(item.pieceLabel, 120), matchedName: text(item.matchedName, 200), choice: text(item.choice, 120),
     recipePortions: number(item.recipePortions, 1, 1000),

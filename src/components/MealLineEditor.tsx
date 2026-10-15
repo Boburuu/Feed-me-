@@ -4,7 +4,7 @@ import LabelCheck from "./LabelCheck";
 import { canCheckLabel, reliabilityOf } from "../lib/corrections";
 import { useCorrections } from "../lib/correctionsContext";
 import { coherenceWarnings, quantityWarning } from "../lib/coherence";
-import { couldHydrate, drinkMl } from "../lib/hydration";
+import { couldHydrate, drinkMl, isPreparedDrink } from "../lib/hydration";
 import { itemCalories, itemCarbs, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
 import type { MealItem } from "../lib/storage";
 
@@ -191,8 +191,32 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
           {[itemCarbs(line) !== null ? `${n(Math.round(itemCarbs(line)! * 10) / 10)} g de glucides` : "", itemFat(line) !== null ? `${n(Math.round(itemFat(line)! * 10) / 10)} g de lipides` : ""].filter(Boolean).join(" · ")}
         </small>
       )}
+      {/* Sachet de thé, café soluble, sirop… : la boisson préparée compte, pas le sachet. */}
+      {!hideHydration && isPreparedDrink(line) && (
+        <div className="prepared-drink">
+          <small className="chips-label">💧 Préparé avec :</small>
+          <div className="container-chips" role="radiogroup" aria-label="Volume de la boisson préparée">
+            {containers.filter((container) => container.ml <= 500).map((container) => {
+              const selected = line.waterMl === container.ml;
+              return (
+                <button type="button" role="radio" aria-checked={selected} key={container.label} className={selected ? "selected" : ""} onClick={() => onChange({ waterMl: container.ml, hydrates: undefined })}>
+                  {container.label} <small>{volume(container.ml)}</small>
+                </button>
+              );
+            })}
+          </div>
+          <label className="prepared-custom">
+            <small>ou autre volume :</small>
+            <input type="number" inputMode="numeric" min="0" step="10" value={line.waterMl && !containers.some((container) => container.ml === line.waterMl) ? line.waterMl : ""} placeholder="—" onChange={(e) => onChange({ waterMl: Math.max(0, Math.round(Number(e.target.value))) || undefined })} aria-label="Volume préparé en ml" />
+            <small>ml</small>
+          </label>
+          <small className={`meal-line-detail${line.waterMl ? " prepared-on" : ""}`}>
+            {line.waterMl ? `${volume(line.waterMl)} comptés dans l'hydratation` : "Choisis le volume bu pour le compter dans l'hydratation."}
+          </small>
+        </div>
+      )}
       {/* Hydratation : boissons comptées d'office ; soupe, lait… au choix. */}
-      {!hideHydration && (line.liquid || line.drinkMlPerPart || couldHydrate(line)) && (
+      {!hideHydration && !isPreparedDrink(line) && (line.liquid || line.drinkMlPerPart || couldHydrate(line)) && (
         <button type="button" className={`hydrate-toggle${drinkMl(line) > 0 ? " on" : ""}`} aria-pressed={drinkMl(line) > 0}
           onClick={() => onChange({ hydrates: drinkMl(line) > 0 ? false : true })}>
           {drinkMl(line) > 0 ? `💧 ${volume(drinkMl(line))} dans l'hydratation` : "💧 Compter dans l'hydratation"}

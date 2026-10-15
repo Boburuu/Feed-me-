@@ -103,6 +103,11 @@ export type MealItem = {
    * jamais compté. Absent : compté seulement si c'est une boisson (liquid).
    */
   hydrates?: boolean;
+  /**
+   * Produit qu'on prépare avec de l'eau (sachet de thé, café soluble, sirop…) : volume de la
+   * boisson préparée, en ml, compté dans l'hydratation (les calories restent celles du produit).
+   */
+  waterMl?: number;
   /** Part d'une recette dont le volume final est connu : ml bus par part. */
   drinkMlPerPart?: number;
   /** Valeur habituelle (Ciqual) pour ce type d'aliment, pour signaler une fiche douteuse. */
