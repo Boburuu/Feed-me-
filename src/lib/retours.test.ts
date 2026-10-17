@@ -92,7 +92,7 @@ describe("produit reconnu par le devant du paquet", () => {
 
 import { lastTips, tipAt, tips } from "./tips";
 
-describe("un nouveau conseil à chaque ouverture", () => {
+describe("un nouveau conseil chaque jour", () => {
   it("passe par tous les conseils avant de revoir le premier", () => {
     const seen = new Set(Array.from({ length: tips.length }, (_, count) => tipAt(count).id));
     expect(seen.size).toBe(tips.length);

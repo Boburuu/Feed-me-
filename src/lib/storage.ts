@@ -266,8 +266,8 @@ export type AppData = {
   /** Liste de courses : lignes cochées (par nom) et lignes ajoutées à la main. */
   shopping?: { checked: string[]; extras: { id: number; text: string; done: boolean }[] };
   /** Conseil du jour : écran à l'ouverture (affiché par défaut) et conseils gardés en favoris. */
-  /** shown : nombre de conseils déjà montrés (un nouveau à chaque ouverture ou « Un autre conseil »). */
-  tips?: { splash?: boolean; favorites?: number[]; shown?: number };
+  /** shown : nombre de conseils déjà montrés (un par jour, plus « Un autre conseil ») ; day : jour du dernier. */
+  tips?: { splash?: boolean; favorites?: number[]; shown?: number; day?: string };
   /** Rappels : pesée, bilan de la semaine, repas prévus (voir reminders.ts). */
   reminders?: import("./reminders").ReminderSettings;
   /** Cru / cuit retenu par aliment (voir cooking.ts). */

@@ -130,20 +130,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     window.addEventListener(INCOMING_EVENT, fromApp);
     return () => { window.removeEventListener("hashchange", receive); window.removeEventListener(INCOMING_EVENT, fromApp); };
   }, []);
-  // Conseil : un nouveau à chaque ouverture de l'appli (compteur gardé), « Un autre conseil » pour passer au suivant.
-  const [tipCount, setTipCount] = useState(() => {
-    const shown = data.tips?.shown ?? 0;
-    try {
-      const session = sessionStorage.getItem("feedme:conseil-numero");
-      if (session !== null) return Number(session);
-      sessionStorage.setItem("feedme:conseil-numero", String(shown + 1));
-    } catch { /* nouveau conseil quand même */ }
-    return shown + 1;
-  });
+  // Conseil du jour : un nouveau chaque jour (compteur gardé), montré en grand à la première
+  // ouverture de la journée seulement ; « Un autre conseil » passe au suivant.
+  const newTipDay = data.tips?.day !== today;
+  const [tipCount, setTipCount] = useState(() => (data.tips?.shown ?? 0) + (newTipDay ? 1 : 0));
   useEffect(() => {
-    try { sessionStorage.setItem("feedme:conseil-numero", String(tipCount)); } catch { /* rien */ }
-    if ((data.tips?.shown ?? 0) < tipCount) update((current) => ({ ...current, tips: { ...current.tips, shown: tipCount } }));
-  }, [tipCount]); // eslint-disable-line react-hooks/exhaustive-deps
+    if ((data.tips?.shown ?? 0) !== tipCount || data.tips?.day !== today) update((current) => ({ ...current, tips: { ...current.tips, shown: tipCount, day: today } }));
+  }, [tipCount, today]); // eslint-disable-line react-hooks/exhaustive-deps
   const nextTip = () => setTipCount((count) => count + 1);
   const todayTip = tipAt(tipCount);
   const favoriteTips = data.tips?.favorites ?? [];
@@ -151,14 +144,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     const favorites = current.tips?.favorites ?? [];
     return { ...current, tips: { ...current.tips, favorites: favorites.includes(id) ? favorites.filter((entry) => entry !== id) : [...favorites, id] } };
   });
-  const [showSplash, setShowSplash] = useState(() => {
-    if (data.tips?.splash === false || startDraft) return false;
-    try {
-      if (sessionStorage.getItem("feedme:conseil-montre") === today) return false;
-      sessionStorage.setItem("feedme:conseil-montre", today);
-    } catch { /* montré quand même */ }
-    return true;
-  });
+  const [showSplash, setShowSplash] = useState(() => newTipDay && data.tips?.splash !== false && !startDraft);
   // Rappels reprogrammés quand les réglages ou les repas prévus changent.
   const plannedKey = data.meals.filter(isPlanned).map((meal) => `${meal.id}:${meal.date}:${meal.category}`).join(",");
   useEffect(() => { void syncReminders(data).catch(() => undefined); }, [JSON.stringify(data.reminders ?? null), plannedKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -606,7 +592,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
 
           <section className="tip-card">
             <span className="metric-icon"><Icon name="apple" /></span>
-            <div><p className="eyebrow">Conseil · {tipThemes[todayTip.theme]}</p><p>{todayTip.text}</p><span className="tip-links"><button type="button" className="text-button" onClick={nextTip}>Un autre conseil</button><button type="button" className="text-button" onClick={() => setModal("tips")}>Tous mes conseils ›</button></span></div>
+            <div><p className="eyebrow">Conseil du jour · {tipThemes[todayTip.theme]}</p><p>{todayTip.text}</p><span className="tip-links"><button type="button" className="text-button" onClick={nextTip}>Un autre conseil</button><button type="button" className="text-button" onClick={() => setModal("tips")}>Tous mes conseils ›</button></span></div>
             <button type="button" className={`tip-star${favoriteTips.includes(todayTip.id) ? " on" : ""}`} onClick={() => toggleFavoriteTip(todayTip.id)} aria-pressed={favoriteTips.includes(todayTip.id)} aria-label={favoriteTips.includes(todayTip.id) ? "Retirer des favoris" : "Garder ce conseil en favori"}>{favoriteTips.includes(todayTip.id) ? "★" : "☆"}</button>
           </section>
 
@@ -884,10 +870,10 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           </section>
 
           <section className="section-block">
-            <div className="section-title"><div><p className="eyebrow">Conseils</p><h2>Conseils</h2></div></div>
+            <div className="section-title"><div><p className="eyebrow">Conseils</p><h2>Conseil du jour</h2></div></div>
             <label className="planned-toggle">
               <input type="checkbox" checked={data.tips?.splash !== false} onChange={(e) => update((current) => ({ ...current, tips: { ...current.tips, splash: e.target.checked ? undefined : false } }))} />
-              <span>Afficher un conseil à chaque ouverture de l'appli (un nouveau à chaque fois ; il reste affiché jusqu'à ce que tu le fermes)</span>
+              <span>Afficher le conseil du jour à la première ouverture de la journée (il reste affiché jusqu'à ce que tu le fermes)</span>
             </label>
             <button type="button" className="text-button" onClick={() => setModal("tips")}>Ouvrir le coin des conseils ›</button>
             {favoriteTips.length > 0 ? (

@@ -153,7 +153,7 @@ export function recentTips(today: string, days = 14): { tip: Tip; date: string }
 }
 
 /**
- * Conseil numéro « count » : un nouveau à chaque ouverture de l'appli. Le pas de 37
+ * Conseil numéro « count » : un nouveau chaque jour (et à chaque « Un autre conseil »). Le pas de 37
  * (premier avec 107) fait passer par tous les conseils, sans suivre l'ordre des thèmes,
  * avant de revoir le premier.
  */

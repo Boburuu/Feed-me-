@@ -12,13 +12,13 @@ type TipSplashProps = {
   onNext: () => void;
 };
 
-/** Conseil à l'ouverture (un nouveau à chaque fois) : reste affiché jusqu'à ce qu'on le ferme. */
+/** Conseil du jour, à la première ouverture de la journée : reste affiché jusqu'à ce qu'on le ferme. */
 export default function TipSplash({ tip, favorite, onToggleFavorite, onClose, onOpenCorner, onNext }: TipSplashProps) {
   return (
     <div className="tip-splash" role="dialog" aria-modal="true" aria-label="Conseil du jour">
       <div className="tip-splash-card">
         <button type="button" className="icon-button tip-splash-close" onClick={onClose} aria-label="Fermer le conseil"><Icon name="close" size={16} /></button>
-        <p className="eyebrow">Conseil · {tipThemes[tip.theme]}</p>
+        <p className="eyebrow">Conseil du jour · {tipThemes[tip.theme]}</p>
         <p className="tip-splash-text">{tip.text}</p>
         <div className="tip-splash-actions">
           <button type="button" className={`tip-favorite${favorite ? " on" : ""}`} onClick={onToggleFavorite} aria-pressed={favorite}>
