@@ -74,7 +74,8 @@ export function cookKey(item: Pick<MealItem, "source" | "ref" | "name">) {
   return item.source === "ciqual" ? `ciqual:${cookingBase(item.name)}` : `${item.source}:${item.ref ?? normalize(item.name)}`;
 }
 
-export type CookPref = { weighedCooked?: boolean; variantRef?: string };
+/** portionGrams : poids d'une portion indiqué par l'utilisateur (cookie Subway pesé : 45 g). */
+export type CookPref = { weighedCooked?: boolean; variantRef?: string; portionGrams?: number };
 export type CookPrefs = Record<string, CookPref>;
 
 // --- Matière grasse de cuisson ---------------------------------------------------------------

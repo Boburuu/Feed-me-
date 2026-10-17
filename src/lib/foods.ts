@@ -498,6 +498,24 @@ export function itemGrams(item: MealItem) {
 }
 
 /**
+ * Aliment connu seulement par portion (carte fast-food sans poids, aliment perso « pour 1
+ * portion ») : avec le poids d'une portion donné par l'utilisateur, les valeurs passent pour
+ * 100 g et l'aliment peut se compter en grammes. La quantité mangée ne change pas.
+ */
+export function withPortionWeight(item: MealItem, grams: number): Partial<MealItem> {
+  const scale = (value: number | null | undefined) => (value === null || value === undefined ? value : Math.round((value * 100 / grams) * 100) / 100);
+  const label = `${(item.portionLabel ?? "1 portion").replace(/\s*\(.*$/, "")} (${grams} g)`;
+  return {
+    kcal100: scale(item.kcal100) ?? 0, protein100: scale(item.protein100) ?? null, carbs100: scale(item.carbs100), fat100: scale(item.fat100),
+    sugars100: scale(item.sugars100), satFat100: scale(item.satFat100), fiber100: scale(item.fiber100), salt100: scale(item.salt100),
+    portionGrams: grams, portionLabel: label, servingGrams: grams, servingLabel: label,
+  };
+}
+
+/** Compté seulement par portion, sans poids : le poids d'une portion peut être ajouté. */
+export const needsPortionWeight = (item: MealItem) => item.unit === "portion" && !item.portionGrams && item.source !== "recette" && !item.liquid;
+
+/**
  * Sans poids de portion (recette, repas dont on ne connaît que les calories),
  * les valeurs stockées sont celles d'une portion et non de 100 g.
  */
@@ -589,5 +607,7 @@ export function toMealItem(result: FoodResult): MealItem {
     name, source, ref, kcal100, protein100, carbs100, fat100, sugars100, satFat100, fiber100, salt100, portionGrams, portionLabel, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, recipePieces, recipeGrams, drinkMlPerPart,
     servingGrams: portionGrams, servingLabel: portionLabel,
     quantity: byPortion ? 1 : 100, unit: byPortion ? "portion" : "g",
+    // Recette coupée en morceaux (fudge en 9) : 1 morceau par défaut, plutôt qu'une part.
+    ...(source === "recette" && recipePieces && recipePortions ? { recipeCount: "pieces" as const, quantity: recipePortions / recipePieces } : {}),
   };
 }

@@ -16,6 +16,8 @@ import {
   searchOpenFoodFacts,
   energyResult,
   recipeResult,
+  needsPortionWeight,
+  withPortionWeight,
   searchOwn,
   toMealItem,
   type FoodResult,
@@ -236,7 +238,9 @@ export default function MealComposer({ date: initialDate, category: initialCateg
     const item = applyCorrection(toMealItem(result), corrections?.corrections);
     // Sec ou cuit, cru ou cuit : le choix de la dernière fois pour cet aliment.
     const pref = corrections?.cookPrefs[cookKey(item)];
-    setLines((current) => [...current, { ...item, ...(item.cookedFactor ? { weighedCooked: pref?.weighedCooked ?? mode === "meal" } : {}), key }]);
+    // Portion pesée la dernière fois (cookie Subway : 45 g) : comptable en grammes.
+    const weighed = pref?.portionGrams && needsPortionWeight(item) ? withPortionWeight(item, pref.portionGrams) : {};
+    setLines((current) => [...current, { ...item, ...weighed, ...(item.cookedFactor ? { weighedCooked: pref?.weighedCooked ?? mode === "meal" } : {}), key }]);
     setQuery("");
     if (pref?.variantRef && pref.variantRef !== item.ref && item.unit === "g") {
       cookingVariants(item).then((list) => {
@@ -283,11 +287,15 @@ export default function MealComposer({ date: initialDate, category: initialCateg
     const carbs = custom.carbs ? Number(custom.carbs.replace(",", ".")) : null;
     const fat = custom.fat ? Number(custom.fat.replace(",", ".")) : null;
     const portion = Number(custom.portion.replace(",", ".")) || undefined;
-    const food: CustomFood = custom.perPortion
+    // Valeurs « pour 1 portion » avec le poids de la portion : ramenées à 100 g, comptables en grammes.
+    const per100 = (value: number | null) => (value === null || !portion ? value : Math.round((value * 10000) / portion) / 100);
+    const food: CustomFood = custom.perPortion && portion
+      ? { id: Date.now(), name: custom.name.trim(), kcal100: per100(kcal)!, protein100: per100(protein), carbs100: per100(carbs), fat100: per100(fat), portionGrams: portion, portionLabel: `1 portion (${n(portion)} g)` }
+      : custom.perPortion
       ? { id: Date.now(), name: custom.name.trim(), kcal100: kcal, protein100: protein, carbs100: carbs, fat100: fat, portionLabel: "1 portion" }
       : { id: Date.now(), name: custom.name.trim(), kcal100: kcal, protein100: protein, carbs100: carbs, fat100: fat, portionGrams: portion, portionLabel: portion ? `1 portion (${n(portion)} g)` : undefined };
     if (custom.keep) onCreateFood(food);
-    add({ ...food, source: "perso", ref: String(food.id), detail: "Mon aliment", perPortionOnly: custom.perPortion });
+    add({ ...food, source: "perso", ref: String(food.id), detail: "Mon aliment", perPortionOnly: custom.perPortion && !portion });
     setCreating(false);
     setCustom({ name: "", kcal: "", protein: "", carbs: "", fat: "", portion: "", perPortion: false, keep: true });
   };
@@ -527,8 +535,8 @@ export default function MealComposer({ date: initialDate, category: initialCateg
             <label><span>Glucides</span><div><input value={custom.carbs} onChange={(e) => setCustom({ ...custom, carbs: e.target.value })} inputMode="decimal" placeholder="—" /><small>g</small></div></label>
             <label><span>Lipides</span><div><input value={custom.fat} onChange={(e) => setCustom({ ...custom, fat: e.target.value })} inputMode="decimal" placeholder="—" /><small>g</small></div></label>
           </div>
-          {!custom.perPortion && (
-            <label>Poids d'une portion (facultatif)<input value={custom.portion} onChange={(e) => setCustom({ ...custom, portion: e.target.value })} inputMode="decimal" placeholder="Ex. 23,5 pour une barre" /></label>
+          {(
+            <label>{custom.perPortion ? "Poids de cette portion (facultatif, pour compter aussi en grammes)" : "Poids d'une portion (facultatif)"}<input value={custom.portion} onChange={(e) => setCustom({ ...custom, portion: e.target.value })} inputMode="decimal" placeholder="Ex. 23,5 pour une barre" /></label>
           )}
           <label className="awake-toggle"><input type="checkbox" checked={custom.keep} onChange={(e) => setCustom({ ...custom, keep: e.target.checked })} /><span>Garder dans mes aliments</span></label>
           <div className="form-actions">

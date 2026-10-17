@@ -6,7 +6,7 @@ import { cookingBase, cookingVariants, cookKey, withVariant, type CookingVariant
 import { useCorrections } from "../lib/correctionsContext";
 import { coherenceWarnings, quantityWarning } from "../lib/coherence";
 import { couldHydrate, drinkMl, isPreparedDrink } from "../lib/hydration";
-import { isReadyDrink, itemCalories, itemCarbs, itemExtra, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
+import { isReadyDrink, needsPortionWeight, withPortionWeight, itemCalories, itemCarbs, itemExtra, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
 import type { MealItem } from "../lib/storage";
 
 type MealLineEditorProps = {
@@ -103,6 +103,16 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
   /** Morceaux ou grammes dans une part. */
   const perPart = counted ? countTotal! / servings! : 1;
   const [totalDraft, setTotalDraft] = useState("");
+  const [portionDraft, setPortionDraft] = useState("");
+  /** Poids d'une portion donné à la main : l'aliment se compte ensuite aussi en grammes (retenu pour la prochaine fois). */
+  const setPortionWeight = (event: React.FormEvent) => {
+    event.preventDefault();
+    const value = Math.round(Number(portionDraft.replace(",", ".")));
+    if (!(value > 0) || value > 3000) return;
+    onChange(withPortionWeight(line, value));
+    corrections?.saveCookPref(cookKey(line), { portionGrams: value });
+    setPortionDraft("");
+  };
 
   /** Changer d'unité en gardant la même quantité mangée. */
   const useUnit = (unit: "g" | { label: string; grams: number }) => {
@@ -185,6 +195,17 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
         </div>
       )}
 
+      {/* Connu seulement par portion (cookie Subway, aliment perso) : avec son poids, on peut compter en grammes. */}
+      {needsPortionWeight(line) && (
+        <form className="recipe-total" onSubmit={setPortionWeight}>
+          <span>Compter en grammes : {line.portionLabel ?? "1 portion"} pèse</span>
+          <input value={portionDraft} onChange={(e) => setPortionDraft(e.target.value)} inputMode="decimal" placeholder="—" aria-label="Poids d'une portion en grammes" />
+          <span>g</span>
+          <button type="submit" className="text-button" disabled={!(Number(portionDraft.replace(",", ".")) > 0)}>OK</button>
+          <small>Le poids est gardé pour la prochaine fois. Les calories de la portion ne changent pas.</small>
+        </form>
+      )}
+
       {/* Recette : compter en parts, en morceaux (gâteau coupé en 12) ou en grammes (plat pesé). */}
       {servings && (
         <div className="container-chips" role="radiogroup" aria-label="Compter la recette en">
@@ -197,7 +218,8 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
         <form className="recipe-total" onSubmit={(event) => {
           event.preventDefault();
           const value = Number(totalDraft.replace(",", "."));
-          if (value > 0) { onChange(wantedCount === "pieces" ? { recipePieces: Math.round(value) } : { recipeGrams: Math.round(value) }); setTotalDraft(""); }
+          // Premier découpage en morceaux : 1 morceau (et non le plat entier).
+          if (value > 0) { onChange(wantedCount === "pieces" ? { recipePieces: Math.round(value), ...(line.recipePieces ? {} : { quantity: servings! / Math.round(value) }) } : { recipeGrams: Math.round(value) }); setTotalDraft(""); }
         }}>
           <span>{wantedCount === "pieces" ? "Le plat entier est coupé en" : "Le plat entier pèse"}</span>
           <input value={totalDraft} onChange={(e) => setTotalDraft(e.target.value)} inputMode="decimal" placeholder={countTotal ? n(countTotal) : "—"} aria-label={wantedCount === "pieces" ? "Nombre de morceaux du plat entier" : "Poids du plat entier en grammes"} />
