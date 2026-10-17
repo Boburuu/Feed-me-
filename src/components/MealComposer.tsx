@@ -710,7 +710,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
             </div>
           )}
 
-          {!isPlate && myRecipes.length > 0 && (
+          {myRecipes.length > 0 && (
             <div className="food-results">
               <p className="food-section">Mes recettes</p>
               {(showAllRecipes ? myRecipes : myRecipes.slice(0, 3)).map((recipe) => (

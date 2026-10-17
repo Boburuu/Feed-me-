@@ -461,6 +461,8 @@ export function recipeResult(recipe: Recipe): FoodResult {
     portionLabel: "1 part",
     perPortionOnly: true,
     recipePortions: recipe.portions,
+    ...(recipe.pieces ? { recipePieces: recipe.pieces } : {}),
+    ...(recipe.totalGrams ? { recipeGrams: recipe.totalGrams } : {}),
     ...(recipe.volumeMl ? { drinkMlPerPart: recipe.volumeMl / (recipe.portions || 1) } : {}),
     detail: recipe.calories ? `Ma recette pour ${recipe.portions} pers.` : "Ma recette · calories à calculer",
   };
@@ -491,6 +493,7 @@ export function searchOwn(query: string, recipes: Recipe[], customFoods: CustomF
 /** Grammes réellement mangés (une recette n'a pas de poids : on renvoie null). */
 export function itemGrams(item: MealItem) {
   if (item.unit === "g") return item.quantity;
+  if (item.recipeGrams && item.recipePortions) return (item.quantity * item.recipeGrams) / item.recipePortions;
   return item.portionGrams ? item.quantity * item.portionGrams : null;
 }
 
@@ -568,7 +571,7 @@ export function carbsOf(items: MealItem[]) {
 
 /** Aliment prêt à ajouter : une portion si on la connaît, sinon 100 g. */
 export function toMealItem(result: FoodResult): MealItem {
-  const { source, ref, kcal100, protein100, carbs100, fat100, sugars100, satFat100, fiber100, salt100, brand, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart } = result;
+  const { source, ref, kcal100, protein100, carbs100, fat100, sugars100, satFat100, fiber100, salt100, brand, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, recipePieces, recipeGrams, drinkMlPerPart } = result;
   // Sans portion indiquée, un paquet vendu à la pièce se compte en pièces (« 1 tranche »).
   const portionGrams = result.portionGrams ?? pieceGrams;
   const portionLabel = result.portionGrams ? result.portionLabel : pieceLabel ?? result.portionLabel;
@@ -583,7 +586,7 @@ export function toMealItem(result: FoodResult): MealItem {
     ...(dry ? { cookedFactor: dry.factor, ...(packaging ? { cookedBy: "emballage" as const } : {}) } : {}),
     // Liquide Ciqual (valeurs pour 100 g) : densité pour passer des ml aux grammes.
     ...(source === "ciqual" && liquid && defaultDensity(result.name) ? { density: defaultDensity(result.name) } : {}),
-    name, source, ref, kcal100, protein100, carbs100, fat100, sugars100, satFat100, fiber100, salt100, portionGrams, portionLabel, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, drinkMlPerPart,
+    name, source, ref, kcal100, protein100, carbs100, fat100, sugars100, satFat100, fiber100, salt100, portionGrams, portionLabel, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, recipePieces, recipeGrams, drinkMlPerPart,
     servingGrams: portionGrams, servingLabel: portionLabel,
     quantity: byPortion ? 1 : 100, unit: byPortion ? "portion" : "g",
   };

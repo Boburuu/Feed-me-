@@ -96,6 +96,13 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
   /** Recette du carnet : on choisit le nombre de parts mangées sur le plat entier. */
   const servings = line.source === "recette" ? line.recipePortions : undefined;
   const plural = (count: number) => (count > 1 ? "s" : "");
+  /** Recette : la quantité peut se compter en morceaux ou en grammes (elle reste gardée en parts). */
+  const wantedCount = servings ? line.recipeCount ?? "parts" : "parts";
+  const countTotal = wantedCount === "pieces" ? line.recipePieces : wantedCount === "grams" ? line.recipeGrams : undefined;
+  const counted = !!servings && !!countTotal;
+  /** Morceaux ou grammes dans une part. */
+  const perPart = counted ? countTotal! / servings! : 1;
+  const [totalDraft, setTotalDraft] = useState("");
 
   /** Changer d'unité en gardant la même quantité mangée. */
   const useUnit = (unit: "g" | { label: string; grams: number }) => {
@@ -104,6 +111,12 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
     else onChange({ unit: "portion", portionGrams: unit.grams, portionLabel: unit.label, quantity: Math.max(0.1, Math.round((total / unit.grams) * 4) / 4) });
   };
   const step = (direction: 1 | -1) => {
+    if (counted) {
+      const shown = line.quantity * perPart;
+      const size = wantedCount === "grams" ? 10 : shown > 1 || (direction > 0 && shown >= 1) ? 1 : 0.5;
+      onChange({ quantity: Math.max(size, Math.round((shown + direction * size) * 100) / 100) / perPart });
+      return;
+    }
     // Les pièces se comptent une à une (« 10 tranches ») ; en dessous de 1, par moitié.
     const size = line.unit === "g" ? (line.liquid ? 50 : 10) : isPackage || servings ? (servings && line.quantity >= 1 ? 0.5 : 0.25) : line.liquid || (direction > 0 ? line.quantity >= 1 : line.quantity > 1) ? 1 : 0.5;
     onChange({ quantity: Math.max(size, Math.round((line.quantity + direction * size) * 100) / 100) });
@@ -144,8 +157,8 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
             type="number"
             inputMode="decimal"
             min="0"
-            value={Math.round((line.quantity / volumeFactor) * 100) / 100}
-            onChange={(e) => onChange({ quantity: Math.max(0, Number(e.target.value)) * volumeFactor })}
+            value={counted ? Math.round(line.quantity * perPart * 100) / 100 : Math.round((line.quantity / volumeFactor) * 100) / 100}
+            onChange={(e) => onChange({ quantity: counted ? Math.max(0, Number(e.target.value)) / perPart : Math.max(0, Number(e.target.value)) * volumeFactor })}
             aria-label={`Quantité de ${line.name}`}
           />
           <button type="button" onClick={() => step(1)} aria-label="Plus"><Icon name="plus" size={15} /></button>
@@ -158,10 +171,10 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
         )}
         {!inVolume && (line.liquid || perPortionOnly || options.length < 2) && (
           <span className="unit-fixed">
-            {line.unit === "g" ? massUnit : servings ? `part${plural(line.quantity)} sur ${servings}` : `${unitName(line.portionLabel)}${line.quantity > 1 && line.liquid ? "s" : ""}`}
+            {line.unit === "g" ? massUnit : counted && wantedCount === "grams" ? `g sur ${n(line.recipeGrams!)} g` : counted ? `morceau${line.quantity * perPart > 1 ? "x" : ""} sur ${line.recipePieces}` : servings ? `part${plural(line.quantity)} sur ${servings}` : `${unitName(line.portionLabel)}${line.quantity > 1 && line.liquid ? "s" : ""}`}
           </span>
         )}
-        {line.unit === "portion" && grams ? <span className="drink-total">= {amount(grams, line.liquid)}</span> : null}
+        {line.unit === "portion" && grams && !(counted && wantedCount === "grams") ? <span className="drink-total">= {amount(grams, line.liquid)}</span> : null}
       </div>
 
       {options.length >= 2 && (
@@ -172,8 +185,30 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
         </div>
       )}
 
-      {/* Recette pour plusieurs : parts mangées, jusqu'au plat entier. */}
+      {/* Recette : compter en parts, en morceaux (gâteau coupé en 12) ou en grammes (plat pesé). */}
       {servings && (
+        <div className="container-chips" role="radiogroup" aria-label="Compter la recette en">
+          {([["parts", "parts"], ["pieces", "morceaux"], ["grams", "grammes"]] as const).map(([id, label]) => (
+            <button type="button" role="radio" aria-checked={wantedCount === id} key={id} className={wantedCount === id ? "selected" : ""} onClick={() => { setTotalDraft(""); onChange({ recipeCount: id === "parts" ? undefined : id }); }}>{label}</button>
+          ))}
+        </div>
+      )}
+      {servings && wantedCount !== "parts" && (
+        <form className="recipe-total" onSubmit={(event) => {
+          event.preventDefault();
+          const value = Number(totalDraft.replace(",", "."));
+          if (value > 0) { onChange(wantedCount === "pieces" ? { recipePieces: Math.round(value) } : { recipeGrams: Math.round(value) }); setTotalDraft(""); }
+        }}>
+          <span>{wantedCount === "pieces" ? "Le plat entier est coupé en" : "Le plat entier pèse"}</span>
+          <input value={totalDraft} onChange={(e) => setTotalDraft(e.target.value)} inputMode="decimal" placeholder={countTotal ? n(countTotal) : "—"} aria-label={wantedCount === "pieces" ? "Nombre de morceaux du plat entier" : "Poids du plat entier en grammes"} />
+          <span>{wantedCount === "pieces" ? "morceaux" : "g"}</span>
+          <button type="submit" className="text-button" disabled={!(Number(totalDraft.replace(",", ".")) > 0)}>{countTotal ? "Changer" : "OK"}</button>
+          {!countTotal && <small>Indique-le une fois : il est gardé dans la recette.</small>}
+        </form>
+      )}
+
+      {/* Recette pour plusieurs : parts mangées, jusqu'au plat entier. */}
+      {servings && !counted && (
         <div className="container-chips fraction-chips" role="radiogroup" aria-label="Parts mangées">
           {[...[0.5, 1, 2, 3].filter((value) => value < servings), servings].map((value) => {
             const selected = Math.abs(line.quantity - value) < 0.01;

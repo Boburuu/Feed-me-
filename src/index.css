@@ -730,8 +730,11 @@ h2 { font-size: 20px; font-weight: 800; }
 .tip-splash-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .tip-favorite { padding: 6px 10px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); background: transparent; font-size: 13px; font-weight: 700; cursor: pointer; }
 .tip-favorite.on { color: var(--green); border-color: var(--green); }
-.tip-splash-progress { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--green); transform-origin: left; animation: tip-progress linear forwards; }
-@keyframes tip-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.tip-splash-close { position: absolute; top: 10px; right: 10px; }
+.tip-splash-card > .eyebrow { padding-right: 40px; }
+.tip-splash-card > .text-button { justify-self: start; }
+.tips-corner { display: grid; gap: 12px; }
+.tips-corner .container-chips { flex-wrap: wrap; }
 .tip-card { position: relative; }
 .tip-star { align-self: start; margin-left: auto; padding: 0 4px; border: 0; color: var(--muted); background: transparent; font-size: 22px; line-height: 1; cursor: pointer; }
 .tip-star.on { color: var(--green); }

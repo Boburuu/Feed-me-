@@ -145,6 +145,12 @@ export type MealItem = {
   choice?: string;
   /** Recette du carnet : nombre de parts de la recette entière (valeurs = 1 part). */
   recipePortions?: number;
+  /** Recette du carnet : nombre de morceaux du plat entier (« j'en ai mangé 2 »). */
+  recipePieces?: number;
+  /** Recette du carnet : poids du plat entier en g (« j'en ai mangé 250 g »). */
+  recipeGrams?: number;
+  /** Recette du carnet : unité choisie pour la quantité (gardée en parts). */
+  recipeCount?: "parts" | "pieces" | "grams";
   /** Valeurs remplacées par la correction locale du produit (étiquette). */
   corrected?: boolean;
   /** Fiche comparée à l'étiquette et trouvée juste. */

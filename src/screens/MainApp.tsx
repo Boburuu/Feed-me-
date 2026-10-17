@@ -27,6 +27,7 @@ import { DRAFT_HOURS, hasContent, lastTab, mealDraft, setDraftHours, type MealDr
 import { programFor } from "../lib/goals";
 import { dailyTip, tips, tipThemes } from "../lib/tips";
 import TipSplash from "../components/TipSplash";
+import TipsCorner from "../components/TipsCorner";
 import { restoreImages } from "../lib/images";
 import { readPhoneSteps, readSteps } from "../lib/steps";
 import { recipeResult, toMealItem } from "../lib/foods";
@@ -58,7 +59,7 @@ type MainAppProps = {
 };
 
 type Tab = "Accueil" | "Suivi" | "Activité" | "Recettes" | "Profil";
-type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | "share-out" | "weigh" | null;
+type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | "share-out" | "weigh" | "tips" | null;
 
 function defaultCategory(date = new Date()): MealCategory {
   const hour = date.getHours() + date.getMinutes() / 60;
@@ -337,7 +338,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
       const meals = editingMeal
         ? current.meals.map((item) => (item.id === editingMeal.id ? { ...meal, id: item.id } : item))
         : [...current.meals, { ...meal, id: Date.now() }];
-      return { ...current, meals, leftovers };
+      // Recette comptée en morceaux ou en grammes : la taille du plat entier est gardée pour la prochaine fois.
+      const recipes = current.recipes.map((recipe) => {
+        const used = meal.items?.find((item) => item.source === "recette" && item.ref === String(recipe.id));
+        if (!used || (used.recipePieces === recipe.pieces && used.recipeGrams === recipe.totalGrams)) return recipe;
+        return { ...recipe, pieces: used.recipePieces ?? recipe.pieces, totalGrams: used.recipeGrams ?? recipe.totalGrams };
+      });
+      return { ...current, meals, leftovers, recipes };
     });
     mealDraft.clear();
     setRestoredDraft(null);
@@ -535,7 +542,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   return (
     <CorrectionsContext.Provider value={correctionsApi}>
       {showSplash && modal === null && (
-        <TipSplash tip={todayTip} favorite={favoriteTips.includes(todayTip.id)} onToggleFavorite={() => toggleFavoriteTip(todayTip.id)} onClose={() => setShowSplash(false)} />
+        <TipSplash tip={todayTip} favorite={favoriteTips.includes(todayTip.id)} onToggleFavorite={() => toggleFavoriteTip(todayTip.id)} onClose={() => setShowSplash(false)} onOpenCorner={() => { setShowSplash(false); setModal("tips"); }} />
       )}
       <header className="topbar">
         <div>
@@ -572,7 +579,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
 
           <section className="tip-card">
             <span className="metric-icon"><Icon name="apple" /></span>
-            <div><p className="eyebrow">Conseil du jour · {tipThemes[todayTip.theme]}</p><p>{todayTip.text}</p></div>
+            <div><p className="eyebrow">Conseil du jour · {tipThemes[todayTip.theme]}</p><p>{todayTip.text}</p><button type="button" className="text-button" onClick={() => setModal("tips")}>Tous mes conseils ›</button></div>
             <button type="button" className={`tip-star${favoriteTips.includes(todayTip.id) ? " on" : ""}`} onClick={() => toggleFavoriteTip(todayTip.id)} aria-pressed={favoriteTips.includes(todayTip.id)} aria-label={favoriteTips.includes(todayTip.id) ? "Retirer des favoris" : "Garder ce conseil en favori"}>{favoriteTips.includes(todayTip.id) ? "★" : "☆"}</button>
           </section>
 
@@ -698,10 +705,12 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   <span className={`meal-icon ${categoryStyle[meal.category]}`}><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
                   <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
                   <span className="meal-calories"><strong>{meal.calories}</strong><small>kcal</small></span>
-                  {meal.items?.length
-                    ? <button className="icon-button" onClick={(event) => { event.stopPropagation(); shareMeal(meal); }} aria-label={`Partager ${meal.name}`}><Icon name="share" size={16} /></button>
-                    : <button className="icon-button" onClick={(event) => { event.stopPropagation(); editMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>}
-                  <button className="icon-button" onClick={(event) => { event.stopPropagation(); deleteMeal(meal); }} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
+                  {/* Modifier et supprimer toujours visibles (une erreur se corrige vite) ; partager si le repas a ses aliments. */}
+                  <span className="meal-actions">
+                    <button className="icon-button" onClick={(event) => { event.stopPropagation(); editMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
+                    {meal.items?.length ? <button className="icon-button" onClick={(event) => { event.stopPropagation(); shareMeal(meal); }} aria-label={`Partager ${meal.name}`}><Icon name="share" size={16} /></button> : null}
+                    <button className="icon-button" onClick={(event) => { event.stopPropagation(); deleteMeal(meal); }} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
+                  </span>
                 </div>
               ))}
             </div>
@@ -840,8 +849,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             <div className="section-title"><div><p className="eyebrow">Conseils</p><h2>Conseil du jour</h2></div></div>
             <label className="planned-toggle">
               <input type="checkbox" checked={data.tips?.splash !== false} onChange={(e) => update((current) => ({ ...current, tips: { ...current.tips, splash: e.target.checked ? undefined : false } }))} />
-              <span>Afficher le conseil du jour à l'ouverture de l'appli (3 secondes, « Passer » pour fermer)</span>
+              <span>Afficher le conseil du jour à l'ouverture de l'appli (il reste affiché jusqu'à ce que tu le fermes)</span>
             </label>
+            <button type="button" className="text-button" onClick={() => setModal("tips")}>Ouvrir le coin des conseils ›</button>
             {favoriteTips.length > 0 ? (
               <ul className="favorite-tips">
                 {tips.filter((tip) => favoriteTips.includes(tip.id)).map((tip) => (
@@ -959,6 +969,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   <button onClick={() => goTo("Activité")}><span className="meal-icon mint-icon"><Icon name="shoe" /></span><span><strong>Une séance de sport</strong><small>Marche, course, musculation, yoga…</small></span><Icon name="chevron" /></button>
                   <button onClick={openShareImport}><span className="meal-icon lunch"><Icon name="link" /></span><span><strong>Un partage reçu</strong><small>Recette, assiette ou repas envoyé par un ami</small></span><Icon name="chevron" /></button>
                 </div>
+              </>
+            )}
+            {modal === "tips" && (
+              <>
+                <p className="eyebrow">{tips.length} conseils, un par jour</p>
+                <h2>Coin des conseils</h2>
+                <TipsCorner today={today} favorites={favoriteTips} onToggleFavorite={toggleFavoriteTip} />
               </>
             )}
             {modal === "weigh" && (

@@ -137,3 +137,17 @@ export function dailyTip(date: string, list: Tip[] = tips) {
   // Pas premier avec la taille de la liste : on parcourt tous les conseils sans suivre l'ordre des thèmes.
   return list[(day * 37) % list.length];
 }
+
+/** Conseils des 14 derniers jours, le plus récent d'abord (sans doublon). */
+export function recentTips(today: string, days = 14): { tip: Tip; date: string }[] {
+  const seen = new Set<number>();
+  const list: { tip: Tip; date: string }[] = [];
+  for (let back = 0; back < days; back += 1) {
+    const day = new Date(`${today}T12:00:00`);
+    day.setDate(day.getDate() - back);
+    const date = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    const tip = dailyTip(date);
+    if (!seen.has(tip.id)) { seen.add(tip.id); list.push({ tip, date }); }
+  }
+  return list;
+}

@@ -300,3 +300,7 @@
 .food-result-group { display: grid; gap: 4px; }
 .food-versions-toggle { justify-self: start; padding: 0 4px; font-size: 12px; }
 .food-version { margin-left: 18px; width: calc(100% - 18px); }
+/* Recette comptée en morceaux ou en grammes : taille du plat entier. */
+.modal-card form.recipe-total, .recipe-total { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; color: var(--muted); }
+.modal-card .recipe-total input { width: 76px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--cream); font-size: 16px; font-weight: 700; text-align: center; }
+.recipe-total small { flex-basis: 100%; font-size: 12px; }
