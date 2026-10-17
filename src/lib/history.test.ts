@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { amountLabel, pastFoods, recentMeals, repeatItems, searchPast } from "./history";
 import { drinkMl, hydrationOf, isPreparedDrink } from "./hydration";
-import { defaultDensity, itemExtra, nutrientGrams, offDrink } from "./foods";
+import { defaultDensity, itemCalories, itemExtra, nutrientGrams, offDrink } from "./foods";
 import type { Meal, MealItem } from "./storage";
 
 // La soupe Knorr de Camille, notée deux fois le 14 (en mug, puis dans une assiette pour 2).
@@ -87,5 +87,24 @@ describe("fibres d'un aliment", () => {
     const lentilles: MealItem = { name: "Lentille corail, sèche", source: "ciqual", ref: "20535", quantity: 80, unit: "g", kcal100: 328, protein100: 27.7, fiber100: 15.4, sugars100: 1.29 };
     expect(itemExtra(lentilles, "fiber100")).toBeCloseTo(12.32);
     expect(itemExtra({ ...lentilles, salt100: undefined }, "salt100")).toBeNull();
+  });
+});
+
+describe("thé glacé : une boisson, pas un sachet", () => {
+  it("Ice Tea classé « thés » par Open Food Facts, sans contenance : prêt à boire, en ml", () => {
+    expect(offDrink(undefined, ["en:beverages-and-beverages-preparations", "en:teas"], "Ice Tea Framboise", 20)).toEqual({ liquid: true });
+    expect(offDrink("50cl", ["en:tea-based-beverages", "en:beverage-preparations"], "Saveur fruit rouge", 25)).toEqual({ liquid: true });
+    expect(isPreparedDrink({ name: "Ice Tea Framboise · Lipton", prepared: true })).toBe(false);
+  });
+
+  it("un vrai sachet de thé ou un sirop restent « à préparer »", () => {
+    expect(offDrink("125 g (50 sachets)", ["en:teas"], "Thé Earl Grey", 1)).toEqual({ prepared: true });
+    expect(offDrink("75 cl", ["en:syrups", "en:beverage-preparations"], "Sirop de grenadine", 270)).toEqual({ liquid: true, prepared: true });
+  });
+
+  it("bouteille de 500 ml d'Ice Tea à 20 kcal/100 ml = 100 kcal", () => {
+    const iceTea: MealItem = { name: "Ice Tea Framboise · Lipton", source: "off", ref: "x", quantity: 500, unit: "g", liquid: true, kcal100: 20, protein100: 0 };
+    expect(itemCalories(iceTea)).toBe(100);
+    expect(drinkMl(iceTea)).toBe(500);
   });
 });

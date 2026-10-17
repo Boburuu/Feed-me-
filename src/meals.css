@@ -295,3 +295,8 @@
 .cooking-fat { display: grid; gap: 6px; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 12px; }
 .cooking-fat > small { color: var(--muted); font-size: 12px; font-weight: 700; }
 .meal-line-extras { color: var(--muted); font-weight: 600; }
+/* Recherche : photo du produit, et autres versions d'un même produit (pays, format). */
+.food-photo { width: 40px; height: 40px; flex: none; border-radius: 10px; object-fit: contain; background: #fff; }
+.food-result-group { display: grid; gap: 4px; }
+.food-versions-toggle { justify-self: start; padding: 0 4px; font-size: 12px; }
+.food-version { margin-left: 18px; width: calc(100% - 18px); }

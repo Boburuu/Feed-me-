@@ -11,6 +11,7 @@ import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { commonFoods, type CommonFood } from "./commonFoods";
 import { cookedFactor } from "./dryGoods";
 import { energyDrinks, type EnergyDrink } from "./energyDrinks";
+import { countryOf, groupVersions } from "./offVersions";
 import type { CustomFood, MealItem, Recipe } from "./storage";
 
 export type FoodResult = Omit<MealItem, "quantity" | "unit"> & {
@@ -22,6 +23,11 @@ export type FoodResult = Omit<MealItem, "quantity" | "unit"> & {
   perPortionOnly?: boolean;
   /** Énergie pour 100 g du produit préparé (cuit), quand l'emballage la donne. */
   preparedKcal100?: number;
+  /** Photo du produit (Open Food Facts), montrée dans la recherche. */
+  image?: string;
+  /** Autres fiches du même produit (autre pays, autre format) et ce qui les distingue. */
+  versions?: FoodResult[];
+  versionLabel?: string;
 };
 
 // --- Normalisation ------------------------------------------------------------------
@@ -257,16 +263,28 @@ async function getJson(url: string) {
 }
 
 type OffNutriments = Record<string, number | undefined>;
-type OffHit = { code?: string; product_name?: string; product_name_fr?: string; brands?: string[] | string; nutriments?: OffNutriments; quantity?: string; categories_tags?: string[] };
+type OffHit = { code?: string; product_name?: string; product_name_fr?: string; brands?: string[] | string; nutriments?: OffNutriments; quantity?: string; categories_tags?: string[]; countries_tags?: string[]; completeness?: number; unique_scans_n?: number; image_front_small_url?: string };
+
+/** Thé glacé (« Ice Tea », « thé glacé ») : une boisson prête à boire, pas un sachet de thé. */
+export function isReadyDrink(name: string) {
+  return /\b(ice ?tea|iced ?tea|the glace|fuze ?tea)\b/.test(normalize(name));
+}
 
 /**
  * Boisson d'après Open Food Facts : contenance en cl / ml, ou catégorie « boissons ».
  * Une préparation (thé en sachet, café, sirop) se boit une fois préparée avec de l'eau.
  */
-export function offDrink(quantity: string | undefined, categories: string[] | undefined): { liquid?: true; prepared?: true } {
+export function offDrink(quantity: string | undefined, categories: string[] | undefined, name = "", kcal100: number | null = null): { liquid?: true; prepared?: true } {
   const tags = categories ?? [];
   const inMl = /\d\s*(cl|ml|l)\b/i.test(quantity ?? "");
   const preparation = tags.some((tag) => /^en:(beverage-preparations|teas|herbal-teas|coffees|instant-coffees|ground-coffees|coffee-capsules|syrups|cocoa-and-chocolate-powders)$/.test(tag));
+  // Boisson prête à boire (thé glacé, soda, jus) : jamais un « sachet à préparer », même
+  // classée « thés ». Une préparation entre 5 et 100 kcal/100 g se boit telle quelle
+  // (un sachet de thé fait ~1 kcal, un sirop ou une poudre plus de 250).
+  const ready = isReadyDrink(name)
+    || tags.some((tag) => /^en:(iced-teas|tea-based-beverages|still-soft-drink.*|sodas|carbonated-drinks|sweetened-beverages|artificially-sweetened-beverages|fruit-juices|juices|nectars|smoothies|energy-drinks)$/.test(tag))
+    || (preparation && kcal100 !== null && kcal100 >= 5 && kcal100 <= 100);
+  if (ready) return { liquid: true };
   if (preparation && !inMl) return { prepared: true };
   if (inMl || tags.includes("en:beverages")) return preparation ? { liquid: true, prepared: true } : { liquid: true };
   return {};
@@ -314,7 +332,7 @@ function wordsFound(query: string, text: string) {
 const brandOf = (brands: OffHit["brands"]) => (Array.isArray(brands) ? brands[0] : brands?.split(",")[0])?.trim() ?? "";
 
 export async function searchOpenFoodFacts(query: string, signal?: { cancelled: boolean }): Promise<FoodResult[]> {
-  const fields = "code,product_name,product_name_fr,brands,nutriments,quantity,categories_tags";
+  const fields = "code,product_name,product_name_fr,brands,nutriments,quantity,categories_tags,countries_tags,completeness,unique_scans_n,image_front_small_url";
   // Le moteur récent refuse les requêtes venant d'un site web (version iPhone) :
   // dans un navigateur, on passe par l'ancien, qui les accepte.
   const url = Capacitor.isNativePlatform()
@@ -322,8 +340,7 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
     : `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15&fields=${fields}`;
   const data = await getJson(url);
   if (signal?.cancelled) return [];
-  const seen = new Set<string>();
-  return ((data.hits ?? data.products ?? []) as OffHit[])
+  const found = ((data.hits ?? data.products ?? []) as OffHit[])
     .filter((hit) => offKcal(hit.nutriments) !== null && (hit.product_name_fr || hit.product_name))
     .map((hit) => {
       const name = (hit.product_name_fr || hit.product_name || "").trim();
@@ -342,21 +359,19 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
         brand: brand || undefined,
         packageGrams,
         ...parsePieces(`${hit.quantity ?? ""} ${name}`, packageGrams),
-        ...offDrink(hit.quantity, hit.categories_tags),
+        ...offDrink(hit.quantity, hit.categories_tags, name, offKcal(hit.nutriments)),
         detail: brand ? `${brand} · Open Food Facts` : "Open Food Facts",
+        image: hit.image_front_small_url || undefined,
+        meta: { ...countryOf(hit.countries_tags), completeness: hit.completeness ?? 0, scans: hit.unique_scans_n ?? 0, quantity: hit.quantity },
       };
-    })
-    // Les doublons (même nom, mêmes valeurs) encombrent la liste.
-    .filter((item) => {
-      const key = `${normalize(item.name)}|${item.kcal100}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
+    });
+  // Un même produit en plusieurs fiches (pays, format) : une ligne, la version française d'abord.
+  return groupVersions(found)
     // Le classement d'Open Food Facts est approximatif (« kinder country » → « GOLOSI » en
     // premier) : on remonte les produits dont le nom et la marque contiennent les mots cherchés.
     .map((item, index) => ({ item, index, score: wordsFound(query, `${item.name} ${item.brand ?? ""}`) }))
-    .sort((a, b) => b.score - a.score || a.index - b.index)
+    // À pertinence égale, les produits vendus en France d'abord.
+    .sort((a, b) => b.score - a.score || Number(!!b.item.versionLabel?.startsWith("France")) - Number(!!a.item.versionLabel?.startsWith("France")) || a.index - b.index)
     .map(({ item }) => item);
 }
 
@@ -391,7 +406,7 @@ export async function openFoodFactsByBarcode(code: string): Promise<FoodResult |
     portionGrams: grams > 0 ? grams : undefined,
     portionLabel: grams > 0 ? shortServing(String(product.serving_size ?? ""), grams) : undefined,
     // Boisson : contenance en cl / ml, ou catégorie « boissons » d'Open Food Facts.
-    ...offDrink(product.quantity, product.categories_tags),
+    ...offDrink(product.quantity, product.categories_tags, name, kcal),
     packageGrams,
     ...parsePieces(`${product.quantity ?? ""} ${name}`, packageGrams),
     brand: brand || undefined,

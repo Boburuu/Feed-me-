@@ -11,6 +11,11 @@ const AUTO_LOCK_MS = 60_000;
 export default function App() {
   const [data, setData] = useState<AppData | null>(() => loadData());
   const [locked, setLocked] = useState(true);
+  // Après le premier déverrouillage, l'appli reste ouverte sous l'écran du code : au retour,
+  // on retrouve la page, la recherche ou la fenêtre où l'on était.
+  const [opened, setOpened] = useState(false);
+  // Nouvelles données (import, réinitialisation) : l'appli repart de zéro.
+  const [session, setSession] = useState(0);
   const [storageError, setStorageError] = useState(false);
   const hiddenAt = useRef<number | null>(null);
 
@@ -40,11 +45,15 @@ export default function App() {
     clearImages();
     setData(null);
     setLocked(true);
+    setOpened(false);
+    setSession((value) => value + 1);
   };
 
   const importData = (backup: AppData) => {
     setData(backup);
     setLocked(true);
+    setOpened(false);
+    setSession((value) => value + 1);
   };
 
   return (
@@ -52,13 +61,20 @@ export default function App() {
       <section className="phone" data-theme={theme}>
         {!data && (
           <Onboarding
-            onCreate={(created) => { setData(created); setLocked(false); }}
+            onCreate={(created) => { setData(created); setLocked(false); setOpened(true); }}
             onImport={importData}
           />
         )}
-        {data && locked && <LockScreen data={data} onUnlock={() => setLocked(false)} onReset={reset} />}
-        {data && !locked && (
-          <MainApp data={data} update={update} onLock={() => setLocked(true)} onReset={reset} onImport={importData} />
+        {data && opened && (
+          // Caché et inactif tant que le code n'est pas saisi.
+          <div className="app-layer" aria-hidden={locked} inert={locked}>
+            <MainApp key={session} data={data} update={update} onLock={() => setLocked(true)} onReset={reset} onImport={importData} />
+          </div>
+        )}
+        {data && locked && (
+          <div className={opened ? "lock-layer" : undefined}>
+            <LockScreen data={data} onUnlock={() => { setLocked(false); setOpened(true); }} onReset={reset} />
+          </div>
         )}
         {storageError && (
           <p className="storage-error" role="alert">

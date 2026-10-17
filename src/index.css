@@ -765,3 +765,6 @@ h2 { font-size: 20px; font-weight: 800; }
 .weight-card > .container-chips { margin-top: 4px; }
 .weight-trend { margin-bottom: 4px; }
 .weight-card .chart-legend { margin: -4px 0 4px; }
+/* Écran du code posé par-dessus l'appli (qui garde sa page ouverte en dessous). */
+.lock-layer { position: fixed; inset: 0; z-index: 200; overflow-y: auto; background: var(--cream); }
+.app-layer { display: contents; }

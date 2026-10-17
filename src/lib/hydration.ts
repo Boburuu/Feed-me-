@@ -5,7 +5,7 @@
 // compter deux fois. Seuls les repas notés depuis cette fonction comptent (drinksCounted),
 // pour ne pas doubler les verres déjà ajoutés à la main avant.
 
-import { itemGrams, normalize } from "./foods";
+import { isReadyDrink, itemGrams, normalize } from "./foods";
 import type { AppData, Meal, MealItem } from "./storage";
 
 /** Eau plate ou gazeuse, sans sucre ni arôme : de l'« eau pure ». */
@@ -21,6 +21,8 @@ export function couldHydrate(item: Pick<MealItem, "name">) {
 
 /** Produit sec qui se boit une fois préparé avec de l'eau (thé en sachet, café soluble, sirop…). */
 export function isPreparedDrink(item: Pick<MealItem, "name" | "liquid" | "prepared">) {
+  // Un thé glacé se boit tel quel, même classé « thés » par Open Food Facts.
+  if (isReadyDrink(item.name)) return false;
   if (item.prepared) return true;
   const name = normalize(item.name);
   if (/\bsirop\b/.test(name)) return true;

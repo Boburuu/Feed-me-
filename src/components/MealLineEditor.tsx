@@ -6,7 +6,7 @@ import { cookingBase, cookingVariants, cookKey, withVariant, type CookingVariant
 import { useCorrections } from "../lib/correctionsContext";
 import { coherenceWarnings, quantityWarning } from "../lib/coherence";
 import { couldHydrate, drinkMl, isPreparedDrink } from "../lib/hydration";
-import { itemCalories, itemCarbs, itemExtra, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
+import { isReadyDrink, itemCalories, itemCarbs, itemExtra, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
 import type { MealItem } from "../lib/storage";
 
 type MealLineEditorProps = {
@@ -246,6 +246,12 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
         </small>
       )}
       {extras.length > 0 && <small className="meal-line-carbs meal-line-extras">{extras.join(" · ")}</small>}
+      {/* Boisson prête à boire enregistrée par erreur en grammes (thé glacé pris pour un sachet). */}
+      {!line.liquid && (isReadyDrink(line.name) || (line.prepared && line.kcal100 >= 5 && line.kcal100 <= 100)) && (
+        <button type="button" className="hydrate-toggle" onClick={() => onChange({ liquid: true, prepared: undefined, waterMl: undefined, hydrates: undefined })}>
+          🥤 C'est une boisson prête à boire : compter en ml
+        </button>
+      )}
       {/* Sachet de thé, café soluble, sirop… : la boisson préparée compte, pas le sachet. */}
       {!hideHydration && isPreparedDrink(line) && (
         <div className="prepared-drink">
