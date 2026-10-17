@@ -75,7 +75,7 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
           autoComplete="off"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ajouter un ingrédient : farine, jambon…"
+          placeholder="Ingrédient : farine, œufs…"
           aria-label="Rechercher un ingrédient"
         />
       </div>

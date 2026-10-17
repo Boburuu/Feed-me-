@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
 import { cleanProductCode, cropImage, readPrintedCodes, readProductCodes, type CropRect } from "../lib/barcodeImage";
-import { liveScanAvailable, scanBarcode } from "../lib/foodPhoto";
+import FoodResultRow from "./FoodResultRow";
+import { liveScanAvailable, packagingFromPhoto, scanBarcode } from "../lib/foodPhoto";
 import { openFoodFactsByBarcode, type FoodResult } from "../lib/foods";
 
 type BarcodePanelProps = {
@@ -16,6 +17,7 @@ type State =
   | { step: "menu" }
   | { step: "reading"; message: string }
   | { step: "crop"; file: File; src: string; message: string }
+  | { step: "packaging"; file: File; results: FoodResult[] }
   | { step: "choose"; codes: string[] }
   | { step: "manual"; error?: string }
   | { step: "missing"; code: string };
@@ -49,12 +51,20 @@ export default function BarcodePanel({ onFound, onClose, onSearchByName, onCreat
     }
   };
 
-  const handleCodes = (codes: string[], file: File | null, retry: boolean) => {
+  const toCrop = (file: File, message = "Code-barres introuvable sur la photo. Entourez-le avec le doigt, puis « Lire cette zone ».") => {
+    setCrop(DEFAULT_CROP);
+    setState({ step: "crop", file, src: URL.createObjectURL(file), message });
+  };
+
+  const handleCodes = async (codes: string[], file: File | null, retry: boolean) => {
     if (codes.length === 1) return void lookup(codes[0]);
     if (codes.length > 1) return setState({ step: "choose", codes });
     if (file && !retry) {
-      setCrop(DEFAULT_CROP);
-      return setState({ step: "crop", file, src: URL.createObjectURL(file), message: "Code-barres introuvable sur la photo. Entourez-le avec le doigt, puis « Lire cette zone »." });
+      // Pas de code-barres : photo du devant du paquet ? On lit la marque et le nom imprimés.
+      setState({ step: "reading", message: "Pas de code-barres : lecture du nom sur l'emballage…" });
+      const results = await packagingFromPhoto(file).catch(() => []);
+      if (results.length) return setState({ step: "packaging", file, results });
+      return toCrop(file, "Ni code-barres ni nom de produit reconnus. Si le code-barres est sur la photo, entourez-le avec le doigt, puis « Lire cette zone ».");
     }
     setState({ step: "manual", error: "Toujours illisible : tapez les chiffres écrits sous les barres." });
   };
@@ -68,7 +78,7 @@ export default function BarcodePanel({ onFound, onClose, onSearchByName, onCreat
 
   const readFile = async (file: File) => {
     setState({ step: "reading", message: "Lecture du code-barres…" });
-    handleCodes(await withPrintedDigits(file, await readProductCodes(file).catch(() => [])), file, false);
+    await handleCodes(await withPrintedDigits(file, await readProductCodes(file).catch(() => [])), file, false);
   };
 
   const readCrop = async () => {
@@ -76,7 +86,7 @@ export default function BarcodePanel({ onFound, onClose, onSearchByName, onCreat
     const file = state.file;
     setState({ step: "reading", message: "Lecture de la zone…" });
     const zone = await cropImage(file, crop).catch(() => null);
-    handleCodes(zone ? await withPrintedDigits(zone, await readProductCodes(zone).catch(() => [])) : [], file, true);
+    await handleCodes(zone ? await withPrintedDigits(zone, await readProductCodes(zone).catch(() => [])) : [], file, true);
   };
 
   const camera = async () => {
@@ -121,10 +131,11 @@ export default function BarcodePanel({ onFound, onClose, onSearchByName, onCreat
         <>
           <div className="barcode-choices">
             <button type="button" className="add-part" onClick={() => void camera()}><Icon name="camera" size={16} /> Scanner avec la caméra</button>
+            {liveScanAvailable() && <button type="button" className="add-part" onClick={() => cameraInput.current?.click()}><Icon name="camera" size={16} /> Photographier le paquet (devant ou code-barres)</button>}
             <button type="button" className="add-part" onClick={() => galleryInput.current?.click()}><Icon name="image" size={16} /> Importer une photo de la galerie</button>
             <button type="button" className="add-part" onClick={() => setState({ step: "manual" })}><Icon name="edit" size={16} /> Saisir les chiffres</button>
           </div>
-          <small className="barcode-hint">Les barres et les chiffres doivent être nets et entiers sur la photo. Un QR code (carré de points) n'est pas un code-barres de produit.</small>
+          <small className="barcode-hint">Sur une photo, le code-barres est lu s'il est net et entier ; sinon, le nom imprimé sur le paquet (marque, produit) sert à le chercher. Un QR code (carré de points) n'est pas un code-barres de produit.</small>
         </>
       )}
 
@@ -144,6 +155,19 @@ export default function BarcodePanel({ onFound, onClose, onSearchByName, onCreat
         </>
       )}
 
+      {state.step === "packaging" && (
+        <>
+          <p className="food-hint">Pas de code-barres sur la photo. D'après le nom imprimé sur l'emballage, c'est peut-être :</p>
+          <div className="food-results">
+            {state.results.map((food) => <FoodResultRow key={food.ref ?? food.name} result={food} onPick={onFound} />)}
+          </div>
+          <div className="barcode-choices">
+            <button type="button" className="add-part" onClick={onSearchByName}><Icon name="apple" size={16} /> Aucun ne correspond : chercher par le nom</button>
+            <button type="button" className="add-part" onClick={() => toCrop(state.file)}><Icon name="target" size={16} /> Entourer le code-barres sur la photo</button>
+          </div>
+        </>
+      )}
+
       {state.step === "choose" && (
         <>
           <p className="food-hint">Plusieurs codes-barres sur la photo : lequel ?</p>
@@ -154,7 +178,7 @@ export default function BarcodePanel({ onFound, onClose, onSearchByName, onCreat
       {state.step === "manual" && (
         <form className="barcode-manual" onSubmit={(e) => { e.preventDefault(); const code = cleanProductCode(typed); if (code) void lookup(code); else setState({ step: "manual", error: "Code invalide : il faut les 8 ou 13 chiffres écrits sous les barres. Vérifiez qu'il n'en manque pas." }); }}>
           {state.error && <p className="food-hint">{state.error}</p>}
-          <input value={typed} onChange={(e) => setTyped(e.target.value)} inputMode="numeric" placeholder="Ex. 5060947541184" aria-label="Chiffres du code-barres" autoFocus />
+          <input value={typed} onChange={(e) => setTyped(e.target.value)} inputMode="numeric" placeholder="Chiffres sous les barres" aria-label="Chiffres du code-barres" autoFocus />
           <button type="submit" className="plan-confirm"><Icon name="check" size={14} /> Chercher</button>
         </form>
       )}

@@ -57,3 +57,35 @@ describe("poids d'une portion ajouté à la main", () => {
     expect(weighed.protein100).toBeNull();
   });
 });
+
+import { packageQuery, rankByPackage } from "./packageText";
+
+describe("produit reconnu par le devant du paquet", () => {
+  // Lignes lues sur le paquet de fromage Milbona (hauteur du texte en pixels).
+  const lines = [
+    { text: "Milbona", height: 60 },
+    { text: "PRÉPARATION DE", height: 40 },
+    { text: "FROMAGE FONDU POUR", height: 40 },
+    { text: "Hamburger", height: 110 },
+    { text: "10 TRANCHES", height: 45 },
+    { text: "NUTRI-SCORE", height: 12 },
+    { text: "Suggestion de présentation", height: 14 },
+    { text: "200 g", height: 50 },
+  ];
+  it("garde la marque et le nom, pas les mentions ni les quantités", () => {
+    expect(packageQuery(lines)).toBe("hamburger milbona preparation fromage fondu");
+  });
+  it("classe les produits selon les mots lus (pas les pains à burger)", () => {
+    const found = [
+      { name: "Pains pour hamburger", brand: "U" },
+      { name: "Milbona fromage fondu", brand: "Milbona" },
+      { name: "Fromage fondu pour Hamburger", brand: "Milbona" },
+      { name: "Fromage fondu hamburger", brand: "Casino" },
+    ];
+    expect(rankByPackage(found, lines).map((item) => `${item.name} · ${item.brand}`)).toEqual([
+      "Fromage fondu pour Hamburger · Milbona",
+      "Milbona fromage fondu · Milbona",
+      "Fromage fondu hamburger · Casino",
+    ]);
+  });
+});

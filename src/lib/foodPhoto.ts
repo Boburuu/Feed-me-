@@ -9,6 +9,7 @@ import { commonFoods } from "./commonFoods";
 import { energyDrinks } from "./energyDrinks";
 import { normalize as simplify, openFoodFactsByBarcode, searchCiqual, searchCommon, searchOpenFoodFacts, type FoodResult } from "./foods";
 import { readTextLines } from "./ocr";
+import { packageQuery, rankByPackage, type ReadLine } from "./packageText";
 import { readBarcodeFromFile, readLinesFromFile } from "./webVision";
 
 type FoodClassifierPlugin = {
@@ -155,29 +156,36 @@ async function barcodeProduct(uri: string) {
   return code ? openFoodFactsByBarcode(code) : null;
 }
 
-/** Mots imprimés sur un emballage qui ne désignent pas le produit. */
-const packagingNoise = /^(net|poids|ingredients?|nutri|score|valeurs?|energie|kcal|kj|pour|par|portion|sans|avec|nouveau|new|recette|offre|lot|x\d+|\d+.*)$/i;
-
 /**
- * Nom du produit lu sur l'emballage : les lignes écrites le plus gros (« kinder »,
- * « Country »), puis recherche dans Open Food Facts.
+ * Produit lu sur l'emballage : marque et nom (lignes écrites le plus gros, puis les
+ * suivantes) cherchés dans Open Food Facts, puis classés selon les mots lus.
  */
-async function packagingProducts(read: { text: string; height: number }[]): Promise<FoodResult[]> {
+async function packagingProducts(read: ReadLine[]): Promise<FoodResult[]> {
   // Nom d'un aliment courant écrit sur l'emballage (« Monster … Ultra Rosá ») : fiable,
   // et disponible hors ligne. Le nom le plus long l'emporte (« ultra rosa » avant « monster »).
   const known = commonInText(read.map((line) => line.text).join(" "));
   const common = known ? await searchCommon(known, 1) : [];
   if (!navigator.onLine) return common;
-  const lines = read
-    .map((line) => ({ ...line, text: line.text.replace(/[^\p{L}\p{N}' -]/gu, " ").replace(/\s+/g, " ").trim() }))
-    .filter((line) => line.text.length >= 3 && /\p{L}{3}/u.test(line.text))
-    .sort((a, b) => b.height - a.height);
-  // Seul le gros texte compte : « kinder Country », pas « Retrouvez des bons plans… ».
-  const big = lines.filter((line) => line.height >= (lines[0]?.height ?? 0) * 0.6).slice(0, 2);
-  const words = big.flatMap((line) => line.text.split(" ")).filter((word) => word.length >= 2 && !packagingNoise.test(word));
-  const query = [...new Set(words.map((word) => word.toLowerCase()))].slice(0, 4).join(" ");
-  const brands = query.length < 3 ? [] : await searchOpenFoodFacts(query).catch(() => []);
-  return [...common, ...brands.slice(0, 3)];
+  // Tous les mots d'abord ; sans résultat, les plus gros seulement.
+  let found: FoodResult[] = [];
+  for (const size of [5, 3]) {
+    const query = packageQuery(read, size);
+    if (query.length < 3) break;
+    found = rankByPackage(await searchOpenFoodFacts(query).catch(() => []), read);
+    if (found.length) break;
+  }
+  return [...common, ...found.slice(0, 4)];
+}
+
+/** Photo d'un emballage sans code-barres lisible : produits d'après le texte imprimé. */
+export async function packagingFromPhoto(file: File): Promise<FoodResult[]> {
+  if (!native()) return packagingProducts(await readLinesFromFile(file));
+  const { uri, remove } = await writePhoto(file);
+  try {
+    return await packagingProducts(await readTextLines(uri));
+  } finally {
+    remove();
+  }
 }
 
 /** Une lettre de différence au plus (« utra » ≈ « ultra », « monstar » ≈ « monster »). */
