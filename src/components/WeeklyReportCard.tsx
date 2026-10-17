@@ -32,6 +32,24 @@ const rows = (week: WeekFigures, previous: WeekFigures, waterGoal: number) => [
   { label: "Poids (moy. 7 j)", now: fmt(week.weight, "kg", 1), change: <Change now={week.weight} before={previous.weight} unit="kg" digits={1} /> },
 ];
 
+/** Encart en haut des onglets du suivi : ce qui va bien et à améliorer (le premier point de chaque). */
+export function ReportSummary({ data, targets, today, onOpen }: WeeklyReportCardProps & { onOpen: () => void }) {
+  const report = useMemo(() => weeklyReport(data, targets, reportWeekStart(today)), [data, targets, today]);
+  return (
+    <section className="report-summary">
+      {report.insufficient ? (
+        <p className="report-empty">Bilan : {report.week.daysLogged} jour{report.week.daysLogged > 1 ? "s" : ""} noté{report.week.daysLogged > 1 ? "s" : ""} cette semaine, il en faut 4 pour un bilan juste.</p>
+      ) : (
+        <>
+          {report.good[0] && <div className="report-block good"><p className="report-title">Ce qui va bien</p><p>{report.good[0]}</p></div>}
+          {report.improve[0] && <div className="report-block improve"><p className="report-title">À améliorer</p><p>{report.improve[0].text}<small>👉 {report.improve[0].action}</small></p></div>}
+        </>
+      )}
+      <button type="button" className="text-button" onClick={onOpen}>Tout le bilan ›</button>
+    </section>
+  );
+}
+
 /** Bilan de la semaine, avec les semaines précédentes (historique). */
 export default function WeeklyReportCard({ data, targets, today }: WeeklyReportCardProps) {
   const latest = reportWeekStart(today);

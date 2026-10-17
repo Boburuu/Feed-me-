@@ -771,3 +771,18 @@ h2 { font-size: 20px; font-weight: 800; }
 /* Écran du code posé par-dessus l'appli (qui garde sa page ouverte en dessous). */
 .lock-layer { position: fixed; inset: 0; z-index: 200; overflow-y: auto; background: var(--cream); }
 .app-layer { display: contents; }
+/* Hydratation : montant personnalisé, le dernier gardé en un geste. */
+.water-custom { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 6px; }
+.water-custom:has(.water-saved) { grid-template-columns: auto minmax(0, 1fr) auto; }
+.water-custom .plan-confirm { margin: 0; }
+.water-custom input { width: 100%; min-width: 0; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: transparent; font-size: 16px; }
+.water-custom .water-saved { display: grid; gap: 1px; padding: 6px 10px; border: 0; border-radius: 12px; color: var(--ink); background: rgba(255,255,255,.1); cursor: pointer; }
+.water-custom .water-saved strong { color: var(--blue-strong); font-size: 13px; white-space: nowrap; }
+.water-custom .water-saved small { color: var(--muted); font-size: 10px; }
+/* Suivi : encart du bilan en haut des onglets. */
+.report-summary { display: grid; gap: 8px; }
+.report-summary .report-block p:not(.report-title) { margin: 0; font-size: 14px; line-height: 1.4; }
+.report-summary .report-block small { display: block; margin-top: 4px; color: var(--muted); }
+.report-summary > .text-button { justify-self: start; }
+.sex-selector.tracking-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.tracking-tabs button { padding-inline: 4px; }

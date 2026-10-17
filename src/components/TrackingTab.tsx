@@ -2,14 +2,20 @@ import { useMemo, useState } from "react";
 import Icon from "./Icon";
 import WeekPlanner from "./WeekPlanner";
 import WeightTracker from "./WeightTracker";
-import WeeklyReportCard from "./WeeklyReportCard";
+import WeeklyReportCard, { ReportSummary } from "./WeeklyReportCard";
 import { sessionLabel } from "../lib/activity";
 import { mealCategories, todayKey, type AppData, type GoalType, type Meal } from "../lib/storage";
 import { hydrationOf } from "../lib/hydration";
 import { eatenMeals } from "../lib/planning";
 import { formatWater, WATER_MAX } from "../lib/water";
 
+/** Onglets du suivi : la journée, la semaine (planning et courses), le bilan, le poids. */
+export type TrackingView = "jour" | "semaine" | "bilan" | "poids";
+const views: [TrackingView, string][] = [["jour", "Jour"], ["semaine", "Semaine"], ["bilan", "Bilan"], ["poids", "Poids"]];
+
 type TrackingTabProps = {
+  view: TrackingView;
+  onView: (view: TrackingView) => void;
   data: AppData;
   update: (change: (data: AppData) => AppData) => void;
   target: number;
@@ -45,9 +51,8 @@ const WATER_STEP = 200;
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const hours = (ms: number) => `${Math.floor(ms / 3_600_000)} h ${String(Math.floor((ms % 3_600_000) / 60_000)).padStart(2, "0")}`;
 
-export default function TrackingTab({ data, update, target, goal, waterGoal, proteinGoal, onAddMeal, onSaveWeight, onDeleteWeight, onEditMeal, onShareMeal, onPlanMeal, flash }: TrackingTabProps) {
+export default function TrackingTab({ view, onView: setView, data, update, target, goal, waterGoal, proteinGoal, onAddMeal, onSaveWeight, onDeleteWeight, onEditMeal, onShareMeal, onPlanMeal, flash }: TrackingTabProps) {
   const reportTargets = useMemo(() => ({ kcal: target, protein: proteinGoal, waterMl: waterGoal, stepGoal: data.stepGoal, goal }), [target, proteinGoal, waterGoal, data.stepGoal, goal]);
-  const [view, setView] = useState<"calendar" | "week">("calendar");
   const today = todayKey();
   const [selected, setSelected] = useState(today);
   const [month, setMonth] = useState(() => today.slice(0, 7));
@@ -118,19 +123,23 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, pro
   return (
     <div className="content page-content">
       <section className="page-heading">
-        <span className="large-icon mint-icon"><Icon name="calendar" size={25} /></span>
         <p className="eyebrow">Mon suivi</p>
-        <h2>Jour après jour</h2>
-        <p>Retrouvez chaque journée : repas, eau, poids, sport et jeûne. Touchez un jour du calendrier pour le détail.</p>
+        <h2>{view === "jour" ? "Jour après jour" : view === "semaine" ? "Semaine et courses" : view === "bilan" ? "Bilan de la semaine" : "Mon poids"}</h2>
       </section>
 
-      <div className="sex-selector tracking-view" role="radiogroup" aria-label="Affichage">
-        <button type="button" role="radio" aria-checked={view === "calendar"} className={view === "calendar" ? "selected" : ""} onClick={() => setView("calendar")}>Calendrier</button>
-        <button type="button" role="radio" aria-checked={view === "week"} className={view === "week" ? "selected" : ""} onClick={() => setView("week")}>Semaine et courses</button>
+      <div className="sex-selector tracking-view tracking-tabs" role="tablist" aria-label="Mon suivi">
+        {views.map(([id, label]) => (
+          <button type="button" role="tab" aria-selected={view === id} key={id} className={view === id ? "selected" : ""} onClick={() => { setView(id); window.scrollTo(0, 0); }}>{label}</button>
+        ))}
       </div>
-      {view === "week" ? (
-        <WeekPlanner data={data} update={update} target={target} onPlanMeal={onPlanMeal} onEditMeal={onEditMeal} flash={flash} />
-      ) : (<>
+
+      {/* Le point principal du bilan, en haut de chaque onglet. */}
+      {view !== "bilan" && <ReportSummary data={data} targets={reportTargets} today={today} onOpen={() => { setView("bilan"); window.scrollTo(0, 0); }} />}
+
+      {view === "semaine" && <WeekPlanner data={data} update={update} target={target} onPlanMeal={onPlanMeal} onEditMeal={onEditMeal} flash={flash} />}
+      {view === "bilan" && <WeeklyReportCard data={data} targets={reportTargets} today={today} />}
+      {view === "poids" && <WeightTracker weights={data.weights} maintenance={goal === "maintien"} onAdd={onSaveWeight} onDelete={onDeleteWeight} />}
+      {view === "jour" && (<>
 
       <section className="weekly-card">
         <div>
@@ -237,18 +246,17 @@ export default function TrackingTab({ data, update, target, goal, waterGoal, pro
               <span className="meal-icon breakfast"><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
               <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
               <span className="meal-calories"><strong>{meal.calories}</strong><small>kcal</small></span>
-              {meal.items?.length
-                ? <button className="icon-button" onClick={(event) => { event.stopPropagation(); onShareMeal(meal); }} aria-label={`Partager ${meal.name}`}><Icon name="share" size={16} /></button>
-                : <button className="icon-button" onClick={(event) => { event.stopPropagation(); onEditMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>}
-              <button className="icon-button" onClick={(event) => { event.stopPropagation(); deleteMeal(meal); }} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
+              <span className="meal-actions">
+                <button className="icon-button" onClick={(event) => { event.stopPropagation(); onEditMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
+                {meal.items?.length ? <button className="icon-button" onClick={(event) => { event.stopPropagation(); onShareMeal(meal); }} aria-label={`Partager ${meal.name}`}><Icon name="share" size={16} /></button> : null}
+                <button className="icon-button" onClick={(event) => { event.stopPropagation(); deleteMeal(meal); }} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
+              </span>
             </div>
           ))}
         </div>
         <button className="ghost-button day-add" onClick={() => onAddMeal(selected)}><Icon name="plus" size={17} /> Ajouter un repas {selected === today ? "aujourd'hui" : "à ce jour"}</button>
       </section>
 
-      <WeeklyReportCard data={data} targets={reportTargets} today={todayKey()} />
-      <WeightTracker weights={data.weights} maintenance={goal === "maintien"} onAdd={onSaveWeight} onDelete={onDeleteWeight} />
       </>)}
     </div>
   );

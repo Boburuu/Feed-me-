@@ -246,6 +246,8 @@ export type AppData = {
   water: Record<string, number>;
   /** Absent des données où l'eau était comptée en verres (convertis à 200 ml). */
   waterInMl?: boolean;
+  /** Dernier montant d'eau saisi à la main (gourde de 750 ml…), proposé en un geste ensuite. */
+  customWater?: number;
   weights: WeightEntry[];
   tasks: SportTask[];
   recipes: Recipe[];

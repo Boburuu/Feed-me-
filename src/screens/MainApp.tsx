@@ -18,7 +18,7 @@ import ShareSheet from "../components/ShareSheet";
 import { INCOMING_EVENT, takeIncomingShare } from "../lib/incomingShare";
 import type { MealItem } from "../lib/storage";
 import StepsPanel from "../components/StepsPanel";
-import TrackingTab from "../components/TrackingTab";
+import TrackingTab, { type TrackingView } from "../components/TrackingTab";
 import { exportBackup } from "../lib/backup";
 import { backfillCarbs, backfillExtras } from "../lib/carbsBackfill";
 import { correctPastMeals, mealsWithProduct } from "../lib/corrections";
@@ -381,6 +381,16 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
 
   /** Dernière quantité ajoutée : le bouton « moins » l'annule. */
   const [lastWater, setLastWater] = useState(200);
+  const [waterDraft, setWaterDraft] = useState("");
+  /** Montant personnalisé : ajouté puis retenu pour la prochaine fois. */
+  const addCustomWater = (event: React.FormEvent) => {
+    event.preventDefault();
+    const ml = Math.round(Number(waterDraft.replace(",", ".")));
+    if (!(ml > 0) || ml > 3000) { flash("Entre un montant entre 1 et 3 000 ml"); return; }
+    addWater(ml);
+    update((current) => ({ ...current, customWater: ml }));
+    setWaterDraft("");
+  };
   const addWater = (ml: number) => {
     if (ml > 0) setLastWater(ml);
     update((current) => ({ ...current, water: { ...current.water, [today]: Math.max(0, Math.min(WATER_MAX, (current.water[today] ?? 0) + ml)) } }));
@@ -527,9 +537,12 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     }
   };
 
+  const [trackingView, setTrackingView] = useState<TrackingView>("jour");
   const goTo = (tab: Tab, section?: string) => {
     setModal(null);
     setActiveTab(tab);
+    // Suivi : le bilan et le poids ont chacun leur onglet.
+    if (tab === "Suivi") setTrackingView(section === "bilan-semaine" ? "bilan" : section === "suivi-poids" ? "poids" : "jour");
     window.setTimeout(() => (section ? document.getElementById(section)?.scrollIntoView({ behavior: "smooth" }) : window.scrollTo(0, 0)), 50);
   };
   const goToProfile = (section: "mon-objectif") => goTo("Profil", section);
@@ -647,6 +660,15 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 </button>
               ))}
             </div>
+            <form className="water-custom" onSubmit={addCustomWater}>
+              {data.customWater && !waterAmounts.some((amount) => amount.ml === data.customWater) && (
+                <button type="button" className="water-saved" onClick={() => addWater(data.customWater!)} aria-label={`Ajouter ${data.customWater} ml d'eau`}>
+                  <strong>+{data.customWater} ml</strong><small>mon montant</small>
+                </button>
+              )}
+              <input value={waterDraft} onChange={(e) => setWaterDraft(e.target.value)} inputMode="numeric" placeholder="Autre : … ml" aria-label="Montant d'eau personnalisé en ml" />
+              <button type="submit" className="plan-confirm" disabled={!waterDraft.trim()}><Icon name="plus" size={14} /> Ajouter</button>
+            </form>
           </section>
 
           <section className="section-block meals">
@@ -722,6 +744,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
 
       {activeTab === "Suivi" && (
         <TrackingTab
+          view={trackingView}
+          onView={setTrackingView}
           data={data}
           update={update}
           target={goal}
