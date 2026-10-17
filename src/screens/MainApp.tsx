@@ -25,7 +25,7 @@ import { correctPastMeals, mealsWithProduct } from "../lib/corrections";
 import { CorrectionsContext, type CorrectionsApi } from "../lib/correctionsContext";
 import { DRAFT_HOURS, hasContent, lastTab, mealDraft, setDraftHours, type MealDraft } from "../lib/drafts";
 import { programFor } from "../lib/goals";
-import { dailyTip, tips, tipThemes } from "../lib/tips";
+import { tipAt, tips, tipThemes } from "../lib/tips";
 import TipSplash from "../components/TipSplash";
 import TipsCorner from "../components/TipsCorner";
 import { restoreImages } from "../lib/images";
@@ -130,8 +130,22 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     window.addEventListener(INCOMING_EVENT, fromApp);
     return () => { window.removeEventListener("hashchange", receive); window.removeEventListener(INCOMING_EVENT, fromApp); };
   }, []);
-  // Conseil du jour : le même toute la journée ; écran à l'ouverture (une fois par lancement).
-  const todayTip = dailyTip(today);
+  // Conseil : un nouveau à chaque ouverture de l'appli (compteur gardé), « Un autre conseil » pour passer au suivant.
+  const [tipCount, setTipCount] = useState(() => {
+    const shown = data.tips?.shown ?? 0;
+    try {
+      const session = sessionStorage.getItem("feedme:conseil-numero");
+      if (session !== null) return Number(session);
+      sessionStorage.setItem("feedme:conseil-numero", String(shown + 1));
+    } catch { /* nouveau conseil quand même */ }
+    return shown + 1;
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem("feedme:conseil-numero", String(tipCount)); } catch { /* rien */ }
+    if ((data.tips?.shown ?? 0) < tipCount) update((current) => ({ ...current, tips: { ...current.tips, shown: tipCount } }));
+  }, [tipCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  const nextTip = () => setTipCount((count) => count + 1);
+  const todayTip = tipAt(tipCount);
   const favoriteTips = data.tips?.favorites ?? [];
   const toggleFavoriteTip = (id: number) => update((current) => {
     const favorites = current.tips?.favorites ?? [];
@@ -555,7 +569,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   return (
     <CorrectionsContext.Provider value={correctionsApi}>
       {showSplash && modal === null && (
-        <TipSplash tip={todayTip} favorite={favoriteTips.includes(todayTip.id)} onToggleFavorite={() => toggleFavoriteTip(todayTip.id)} onClose={() => setShowSplash(false)} onOpenCorner={() => { setShowSplash(false); setModal("tips"); }} />
+        <TipSplash tip={todayTip} favorite={favoriteTips.includes(todayTip.id)} onToggleFavorite={() => toggleFavoriteTip(todayTip.id)} onClose={() => setShowSplash(false)} onOpenCorner={() => { setShowSplash(false); setModal("tips"); }} onNext={nextTip} />
       )}
       <header className="topbar">
         <div>
@@ -592,7 +606,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
 
           <section className="tip-card">
             <span className="metric-icon"><Icon name="apple" /></span>
-            <div><p className="eyebrow">Conseil du jour · {tipThemes[todayTip.theme]}</p><p>{todayTip.text}</p><button type="button" className="text-button" onClick={() => setModal("tips")}>Tous mes conseils ›</button></div>
+            <div><p className="eyebrow">Conseil · {tipThemes[todayTip.theme]}</p><p>{todayTip.text}</p><span className="tip-links"><button type="button" className="text-button" onClick={nextTip}>Un autre conseil</button><button type="button" className="text-button" onClick={() => setModal("tips")}>Tous mes conseils ›</button></span></div>
             <button type="button" className={`tip-star${favoriteTips.includes(todayTip.id) ? " on" : ""}`} onClick={() => toggleFavoriteTip(todayTip.id)} aria-pressed={favoriteTips.includes(todayTip.id)} aria-label={favoriteTips.includes(todayTip.id) ? "Retirer des favoris" : "Garder ce conseil en favori"}>{favoriteTips.includes(todayTip.id) ? "★" : "☆"}</button>
           </section>
 
@@ -870,10 +884,10 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           </section>
 
           <section className="section-block">
-            <div className="section-title"><div><p className="eyebrow">Conseils</p><h2>Conseil du jour</h2></div></div>
+            <div className="section-title"><div><p className="eyebrow">Conseils</p><h2>Conseils</h2></div></div>
             <label className="planned-toggle">
               <input type="checkbox" checked={data.tips?.splash !== false} onChange={(e) => update((current) => ({ ...current, tips: { ...current.tips, splash: e.target.checked ? undefined : false } }))} />
-              <span>Afficher le conseil du jour à l'ouverture de l'appli (il reste affiché jusqu'à ce que tu le fermes)</span>
+              <span>Afficher un conseil à chaque ouverture de l'appli (un nouveau à chaque fois ; il reste affiché jusqu'à ce que tu le fermes)</span>
             </label>
             <button type="button" className="text-button" onClick={() => setModal("tips")}>Ouvrir le coin des conseils ›</button>
             {favoriteTips.length > 0 ? (
@@ -999,7 +1013,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               <>
                 <p className="eyebrow">{tips.length} conseils, un par jour</p>
                 <h2>Coin des conseils</h2>
-                <TipsCorner today={today} favorites={favoriteTips} onToggleFavorite={toggleFavoriteTip} />
+                <TipsCorner count={tipCount} favorites={favoriteTips} onToggleFavorite={toggleFavoriteTip} />
               </>
             )}
             {modal === "weigh" && (

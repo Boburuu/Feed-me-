@@ -89,3 +89,16 @@ describe("produit reconnu par le devant du paquet", () => {
     ]);
   });
 });
+
+import { lastTips, tipAt, tips } from "./tips";
+
+describe("un nouveau conseil à chaque ouverture", () => {
+  it("passe par tous les conseils avant de revoir le premier", () => {
+    const seen = new Set(Array.from({ length: tips.length }, (_, count) => tipAt(count).id));
+    expect(seen.size).toBe(tips.length);
+    expect(tipAt(1).id).not.toBe(tipAt(2).id);
+  });
+  it("liste les derniers vus, le plus récent d'abord", () => {
+    expect(lastTips(5, 3)).toEqual([tipAt(5), tipAt(4), tipAt(3)]);
+  });
+});

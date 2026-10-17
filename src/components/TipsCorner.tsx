@@ -1,26 +1,24 @@
 import { useState } from "react";
-import { recentTips, tips, tipThemes, type Tip, type TipTheme } from "../lib/tips";
+import { lastTips, tips, tipThemes, type Tip, type TipTheme } from "../lib/tips";
 
 type TipsCornerProps = {
-  today: string;
+  /** Numéro du conseil affiché en ce moment. */
+  count: number;
   favorites: number[];
   onToggleFavorite: (id: number) => void;
 };
 
 type Filter = "recent" | "favorites" | TipTheme;
 
-const dayLabel = (date: string, today: string) =>
-  date === today ? "Aujourd'hui" : new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-
-/** Coin des conseils : ceux des derniers jours, les favoris, et tous les conseils par thème. */
-export default function TipsCorner({ today, favorites, onToggleFavorite }: TipsCornerProps) {
+/** Coin des conseils : les derniers vus, les favoris, et tous les conseils par thème. */
+export default function TipsCorner({ count, favorites, onToggleFavorite }: TipsCornerProps) {
   const [filter, setFilter] = useState<Filter>("recent");
   const rows: { tip: Tip; note?: string }[] = filter === "recent"
-    ? recentTips(today).map(({ tip, date }) => ({ tip, note: dayLabel(date, today) }))
+    ? lastTips(count).map((tip, index) => ({ tip, note: index === 0 ? `En ce moment · ${tipThemes[tip.theme]}` : tipThemes[tip.theme] }))
     : filter === "favorites"
       ? tips.filter((tip) => favorites.includes(tip.id)).map((tip) => ({ tip, note: tipThemes[tip.theme] }))
       : tips.filter((tip) => tip.theme === filter).map((tip) => ({ tip }));
-  const chips: [Filter, string][] = [["recent", "Derniers jours"], ["favorites", `Favoris (${favorites.length})`], ...(Object.entries(tipThemes) as [TipTheme, string][])];
+  const chips: [Filter, string][] = [["recent", "Derniers vus"], ["favorites", `Favoris (${favorites.length})`], ...(Object.entries(tipThemes) as [TipTheme, string][])];
 
   return (
     <div className="tips-corner">
