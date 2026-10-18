@@ -787,3 +787,8 @@ h2 { font-size: 20px; font-weight: 800; }
 .sex-selector.tracking-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .tracking-tabs button { padding-inline: 4px; }
 .tip-links { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+/* Recette : valeurs de la fiche loin de la somme des ingrédients. */
+.recipe-mismatch { display: grid; gap: 8px; margin: 8px 0; padding: 12px; border: 1px solid var(--coral); border-radius: 14px; background: color-mix(in srgb, var(--coral) 10%, transparent); }
+.recipe-mismatch p { margin: 0; font-size: 14px; line-height: 1.4; }
+.recipe-mismatch .plan-confirm { justify-self: start; margin: 0; }
+.recipe-mismatch-note { margin: 0; color: var(--coral); font-size: 13px; line-height: 1.4; }

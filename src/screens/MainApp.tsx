@@ -918,7 +918,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
         </div>
       )}
 
-      {activeTab === "Recettes" && <RecipesTab recipes={data.recipes} update={update} onAddToJournal={addRecipeToJournal} flash={flash} onReceive={openShareImport} focusRecipeId={focusRecipeId} />}
+      {activeTab === "Recettes" && <RecipesTab recipes={data.recipes} meals={data.meals} update={update} onAddToJournal={addRecipeToJournal} flash={flash} onReceive={openShareImport} focusRecipeId={focusRecipeId} />}
 
       {notice && <div className="toast" role="status">{notice}</div>}
 

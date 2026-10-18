@@ -12,6 +12,7 @@ import { choicesOf, matchChoice, matchIngredient } from "../lib/ingredientMatch"
 import { mergeTexts, ocrAvailable, readImageText } from "../lib/ocr";
 import { categoryOf, commonUnits, formatQuantity, ingredientFromItem, ingredientsNutrition, parseQuantity, recipeCategories } from "../lib/recipes";
 import { parseRecipeText, summarize } from "../lib/recipeText";
+import { initialFields, savedNutrition } from "../lib/recipeNutrition";
 import type { Ingredient, MealItem, Recipe, RecipeCategory, RecipeStep, StepGroup } from "../lib/storage";
 
 type RecipeFormProps = {
@@ -77,10 +78,8 @@ function draftFrom(recipe?: Recipe): Draft {
     steps: recipe?.steps.length ? recipe.steps : [{ title: "", steps: [emptyStep()] }],
     time: recipe ? String(recipe.time) : "",
     portions: recipe ? String(recipe.portions) : "",
-    calories: recipe?.calories ? String(recipe.calories) : "",
-    protein: recipe?.calories ? String(recipe.protein) : "",
-    carbs: recipe?.carbs !== undefined ? String(recipe.carbs) : "",
-    fat: recipe?.fat !== undefined ? String(recipe.fat) : "",
+    // Valeurs calculées : champs vides (recalculées à chaque sauvegarde) ; saisies : affichées.
+    ...initialFields(recipe),
     volume: recipe?.volumeMl ? String(recipe.volumeMl) : "",
     notes: recipe?.notes ?? "",
     url: recipe?.url ?? "",
@@ -316,11 +315,8 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
       // (pas d'estimation au hasard).
       time: Number(draft.time) || Math.max(15, count * 5),
       portions: Number(draft.portions) || 2,
-      calories: Number(draft.calories) || (computed.known ? perPerson.kcal : 0),
-      protein: Number(draft.protein) || (computed.known ? perPerson.protein : 0),
-      // Glucides : saisis (même 0), sinon calculés, sinon inconnus.
-      carbs: draft.carbs.trim() ? Number(draft.carbs.replace(",", ".")) : computed.known ? perPerson.carbs : undefined,
-      fat: draft.fat.trim() ? Number(draft.fat.replace(",", ".")) : computed.known ? perPerson.fat : undefined,
+      // Champ rempli : valeur saisie ; champ vide : calcul d'après les ingrédients.
+      ...savedNutrition(draft, computed.known ? perPerson : null),
       volumeMl: Number(draft.volume.replace(",", ".")) || undefined,
       images,
       url: draft.url.trim() || undefined,
@@ -497,12 +493,12 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
       </div>
 
       <div className="recipe-fields">
-        <label><span>Calories <em>auto</em></span><div><input value={draft.calories} onChange={(e) => set({ calories: e.target.value })} type="number" placeholder="—" min="0" /><small>kcal/pers.</small></div></label>
-        <label><span>Protéines <em>auto</em></span><div><input value={draft.protein} onChange={(e) => set({ protein: e.target.value })} type="number" placeholder="—" min="0" /><small>g/pers.</small></div></label>
+        <label><span>Calories <em>auto</em></span><div><input value={draft.calories} onChange={(e) => set({ calories: e.target.value })} type="number" placeholder={computed.known ? String(perPerson.kcal) : "—"} min="0" /><small>kcal/pers.</small></div></label>
+        <label><span>Protéines <em>auto</em></span><div><input value={draft.protein} onChange={(e) => set({ protein: e.target.value })} type="number" placeholder={computed.known ? String(perPerson.protein) : "—"} min="0" /><small>g/pers.</small></div></label>
       </div>
       <div className="recipe-fields">
-        <label><span>Glucides <em>auto</em></span><div><input value={draft.carbs} onChange={(e) => set({ carbs: e.target.value })} type="number" placeholder="—" min="0" /><small>g/pers.</small></div></label>
-        <label><span>Lipides <em>auto</em></span><div><input value={draft.fat} onChange={(e) => set({ fat: e.target.value })} type="number" placeholder="—" min="0" /><small>g/pers.</small></div></label>
+        <label><span>Glucides <em>auto</em></span><div><input value={draft.carbs} onChange={(e) => set({ carbs: e.target.value })} type="number" placeholder={computed.known ? String(perPerson.carbs) : "—"} min="0" /><small>g/pers.</small></div></label>
+        <label><span>Lipides <em>auto</em></span><div><input value={draft.fat} onChange={(e) => set({ fat: e.target.value })} type="number" placeholder={computed.known ? String(perPerson.fat) : "—"} min="0" /><small>g/pers.</small></div></label>
       </div>
       <div className="recipe-fields">
         <label><span>Volume final (boisson, soupe)</span><div><input value={draft.volume} onChange={(e) => set({ volume: e.target.value })} type="number" placeholder="—" min="0" /><small>ml</small></div></label>
@@ -521,8 +517,12 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
             <small>{perPerson.carbs} g de glucides · {perPerson.protein} g de protéines · {perPerson.fat} g de lipides</small>
             <small>Calculé d'après {computed.known} ingrédient{computed.known > 1 ? "s" : ""} sur {draftIngredients.length}, pour {portionCount} personne{portionCount > 1 ? "s" : ""}.</small>
           </p>
-          {(draft.calories !== String(perPerson.kcal) || draft.protein !== String(perPerson.protein) || draft.carbs !== String(perPerson.carbs) || draft.fat !== String(perPerson.fat)) && (
-            <button type="button" className="add-line" onClick={() => set({ calories: String(perPerson.kcal), protein: String(perPerson.protein), carbs: String(perPerson.carbs), fat: String(perPerson.fat) })}><Icon name="check" size={15} /> Utiliser ces valeurs</button>
+          {/* Valeur saisie très loin du calcul (ancienne valeur restée, faute de frappe) : signalée. */}
+          {draft.calories.trim() && Math.abs(Number(draft.calories) - perPerson.kcal) > Math.max(20, 0.15 * perPerson.kcal) && (
+            <p className="recipe-mismatch-note">⚠ Les calories saisies ({draft.calories} kcal/pers.) sont très différentes de celles des ingrédients ({perPerson.kcal} kcal/pers.).</p>
+          )}
+          {(draft.calories || draft.protein || draft.carbs || draft.fat) && (
+            <button type="button" className="add-line" onClick={() => set({ calories: "", protein: "", carbs: "", fat: "" })}><Icon name="check" size={15} /> Utiliser le calcul automatique</button>
           )}
         </div>
       ) : (

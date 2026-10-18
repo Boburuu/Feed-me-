@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { mealsWithRecipe, recalculatedRecipe, updateMealsWithRecipe } from "../lib/recipeNutrition";
 import Icon from "./Icon";
 import RecipeDetail from "./RecipeDetail";
 import RecipeForm from "./RecipeForm";
@@ -7,10 +8,12 @@ import { recipeDraft, type RecipeDraft } from "../lib/drafts";
 import { deleteImage } from "../lib/images";
 import { applyChoice } from "../lib/recipeChoice";
 import { allSteps, categoryLabel, categoryOf, ingredientSummary, recipeCategories } from "../lib/recipes";
-import type { AppData, Recipe, RecipeCategory } from "../lib/storage";
+import type { AppData, Meal, Recipe, RecipeCategory } from "../lib/storage";
 
 type RecipesTabProps = {
   recipes: Recipe[];
+  /** Repas notés : ceux faits avec une recette modifiée peuvent être mis à jour. */
+  meals: Meal[];
   update: (change: (data: AppData) => AppData) => void;
   onAddToJournal: (recipe: Recipe) => void;
   flash: (message: string) => void;
@@ -23,7 +26,7 @@ type RecipesTabProps = {
 /** Ignore la casse et les accents : « creme » trouve « Crème ». */
 const normalize = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export default function RecipesTab({ recipes, update, onAddToJournal, flash, onReceive, focusRecipeId }: RecipesTabProps) {
+export default function RecipesTab({ recipes, meals, update, onAddToJournal, flash, onReceive, focusRecipeId }: RecipesTabProps) {
   const [filter, setFilter] = useState<RecipeCategory | "toutes">("toutes");
   const [search, setSearch] = useState("");
   // Recette en cours de saisie quand l'app a été fermée : le formulaire se rouvre avec elle.
@@ -50,6 +53,26 @@ export default function RecipesTab({ recipes, update, onAddToJournal, flash, onR
     (filter === "toutes" || categoryOf(recipe) === filter) &&
     (!query || normalize(`${recipe.name} ${ingredientSummary(recipe)}`).includes(query)));
 
+  /** Valeurs de la recette changées : proposer (sans l'imposer) de mettre à jour les repas déjà notés. */
+  const offerPastMeals = (recipe: Recipe) => {
+    const past = mealsWithRecipe(meals, recipe);
+    if (!past.length) return;
+    const example = past[0];
+    const after = updateMealsWithRecipe({ meals: [example] } as AppData, recipe).meals[0];
+    if (window.confirm(`${past.length} repas déjà noté${past.length > 1 ? "s" : ""} avec « ${recipe.name} » (ex. le ${new Date(`${example.date}T12:00:00`).toLocaleDateString("fr-FR")} : ${example.calories} → ${after.calories} kcal). Les mettre à jour avec les nouvelles valeurs ?`)) {
+      update((current) => updateMealsWithRecipe(current, recipe));
+      flash(`${past.length} repas mis à jour`);
+    }
+  };
+
+  /** Fiche recalculée d'après ses ingrédients (bouton de la fiche). */
+  const recalculate = (recipe: Recipe) => {
+    const next = recalculatedRecipe(recipe);
+    update((current) => ({ ...current, recipes: current.recipes.map((item) => (item.id === next.id ? next : item)) }));
+    flash(`${next.name} : ${next.calories} kcal / pers.`);
+    offerPastMeals(next);
+  };
+
   const save = (recipe: Recipe) => {
     update((current) => ({
       ...current,
@@ -58,6 +81,7 @@ export default function RecipesTab({ recipes, update, onAddToJournal, flash, onR
         : [recipe, ...current.recipes],
     }));
     flash(editingId ? "Recette modifiée" : "Recette ajoutée");
+    if (editingId) offerPastMeals(recipe);
     recipeDraft.clear();
     setRestored(null);
     setCreating(false);
@@ -222,6 +246,7 @@ export default function RecipesTab({ recipes, update, onAddToJournal, flash, onR
           onClose={() => setOpenId(null)}
           onEdit={() => { setOpenId(null); setEditingId(opened.id); }}
           onDelete={() => remove(opened)}
+          onRecalculate={() => recalculate(opened)}
           onAddToJournal={() => { setOpenId(null); onAddToJournal(opened); }}
           onChoose={(group, index, choice) => {
             applyChoice(opened, group, index, choice).then((next) => {

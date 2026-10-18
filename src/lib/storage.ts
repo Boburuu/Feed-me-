@@ -210,6 +210,8 @@ export type Recipe = {
   images?: string[];
   url?: string;
   notes?: string;
+  /** Valeurs saisies à la main (étiquette, site) : pas recalculées d'après les ingrédients. */
+  nutritionManual?: boolean;
 };
 
 export type Plan = {

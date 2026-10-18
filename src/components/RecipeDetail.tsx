@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { recipeMismatch } from "../lib/recipeNutrition";
 import Icon from "./Icon";
 import ShareSheet from "./ShareSheet";
 import { recipePayload } from "../lib/share";
@@ -13,6 +14,8 @@ type RecipeDetailProps = {
   onEdit: () => void;
   onDelete: () => void;
   onAddToJournal: () => void;
+  /** Recalcule les valeurs de la fiche d'après ses ingrédients. */
+  onRecalculate: () => void;
   /** Ingrédient « au choix » : prendre une autre option (partie, ligne, choix). */
   onChoose: (group: number, index: number, choice: string) => void;
 };
@@ -41,8 +44,10 @@ function useWakeLock(active: boolean) {
   }, [active]);
 }
 
-export default function RecipeDetail({ recipe, onClose, onEdit, onDelete, onAddToJournal, onChoose }: RecipeDetailProps) {
+export default function RecipeDetail({ recipe, onClose, onEdit, onDelete, onAddToJournal, onRecalculate, onChoose }: RecipeDetailProps) {
   const [portions, setPortions] = useState(recipe.portions);
+  // Fiche très différente de la somme de ses ingrédients : signalée, recalculée sur demande.
+  const mismatch = recipeMismatch(recipe);
   // Clés « partie-ligne » des ingrédients cochés et des étapes faites.
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [doneSteps, setDoneSteps] = useState<Set<string>>(new Set());
@@ -83,6 +88,12 @@ export default function RecipeDetail({ recipe, onClose, onEdit, onDelete, onAddT
 
         <p className="eyebrow">{categoryLabel(categoryOf(recipe))}</p>
         <h2>{recipe.name}</h2>
+        {mismatch && (
+          <div className="recipe-mismatch" role="alert">
+            <p><strong>⚠ À vérifier : les ingrédients donnent ≈ {mismatch.computed.kcal} kcal / pers.</strong> ({mismatch.computed.totalKcal} kcal pour {recipe.portions} pers.), la fiche indique {mismatch.stored} kcal / pers.</p>
+            <button type="button" className="plan-confirm" onClick={onRecalculate}><Icon name="check" size={14} /> Recalculer d'après les ingrédients</button>
+          </div>
+        )}
         <div className="recipe-detail-meta">
           <span><Icon name="clock" size={15} /> {recipe.time} min</span>
           {recipe.calories ? (

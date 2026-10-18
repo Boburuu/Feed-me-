@@ -154,7 +154,7 @@ function checkRecipe(value: unknown): SharedRecipe {
     calories: number(recipe.calories, 0, 20_000) ?? 0,
     protein: number(recipe.protein, 0, 2000) ?? 0,
     carbs: number(recipe.carbs, 0, 2000), fat: number(recipe.fat, 0, 2000),
-    volumeMl: number(recipe.volumeMl), pieces: number(recipe.pieces, 1, 1000), totalGrams: number(recipe.totalGrams),
+    volumeMl: number(recipe.volumeMl), pieces: number(recipe.pieces, 1, 1000), totalGrams: number(recipe.totalGrams), nutritionManual: recipe.nutritionManual === true || undefined,
     category: recipeCategories.find((entry) => entry === recipe.category),
     // Seuls les liens web sont gardés (pas de « javascript: »).
     url: url && /^https?:\/\//i.test(url) ? url : undefined,

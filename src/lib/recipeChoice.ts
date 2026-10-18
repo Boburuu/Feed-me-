@@ -3,12 +3,13 @@
 import { itemCalories, itemCarbs, itemFat, itemProtein } from "./foods";
 import { matchChoice } from "./ingredientMatch";
 import { ingredientFromItem } from "./recipes";
+import { recalculatedRecipe } from "./recipeNutrition";
 import type { MealItem, Recipe } from "./storage";
 
 /**
  * Nouvelle version de la recette avec ce choix, au même poids. Les valeurs par personne
- * sont corrigées de la différence entre l'ancien et le nouvel ingrédient : celles écrites
- * par l'auteur de la recette restent la base. Null si le choix est introuvable.
+ * recalculées d'après les ingrédients ; celles écrites par l'auteur de la recette restent la
+ * base, corrigée de la différence entre l'ancien et le nouvel ingrédient. Null si le choix est introuvable.
  */
 export async function applyChoice(recipe: Recipe, group: number, index: number, choice: string): Promise<Recipe | null> {
   const old = recipe.ingredients[group]?.items[index]?.food;
@@ -17,7 +18,7 @@ export async function applyChoice(recipe: Recipe, group: number, index: number, 
   if (!food) return null;
   const portions = recipe.portions || 1;
   const change = (value: (item: MealItem) => number | null) => ((value(food) ?? 0) - (value(old) ?? 0)) / portions;
-  return {
+  const next: Recipe = {
     ...recipe,
     ingredients: recipe.ingredients.map((part, g) => (g !== group ? part : {
       ...part,
@@ -28,4 +29,8 @@ export async function applyChoice(recipe: Recipe, group: number, index: number, 
     ...(recipe.carbs !== undefined ? { carbs: Math.max(0, Math.round(recipe.carbs + change(itemCarbs))) } : {}),
     ...(recipe.fat !== undefined ? { fat: Math.max(0, Math.round(recipe.fat + change(itemFat))) } : {}),
   };
+  // Valeurs venues du calcul et tous les ingrédients connus : on recalcule tout (une valeur
+  // ancienne ne doit pas servir de base) ; valeurs saisies par l'auteur : on corrige l'écart.
+  const known = next.ingredients.flatMap((part) => part.items);
+  return !recipe.nutritionManual && known.every((item) => item.food) ? recalculatedRecipe(next) : next;
 }
