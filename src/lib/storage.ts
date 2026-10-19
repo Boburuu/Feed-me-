@@ -151,6 +151,8 @@ export type MealItem = {
   recipeGrams?: number;
   /** Recette du carnet : unité choisie pour la quantité (gardée en parts). */
   recipeCount?: "parts" | "pieces" | "grams";
+  /** Poids du plat estimé d'après les ingrédients (pas pesé) : à corriger si le plat a cuit. */
+  recipeGramsEstimated?: boolean;
   /** Valeurs remplacées par la correction locale du produit (étiquette). */
   corrected?: boolean;
   /** Fiche comparée à l'étiquette et trouvée juste. */

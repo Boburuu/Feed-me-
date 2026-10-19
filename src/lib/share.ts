@@ -118,7 +118,7 @@ function checkItem(value: unknown): MealItem | null {
     liquid: item.liquid === true || undefined, packageGrams: number(item.packageGrams), servingGrams: number(item.servingGrams), servingLabel: text(item.servingLabel, 120),
     pieceGrams: number(item.pieceGrams), pieceLabel: text(item.pieceLabel, 120), matchedName: text(item.matchedName, 200), choice: text(item.choice, 120),
     recipePortions: number(item.recipePortions, 1, 1000),
-    recipePieces: number(item.recipePieces, 1, 1000), recipeGrams: number(item.recipeGrams),
+    recipePieces: number(item.recipePieces, 1, 1000), recipeGrams: number(item.recipeGrams), recipeGramsEstimated: item.recipeGramsEstimated === true || undefined,
     recipeCount: (["parts", "pieces", "grams"] as const).find((count) => count === item.recipeCount),
   }) as MealItem;
 }

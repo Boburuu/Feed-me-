@@ -449,6 +449,14 @@ export function shortServing(text: string, grams: number) {
 // --- Recettes et aliments perso ----------------------------------------------------------
 
 /** Une recette du carnet, connue par part : on stocke les valeurs d'une part. */
+/** Poids total des ingrédients, quand tous ont une fiche (chocolat au lait : 7 g + 272 g). */
+function ingredientsGrams(recipe: Recipe) {
+  const items = recipe.ingredients.flatMap((group) => group.items);
+  if (!items.length || items.some((item) => !item.food)) return null;
+  const total = items.reduce((sum, item) => sum + (itemGrams(item.food!) ?? 0), 0);
+  return total > 0 ? Math.round(total) : null;
+}
+
 export function recipeResult(recipe: Recipe): FoodResult {
   return {
     name: recipe.name,
@@ -462,7 +470,8 @@ export function recipeResult(recipe: Recipe): FoodResult {
     perPortionOnly: true,
     recipePortions: recipe.portions,
     ...(recipe.pieces ? { recipePieces: recipe.pieces } : {}),
-    ...(recipe.totalGrams ? { recipeGrams: recipe.totalGrams } : {}),
+    // Poids du plat : pesé (gardé avec la recette), sinon somme des ingrédients (à corriger si ça a cuit).
+    ...(recipe.totalGrams ? { recipeGrams: recipe.totalGrams } : ingredientsGrams(recipe) ? { recipeGrams: ingredientsGrams(recipe)!, recipeGramsEstimated: true } : {}),
     ...(recipe.volumeMl ? { drinkMlPerPart: recipe.volumeMl / (recipe.portions || 1) } : {}),
     detail: recipe.calories ? `Ma recette pour ${recipe.portions} pers.` : "Ma recette · calories à calculer",
   };
@@ -589,7 +598,7 @@ export function carbsOf(items: MealItem[]) {
 
 /** Aliment prêt à ajouter : une portion si on la connaît, sinon 100 g. */
 export function toMealItem(result: FoodResult): MealItem {
-  const { source, ref, kcal100, protein100, carbs100, fat100, sugars100, satFat100, fiber100, salt100, brand, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, recipePieces, recipeGrams, drinkMlPerPart } = result;
+  const { source, ref, kcal100, protein100, carbs100, fat100, sugars100, satFat100, fiber100, salt100, brand, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, recipePieces, recipeGrams, recipeGramsEstimated, drinkMlPerPart } = result;
   // Sans portion indiquée, un paquet vendu à la pièce se compte en pièces (« 1 tranche »).
   const portionGrams = result.portionGrams ?? pieceGrams;
   const portionLabel = result.portionGrams ? result.portionLabel : pieceLabel ?? result.portionLabel;
@@ -604,7 +613,7 @@ export function toMealItem(result: FoodResult): MealItem {
     ...(dry ? { cookedFactor: dry.factor, ...(packaging ? { cookedBy: "emballage" as const } : {}) } : {}),
     // Liquide Ciqual (valeurs pour 100 g) : densité pour passer des ml aux grammes.
     ...(source === "ciqual" && liquid && defaultDensity(result.name) ? { density: defaultDensity(result.name) } : {}),
-    name, source, ref, kcal100, protein100, carbs100, fat100, sugars100, satFat100, fiber100, salt100, portionGrams, portionLabel, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, recipePieces, recipeGrams, drinkMlPerPart,
+    name, source, ref, kcal100, protein100, carbs100, fat100, sugars100, satFat100, fiber100, salt100, portionGrams, portionLabel, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, recipePieces, recipeGrams, recipeGramsEstimated, drinkMlPerPart,
     servingGrams: portionGrams, servingLabel: portionLabel,
     quantity: byPortion ? 1 : 100, unit: byPortion ? "portion" : "g",
     // Recette coupée en morceaux (fudge en 9) : 1 morceau par défaut, plutôt qu'une part.

@@ -340,7 +340,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
         : [...current.meals, { ...meal, id: Date.now() }];
       // Recette comptée en morceaux ou en grammes : la taille du plat entier est gardée pour la prochaine fois.
       const recipes = current.recipes.map((recipe) => {
-        const used = meal.items?.find((item) => item.source === "recette" && item.ref === String(recipe.id));
+        // Poids estimé d'après les ingrédients : pas gardé comme poids pesé.
+        const used = meal.items?.find((item) => item.source === "recette" && item.ref === String(recipe.id) && !item.recipeGramsEstimated);
         if (!used || (used.recipePieces === recipe.pieces && used.recipeGrams === recipe.totalGrams)) return recipe;
         return { ...recipe, pieces: used.recipePieces ?? recipe.pieces, totalGrams: used.recipeGrams ?? recipe.totalGrams };
       });

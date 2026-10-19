@@ -192,7 +192,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
         seen.add(key);
         // Proposé avec sa portion d'origine, pas l'unité choisie la dernière fois (« 1 boîte »).
         const perPortionOnly = item.unit === "portion" && !item.portionGrams;
-        list.push({ ...item, perPortionOnly, ...(perPortionOnly ? {} : { portionGrams: item.servingGrams, portionLabel: item.servingLabel }), detail: sourceName[item.source] });
+        list.push({ ...item, perPortionOnly, ...(perPortionOnly ? {} : { portionGrams: item.servingGrams ?? item.portionGrams, portionLabel: item.servingLabel ?? item.portionLabel }), detail: sourceName[item.source] });
       }
       if (list.length >= 6) break;
     }

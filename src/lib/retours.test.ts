@@ -102,3 +102,23 @@ describe("un nouveau conseil chaque jour", () => {
     expect(lastTips(5, 3)).toEqual([tipAt(5), tipAt(4), tipAt(3)]);
   });
 });
+
+describe("recette comptée en g ou ml sans poids pesé (chocolat au lait)", () => {
+  const ing = (name: string, kcal100: number, grams: number) => ({ name, quantity: grams, unit: "g", food: { name, source: "off" as const, kcal100, protein100: 3, quantity: grams, unit: "g" as const } });
+  const chocolat: Recipe = { id: 9, name: "Chocolat au lait", ingredients: [{ title: "", items: [ing("Goody cao", 392, 7), ing("Lait demi-écrémé", 46, 272)] }], steps: [], time: 5, portions: 1, calories: 153, protein: 8 };
+  const line = toMealItem(recipeResult(chocolat));
+  it("estime le poids d'après les ingrédients (7 g + 272 g)", () => {
+    expect(line).toMatchObject({ recipeGrams: 279, recipeGramsEstimated: true });
+  });
+  it("150 ml au lieu de la tasse entière : 82 kcal", () => {
+    expect(Math.round(itemCalories({ ...line, quantity: 150 / 279, recipeCount: "grams" }))).toBe(82);
+  });
+  it("un poids pesé l'emporte sur l'estimation", () => {
+    expect(toMealItem(recipeResult({ ...chocolat, totalGrams: 260 }))).toMatchObject({ recipeGrams: 260 });
+    expect(toMealItem(recipeResult({ ...chocolat, totalGrams: 260 })).recipeGramsEstimated).toBeUndefined();
+  });
+  it("pas d'estimation si un ingrédient n'a pas de fiche", () => {
+    const partiel = { ...chocolat, ingredients: [{ title: "", items: [...chocolat.ingredients[0].items, { name: "Cannelle", quantity: 1, unit: "pincée" }] }] };
+    expect(toMealItem(recipeResult(partiel)).recipeGrams).toBeUndefined();
+  });
+});

@@ -135,6 +135,11 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
   // Unités proposées pour un aliment solide : sa portion habituelle, la boîte, les grammes.
   const options: { key: string; label: string; selected: boolean; pick: () => void }[] = [];
   if (!perPortionOnly && !line.liquid) {
+    // Aliment repris d'un ancien repas (sans portion habituelle gardée) : sa portion reste un choix,
+    // pour pouvoir passer en grammes (50 g de banane) et revenir.
+    if (line.portionGrams && !line.servingGrams && !hasPiece && line.portionLabel !== PACKAGE_LABEL) {
+      options.push({ key: "portion", label: unitName(line.portionLabel), selected: line.unit === "portion", pick: () => useUnit({ label: line.portionLabel ?? "1 portion", grams: line.portionGrams! }) });
+    }
     if (hasPiece) {
       options.push({ key: "piece", label: unitName(line.pieceLabel), selected: isPiece, pick: () => useUnit({ label: line.pieceLabel ?? "1 pièce", grams: line.pieceGrams! }) });
     }
@@ -209,7 +214,7 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
       {/* Recette : compter en parts, en morceaux (gâteau coupé en 12) ou en grammes (plat pesé). */}
       {servings && (
         <div className="container-chips" role="radiogroup" aria-label="Compter la recette en">
-          {([["parts", "parts"], ["pieces", "morceaux"], ["grams", "grammes"]] as const).map(([id, label]) => (
+          {([["parts", "parts"], ["pieces", "morceaux"], ["grams", "g / ml"]] as const).map(([id, label]) => (
             <button type="button" role="radio" aria-checked={wantedCount === id} key={id} className={wantedCount === id ? "selected" : ""} onClick={() => { setTotalDraft(""); onChange({ recipeCount: id === "parts" ? undefined : id }); }}>{label}</button>
           ))}
         </div>
@@ -219,13 +224,14 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
           event.preventDefault();
           const value = Number(totalDraft.replace(",", "."));
           // Premier découpage en morceaux : 1 morceau (et non le plat entier).
-          if (value > 0) { onChange(wantedCount === "pieces" ? { recipePieces: Math.round(value), ...(line.recipePieces ? {} : { quantity: servings! / Math.round(value) }) } : { recipeGrams: Math.round(value) }); setTotalDraft(""); }
+          if (value > 0) { onChange(wantedCount === "pieces" ? { recipePieces: Math.round(value), ...(line.recipePieces ? {} : { quantity: servings! / Math.round(value) }) } : { recipeGrams: Math.round(value), recipeGramsEstimated: undefined }); setTotalDraft(""); }
         }}>
-          <span>{wantedCount === "pieces" ? "Le plat entier est coupé en" : "Le plat entier pèse"}</span>
+          <span>{wantedCount === "pieces" ? "Le plat entier est coupé en" : line.recipeGramsEstimated ? `Le plat entier pèse ≈ ${n(line.recipeGrams!)} g (somme des ingrédients). Pesé :` : "Le plat entier pèse"}</span>
           <input value={totalDraft} onChange={(e) => setTotalDraft(e.target.value)} inputMode="decimal" placeholder={countTotal ? n(countTotal) : "—"} aria-label={wantedCount === "pieces" ? "Nombre de morceaux du plat entier" : "Poids du plat entier en grammes"} />
-          <span>{wantedCount === "pieces" ? "morceaux" : "g"}</span>
+          <span>{wantedCount === "pieces" ? "morceaux" : "g (ou ml)"}</span>
           <button type="submit" className="text-button" disabled={!(Number(totalDraft.replace(",", ".")) > 0)}>{countTotal ? "Changer" : "OK"}</button>
           {!countTotal && <small>Indique-le une fois : il est gardé dans la recette.</small>}
+          {wantedCount === "grams" && line.recipeGramsEstimated && <small>Plat cuit (l'eau s'évapore) : pèse-le et corrige ce poids. Boisson : 1 ml ≈ 1 g.</small>}
         </form>
       )}
 
