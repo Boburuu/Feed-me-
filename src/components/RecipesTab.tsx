@@ -14,6 +14,9 @@ type RecipesTabProps = {
   recipes: Recipe[];
   /** Repas notés : ceux faits avec une recette modifiée peuvent être mis à jour. */
   meals: Meal[];
+  /** Recette pré-remplie (repas reçu en partage) à vérifier avant de l'enregistrer. */
+  prefill?: Recipe | null;
+  onPrefillUsed?: () => void;
   update: (change: (data: AppData) => AppData) => void;
   onAddToJournal: (recipe: Recipe) => void;
   flash: (message: string) => void;
@@ -26,7 +29,7 @@ type RecipesTabProps = {
 /** Ignore la casse et les accents : « creme » trouve « Crème ». */
 const normalize = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export default function RecipesTab({ recipes, meals, update, onAddToJournal, flash, onReceive, focusRecipeId }: RecipesTabProps) {
+export default function RecipesTab({ recipes, meals, prefill, onPrefillUsed, update, onAddToJournal, flash, onReceive, focusRecipeId }: RecipesTabProps) {
   const [filter, setFilter] = useState<RecipeCategory | "toutes">("toutes");
   const [search, setSearch] = useState("");
   // Recette en cours de saisie quand l'app a été fermée : le formulaire se rouvre avec elle.
@@ -35,7 +38,10 @@ export default function RecipesTab({ recipes, meals, update, onAddToJournal, fla
   const [editingId, setEditingId] = useState<number | null>(startDraft?.recipeId ?? null);
   const [restored, setRestored] = useState<RecipeDraft | null>(startDraft);
   const [formKey, setFormKey] = useState(0);
-  const closeForm = () => { recipeDraft.clear(); setRestored(null); setCreating(false); setEditingId(null); };
+  // Repas reçu gardé comme recette : le formulaire s'ouvre avec, rien n'est ajouté avant « Enregistrer ».
+  const [prefilled, setPrefilled] = useState<Recipe | null>(null);
+  useEffect(() => { if (prefill) { setPrefilled(prefill); onPrefillUsed?.(); } }, [prefill]); // eslint-disable-line react-hooks/exhaustive-deps
+  const closeForm = () => { recipeDraft.clear(); setRestored(null); setCreating(false); setEditingId(null); setPrefilled(null); };
   const [openId, setOpenId] = useState<number | null>(focusRecipeId ?? null);
   useEffect(() => { if (focusRecipeId) setOpenId(focusRecipeId); }, [focusRecipeId]);
   /** Sélection de plusieurs recettes à supprimer (null : mode normal). */
@@ -86,6 +92,7 @@ export default function RecipesTab({ recipes, meals, update, onAddToJournal, fla
     setRestored(null);
     setCreating(false);
     setEditingId(null);
+    setPrefilled(null);
     setOpenId(recipe.id);
   };
 
@@ -116,17 +123,18 @@ export default function RecipesTab({ recipes, meals, update, onAddToJournal, fla
     setSelection(null);
   };
 
-  if (creating || editing) {
+  if (creating || editing || prefilled) {
     return (
       <div className="content page-content">
         <section className="page-heading recipe-heading">
           <p className="eyebrow">Mon carnet</p>
-          <h2>{editing ? "Modifier la recette" : "Nouvelle recette"}</h2>
-          {!editing && <p>Importez une capture d'écran (Instagram, site, livre…), collez le texte, ou écrivez-la vous-même.</p>}
+          <h2>{editing ? "Modifier la recette" : prefilled ? "Recette reçue en partage" : "Nouvelle recette"}</h2>
+          {prefilled && <p>Vérifie et modifie tout ce que tu veux (nom, parts, poids, quantités, étapes), puis enregistre. Rien n'est ajouté avant.</p>}
+          {!editing && !prefilled && <p>Importez une capture d'écran (Instagram, site, livre…), collez le texte, ou écrivez-la vous-même.</p>}
         </section>
         <RecipeForm
-          key={`${editing?.id ?? "new"}-${formKey}`}
-          initial={editing ?? undefined}
+          key={`${editing?.id ?? prefilled?.id ?? "new"}-${formKey}`}
+          initial={editing ?? prefilled ?? undefined}
           onSave={save}
           onCancel={closeForm}
           draft={restored ?? undefined}

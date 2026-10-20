@@ -16,6 +16,7 @@ import ShareImport from "../components/ShareImport";
 import { mealPayload, shareInHash, type SharedMeal, type SharedRecipe, type SharePayload } from "../lib/share";
 import ShareSheet from "../components/ShareSheet";
 import { INCOMING_EVENT, takeIncomingShare } from "../lib/incomingShare";
+import { cleanMealName, eatenItems, recipeFromMeal } from "../lib/sharedMeal";
 import type { MealItem } from "../lib/storage";
 import StepsPanel from "../components/StepsPanel";
 import TrackingTab, { type TrackingView } from "../components/TrackingTab";
@@ -111,6 +112,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const [focusRecipeId, setFocusRecipeId] = useState<number | null>(null);
   /** Repas ouvert depuis un partage : message dédié à la place de « repas en cours repris ». */
   const [sharedMealNotice, setSharedMealNotice] = useState<string | undefined>(undefined);
+  /** Recette tirée d'un repas reçu, à vérifier dans le formulaire avant de l'enregistrer. */
+  const [prefillRecipe, setPrefillRecipe] = useState<Recipe | null>(null);
   useEffect(() => {
     const receive = () => {
       const link = shareInHash(window.location.hash);
@@ -177,18 +180,20 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     setFocusRecipeId(id);
     window.setTimeout(() => setFocusRecipeId(null), 300);
   };
-  const openSharedMeal = (meal: SharedMeal & { items: MealItem[] }) => {
-    const plate = meal.plate;
+  /** Repas reçu : ouvert comme repas (la part mangée) ou comme assiette maison (le plat entier). */
+  const openSharedMeal = (meal: SharedMeal & { items: MealItem[] }, as: "meal" | "plate" = meal.plate ? "plate" : "meal") => {
+    const plate = as === "plate" ? meal.plate ?? { servings: 1, share: 1 } : undefined;
+    if (as === "meal") meal = { ...meal, items: eatenItems(meal), plate: undefined, name: cleanMealName(meal.name) };
     setPlanning(false);
     setOfferedDraft(null);
     setEditingMeal(null);
     setRestoredDraft({
       date: today, category: meal.category, mode: plate ? "plate" : "meal", lines: meal.items,
-      plateName: plate ? meal.name : "", servings: plate?.servings ?? 2,
+      plateName: plate ? cleanMealName(meal.name) : "", servings: plate?.servings ?? 2,
       parts: plate ? Math.max(0.5, Math.round(plate.share * plate.servings * 2) / 2) : 1,
       adjust: 0, keepLeftover: false, query: "",
     });
-    setSharedMealNotice("Repas reçu en partage : choisis le jour, le moment et ta quantité, puis enregistre.");
+    setSharedMealNotice(as === "plate" ? "Assiette reçue en partage : règle le plat, le nombre de personnes et ta part, puis enregistre." : "Repas reçu en partage : choisis le jour, le moment et ta quantité, puis enregistre.");
     setMealDate(today);
     setComposerKey((value) => value + 1);
     setModal("meal");
@@ -919,7 +924,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
         </div>
       )}
 
-      {activeTab === "Recettes" && <RecipesTab recipes={data.recipes} meals={data.meals} update={update} onAddToJournal={addRecipeToJournal} flash={flash} onReceive={openShareImport} focusRecipeId={focusRecipeId} />}
+      {activeTab === "Recettes" && <RecipesTab recipes={data.recipes} meals={data.meals} prefill={prefillRecipe} onPrefillUsed={() => setPrefillRecipe(null)} update={update} onAddToJournal={addRecipeToJournal} flash={flash} onReceive={openShareImport} focusRecipeId={focusRecipeId} />}
 
       {notice && <div className="toast" role="status">{notice}</div>}
 
@@ -1028,6 +1033,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   initialText={shareText}
                   onAddRecipe={addSharedRecipe}
                   onOpenMeal={openSharedMeal}
+                  onSaveAsRecipe={(meal) => { setModal(null); setPrefillRecipe(recipeFromMeal(meal)); goTo("Recettes"); }}
                   onOpenRecipe={(recipe) => focusRecipe(recipe.id)}
                   onClose={() => setModal(null)}
                 />

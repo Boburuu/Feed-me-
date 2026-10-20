@@ -318,6 +318,9 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
       // Champ rempli : valeur saisie ; champ vide : calcul d'après les ingrédients.
       ...savedNutrition(draft, computed.known ? perPerson : null),
       volumeMl: Number(draft.volume.replace(",", ".")) || undefined,
+      // Nombre de morceaux et poids pesé du plat : gardés (ils servent à « j'en ai mangé 2 » / « 250 g »).
+      ...(initial?.pieces ? { pieces: initial.pieces } : {}),
+      ...(initial?.totalGrams ? { totalGrams: initial.totalGrams } : {}),
       images,
       url: draft.url.trim() || undefined,
       notes: draft.notes.trim() || undefined,

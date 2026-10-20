@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { dailyTip, recentTips } from "./tips";
 import { itemCalories, itemGrams, needsPortionWeight, recipeResult, toMealItem, withPortionWeight } from "./foods";
 import { checkPayload, mealPayload } from "./share";
-import type { Meal, Recipe } from "./storage";
+import type { Meal, MealItem, Recipe } from "./storage";
 
 const recipe: Recipe = { id: 7, name: "Gratin de courgettes", ingredients: [], steps: [], time: 30, portions: 4, calories: 300, protein: 12, pieces: 8, totalGrams: 1200 };
 
@@ -122,3 +122,24 @@ describe("recette comptée en g ou ml sans poids pesé (chocolat au lait)", () =
     expect(toMealItem(recipeResult(partiel)).recipeGrams).toBeUndefined();
   });
 });
+
+import { cleanMealName, eatenItems, recipeFromMeal } from "./sharedMeal";
+
+describe("repas reçu : comme repas, assiette ou recette", () => {
+  // Repas du copain : sa recette « Penne poulet » (900 g pour 2 parts), 200 g mangés.
+  const penne: MealItem = { name: "Penne Poulet légumes du soleil IQF 900g · Monique ranou", source: "recette", ref: "77", quantity: 200 / 450, unit: "portion", kcal100: 481.5, protein100: 20, recipePortions: 2, recipeGrams: 900, recipeCount: "grams" };
+  const received = { name: "Penne Poulet légumes du soleil IQF 900g · Monique ranou (200 g sur 900 g)", category: "diner" as const, items: [penne] };
+  it("nettoie le nom", () => {
+    expect(cleanMealName(received.name)).toBe("Penne Poulet légumes du soleil IQF 900g · Monique ranou");
+  });
+  it("en recette : la recette entière, 2 parts, 900 g", () => {
+    const recipe = recipeFromMeal(received, 1);
+    expect(recipe).toMatchObject({ portions: 2, totalGrams: 900, calories: 482 });
+  });
+  it("assiette partagée ouverte en repas : la part mangée", () => {
+    const plate = { name: "Assiette maison : riz, poulet", category: "dejeuner" as const, plate: { servings: 4, share: 0.25 }, items: [{ ...pain(400), name: "Riz" }] };
+    expect(eatenItems(plate)[0].quantity).toBe(100);
+    expect(recipeFromMeal(plate, 2)).toMatchObject({ name: "riz, poulet", portions: 4 });
+  });
+});
+function pain(grams: number): MealItem { return { name: "Pain", source: "ciqual", kcal100: 250, protein100: 8, quantity: grams, unit: "g" }; }

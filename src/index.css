@@ -792,3 +792,9 @@ h2 { font-size: 20px; font-weight: 800; }
 .recipe-mismatch p { margin: 0; font-size: 14px; line-height: 1.4; }
 .recipe-mismatch .plan-confirm { justify-self: start; margin: 0; }
 .recipe-mismatch-note { margin: 0; color: var(--coral); font-size: 13px; line-height: 1.4; }
+/* Partage reçu : comme repas, assiette ou recette. */
+.share-choices { display: grid; gap: 8px; }
+.share-choice { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: transparent; text-align: left; cursor: pointer; }
+.share-choice svg { margin-top: 2px; color: var(--green); }
+.share-choice span { display: grid; gap: 2px; }
+.share-choice small { color: var(--muted); font-size: 12px; line-height: 1.4; }

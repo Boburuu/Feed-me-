@@ -10,7 +10,9 @@ type ShareImportProps = {
   initialText?: string;
   onAddRecipe: (recipe: SharedRecipe) => void;
   /** Le repas s'ouvre pré-rempli dans « Ajouter un repas » : rien n'est noté sans « Enregistrer ». */
-  onOpenMeal: (meal: SharedMeal & { items: MealItem[] }) => void;
+  onOpenMeal: (meal: SharedMeal & { items: MealItem[] }, as: "meal" | "plate") => void;
+  /** Garder le repas reçu comme recette : le formulaire s'ouvre pré-rempli, tout reste modifiable. */
+  onSaveAsRecipe: (meal: SharedMeal & { items: MealItem[] }) => void;
   onOpenRecipe: (recipe: Recipe) => void;
   onClose: () => void;
 };
@@ -19,7 +21,7 @@ const mealLabels = { "petit-dejeuner": "Petit-déjeuner", dejeuner: "Déjeuner",
 const day = (iso: string) => { const date = new Date(iso); return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" }); };
 
 /** Recevoir un partage : coller le lien ou ouvrir le fichier, voir l'aperçu, puis choisir. */
-export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenMeal, onOpenRecipe, onClose }: ShareImportProps) {
+export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenMeal, onSaveAsRecipe, onOpenRecipe, onClose }: ShareImportProps) {
   const [text, setText] = useState(initialText ?? "");
   const [shared, setShared] = useState<SharePayload | null>(null);
   const [error, setError] = useState("");
@@ -117,11 +119,19 @@ export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenM
                 : `${Math.round(shared.meal.items.reduce((sum, item) => sum + itemCalories(item), 0))} kcal au total`}
             </p>
           </article>
-          <p className="food-hint">Rien n'est ajouté à ton journal pour l'instant : le repas s'ouvre pour que tu choisisses le jour, le moment et ta quantité.</p>
-          <div className="barcode-actions">
-            <button type="button" className="text-button" onClick={onClose}>Ne pas l'ajouter</button>
-            <button type="button" className="plan-confirm" onClick={() => onOpenMeal(shared.meal)}><Icon name="edit" size={14} /> Vérifier et ajouter</button>
+          <p className="food-hint">Comment veux-tu l'ajouter ? Rien n'est enregistré avant que tu valides : tu pourras tout changer (quantités, grammes, parts, jour, nom…).</p>
+          <div className="share-choices">
+            <button type="button" className="share-choice" onClick={() => onOpenMeal(shared.meal, "meal")}>
+              <Icon name="apple" size={18} /><span><strong>Comme repas</strong><small>{shared.meal.plate ? "La part mangée, aliment par aliment." : "Les aliments et leurs quantités."} Tu ajustes ta quantité.</small></span>
+            </button>
+            <button type="button" className="share-choice" onClick={() => onOpenMeal(shared.meal, "plate")}>
+              <Icon name="flame" size={18} /><span><strong>En assiette maison</strong><small>Le plat entier : tu choisis pour combien de personnes et ta part.</small></span>
+            </button>
+            <button type="button" className="share-choice" onClick={() => onSaveAsRecipe(shared.meal)}>
+              <Icon name="book" size={18} /><span><strong>Dans mes recettes</strong><small>Pour le refaire : nom, parts, poids, ingrédients et étapes modifiables.</small></span>
+            </button>
           </div>
+          <button type="button" className="text-button" onClick={onClose}>Ne pas l'ajouter</button>
         </>
       )}
     </div>
