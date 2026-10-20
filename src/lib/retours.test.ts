@@ -143,3 +143,42 @@ describe("repas reçu : comme repas, assiette ou recette", () => {
   });
 });
 function pain(grams: number): MealItem { return { name: "Pain", source: "ciqual", kcal100: 250, protein100: 8, quantity: grams, unit: "g" }; }
+
+import { isRawEggProduct } from "./foods";
+import { packShare, unpackShare } from "./sharePack";
+import { checkPayload as checkShared, recipePayload as sharedRecipe } from "./share";
+
+describe("œufs comptés à l'œuf", () => {
+  it("reconnaît une boîte d'œufs, pas les pâtes aux œufs ni le bœuf", () => {
+    expect(isRawEggProduct("20 oeufs frais de poules élevées au sol")).toBe(true);
+    expect(isRawEggProduct("Œufs bio plein air")).toBe(true);
+    expect(isRawEggProduct("Pâtes aux œufs frais")).toBe(false);
+    expect(isRawEggProduct("Bœuf haché 5 %")).toBe(false);
+  });
+  it("1 œuf ≈ 55 g par défaut", () => {
+    const egg = toMealItem({ name: "20 oeufs frais de poules élevées au sol", source: "off", ref: "1", kcal100: 140, protein100: 12.5, detail: "" });
+    expect(egg).toMatchObject({ unit: "portion", quantity: 1, portionGrams: 55, portionLabel: "1 œuf" });
+    expect(Math.round(itemCalories({ ...egg, quantity: 2 }))).toBe(154);
+  });
+});
+
+describe("liens de partage courts", () => {
+  const recipe: Recipe = { id: 3, name: "Omelette", steps: [{ title: "", steps: [{ title: "", text: "Battre." }] }], time: 10, portions: 1, calories: 160, protein: 13,
+    ingredients: [{ title: "", items: [
+      { name: "Œuf", quantity: 2, unit: "", food: { name: "Œuf", source: "ciqual", ref: "22000", kcal100: 140, protein100: 12.5, carbs100: null, unit: "portion", quantity: 2, portionGrams: 55, portionLabel: "1 œuf", servingGrams: 55, servingLabel: "1 œuf" } },
+      { name: "Sel, poivre", quantity: null, unit: "" },
+    ] }] };
+  it("relit exactement le partage compacté", () => {
+    const payload = sharedRecipe(recipe);
+    const back = checkShared(unpackShare(JSON.parse(JSON.stringify(packShare(payload as never)))));
+    expect({ ...back, sharedAt: "" }).toEqual({ ...checkShared(JSON.parse(JSON.stringify(payload))), sharedAt: "" });
+  });
+  it("est plus court que l'ancien format", () => {
+    const payload = sharedRecipe(recipe);
+    expect(JSON.stringify(packShare(payload as never)).length).toBeLessThan(JSON.stringify(payload).length * 0.7);
+  });
+  it("les anciens liens restent lisibles", () => {
+    const payload = JSON.parse(JSON.stringify(sharedRecipe(recipe)));
+    expect(unpackShare(payload)).toBe(payload);
+  });
+});

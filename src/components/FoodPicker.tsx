@@ -4,6 +4,7 @@ import Icon from "./Icon";
 import { normalize, searchCiqual, searchCommon, searchOpenFoodFacts, type FoodResult } from "../lib/foods";
 import { analyzeMealPhoto, photoRecognitionAvailable, type PhotoAnalysis } from "../lib/foodPhoto";
 import BarcodePanel from "./BarcodePanel";
+import FastFoodPanel from "./FastFoodPanel";
 
 type FoodPickerProps = {
   onPick: (food: FoodResult) => void;
@@ -60,7 +61,8 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
 
   /** Code-barres : caméra, photo de la galerie ou chiffres tapés (panneau dédié). */
   const [barcodeOpen, setBarcodeOpen] = useState(false);
-  const scan = () => { setNote(""); setBarcodeOpen(true); };
+  const scan = () => { setNote(""); setFastFoodOpen(false); setBarcodeOpen(true); };
+  const [fastFoodOpen, setFastFoodOpen] = useState(false);
 
   const analysis = photo?.analysis;
   const photoFoods = analysis ? [...(analysis.barcode ? [analysis.barcode] : []), ...analysis.packaging, ...analysis.dishes.map((dish) => dish.food)] : [];
@@ -85,11 +87,20 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
           <button type="button" className="add-part" onClick={() => photoInput.current?.click()}><Icon name="camera" size={16} /> Photo</button>
           <button type="button" className="add-part" onClick={() => galleryInput.current?.click()}><Icon name="image" size={16} /> Galerie</button>
           <button type="button" className="add-part" onClick={scan}><Icon name="target" size={16} /> Code-barres</button>
+          <button type="button" className="add-part" onClick={() => { setBarcodeOpen(false); setFastFoodOpen(true); }}><Icon name="flame" size={16} /> Fast-food</button>
         </div>
       )}
       <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) analyzePhoto(file); }} />
       <input ref={galleryInput} className="hidden-input" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) analyzePhoto(file); }} />
       {note && <p className="food-hint">{note}</p>}
+      {fastFoodOpen && !query.trim() && (
+        <FastFoodPanel
+          onAdd={(foods) => { foods.forEach(onPick); setFastFoodOpen(false); }}
+          onClose={() => setFastFoodOpen(false)}
+          onSearch={(text) => { setFastFoodOpen(false); setQuery(text); }}
+          onCreate={(name) => { setFastFoodOpen(false); setQuery(name); }}
+        />
+      )}
       {barcodeOpen && !query.trim() && (
         <BarcodePanel onFound={(food) => { setBarcodeOpen(false); onPick(food); }} onClose={() => setBarcodeOpen(false)} onSearchByName={() => setBarcodeOpen(false)} />
       )}

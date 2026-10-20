@@ -6,6 +6,7 @@
 // de quelqu'un d'autre : chaque champ est vérifié et seuls les champs connus sont gardés.
 
 import { normalize } from "./foods";
+import { packShare, unpackShare } from "./sharePack";
 import type { FoodSource, IngredientGroup, Meal, MealCategory, MealItem, Recipe, RecipeCategory, StepGroup } from "./storage";
 
 export const SHARE_BASE_URL = "https://boburuu.github.io/Feed-me-/";
@@ -76,7 +77,8 @@ async function transform(bytes: Uint8Array<ArrayBuffer>, stream: CompressionStre
 }
 
 export async function shareLink(payload: SharePayload) {
-  const packed = await transform(new TextEncoder().encode(JSON.stringify(payload)), new CompressionStream("deflate-raw"));
+  // Format compact (champs abrégés, nombres arrondis) : un lien deux fois plus court environ.
+  const packed = await transform(new TextEncoder().encode(JSON.stringify(packShare(payload as unknown as Record<string, unknown>))), new CompressionStream("deflate-raw"));
   return `${SHARE_BASE_URL}#${HASH_KEY}${toBase64Url(packed)}`;
 }
 
@@ -206,7 +208,7 @@ export async function readShare(input: string): Promise<SharePayload> {
   } catch (error) {
     throw error instanceof ShareError ? error : new ShareError("Lien de partage abîmé ou incomplet : copie-le en entier.");
   }
-  try { return checkPayload(JSON.parse(json)); } catch (error) { throw error instanceof ShareError ? error : new ShareError("Lien de partage illisible."); }
+  try { return checkPayload(unpackShare(JSON.parse(json))); } catch (error) { throw error instanceof ShareError ? error : new ShareError("Lien de partage illisible."); }
 }
 
 /** Le lien d'ouverture de la page (#partage=…), s'il y en a un. */

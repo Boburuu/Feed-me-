@@ -6,7 +6,7 @@ import { cookingBase, cookingVariants, cookKey, withVariant, type CookingVariant
 import { useCorrections } from "../lib/correctionsContext";
 import { coherenceWarnings, quantityWarning } from "../lib/coherence";
 import { couldHydrate, drinkMl, isPreparedDrink } from "../lib/hydration";
-import { isReadyDrink, needsPortionWeight, withPortionWeight, itemCalories, itemCarbs, itemExtra, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
+import { isReadyDrink, needsPortionWeight, normalize, withPortionWeight, itemCalories, itemCarbs, itemExtra, itemFat, itemGrams, nutrientGrams } from "../lib/foods";
 import type { MealItem } from "../lib/storage";
 
 type MealLineEditorProps = {
@@ -36,6 +36,10 @@ const containers = [
   { label: "bouteille", ml: 500 },
   { label: "grande bouteille", ml: 1500 },
 ];
+/** Cuillères (repères courants : 5 ml et 15 ml ; en grammes, ça dépend de l'aliment). */
+const spoons = [{ label: "c. à café", ml: 5 }, { label: "c. à soupe", ml: 15 }];
+/** Aliments qu'on dose souvent à la cuillère (sucre, huile, cacao, épices…). */
+const spoonFood = /\b(sucre|sel|farine|huile|beurre|creme|miel|confiture|sauce|moutarde|ketchup|mayonnaise|epices?|cannelle|cacao|chocolat en poudre|poudre|levure|vinaigre|graines?|lait en poudre|whey|proteines?|ail|herbes|poivre|curry|paprika|cumin|cafe|the|sirop|pate a tartiner|nutella|cacahuete|goody|ricore|nesquik|maizena|fecule|parmesan|pesto|tahini|houmous|beurre de|compote|yaourt|fromage blanc|skyr|flocons|avoine|muesli|granola)\b/;
 /** Parts d'une boîte ou d'un paquet : on n'utilise pas toujours tout. */
 const fractions = [
   { label: "1/10", value: 0.1 },
@@ -62,6 +66,7 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
   /** Fiche Ciqual : valeurs pour 100 g, même pour une boisson. */
   const per100g = line.source === "ciqual";
   const [checking, setChecking] = useState(false);
+  const [details, setDetails] = useState(false);
   const reliability = reliabilityOf(line);
   /** Sucres, saturés, fibres, sel : affichés quand la fiche les donne. */
   const extras = ([["sugars100", "sucres"], ["satFat100", "saturés"], ["fiber100", "fibres"], ["salt100", "sel"]] as const).flatMap(([key, label]) => {
@@ -153,6 +158,10 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
     }
     if (line.packageGrams) {
       options.push({ key: "package", label: `boîte ${amount(line.packageGrams)}`, selected: isPackage, pick: () => useUnit({ label: PACKAGE_LABEL, grams: line.packageGrams! }) });
+    }
+    // Cuillère à café / à soupe : ≈ 5 g et ≈ 15 g (repère ; pour l'huile ou la farine, corriger en grammes).
+    if (spoonFood.test(normalize(line.name))) {
+      spoons.forEach((spoon) => options.push({ key: spoon.label, label: `${spoon.label} ≈${spoon.ml} g`, selected: line.unit === "portion" && line.portionLabel === `1 ${spoon.label}`, pick: () => useUnit({ label: `1 ${spoon.label}`, grams: spoon.ml }) }));
     }
     options.push({ key: "g", label: "g", selected: line.unit === "g", pick: () => useUnit("g") });
   }
@@ -265,7 +274,7 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
 
       {line.liquid && (
         <div className="container-chips" role="radiogroup" aria-label="Contenant">
-          {[...(line.packageGrams ? [{ label: "emballage", ml: line.packageGrams }] : []), ...containers].map((container) => {
+          {[...(line.packageGrams ? [{ label: "emballage", ml: line.packageGrams }] : []), ...spoons, ...containers].map((container) => {
             const selected = line.unit === "portion" && line.portionGrams === container.ml && unitName(line.portionLabel) === container.label;
             return (
               <button type="button" role="radio" aria-checked={selected} key={container.label} className={selected ? "selected" : ""} onClick={() => useUnit({ label: `1 ${container.label}`, grams: container.ml })}>
@@ -303,12 +312,16 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
           {line.weighedCooked && <small className="meal-line-detail">{n(Math.round(line.quantity))} g cuits ≈ {n(Math.round(nutrientGrams(line)))} g secs ≈ {n(Math.round(itemCalories(line)))} kcal ({line.cookedBy === "emballage" ? "conversion indiquée sur l'emballage" : "la fiche est celle du produit sec"})</small>}
         </>
       )}
-      {(itemCarbs(line) !== null || itemFat(line) !== null) && (
+      {/* Ligne compacte : nutriments, source et étiquette derrière « Détails ». */}
+      <button type="button" className="text-button line-details-toggle" aria-expanded={details} onClick={() => setDetails((value) => !value)}>
+        {details ? "Masquer les détails" : `Détails${itemCarbs(line) !== null ? ` · ${n(Math.round(itemCarbs(line)! * 10) / 10)} g de glucides` : ""} ›`}
+      </button>
+      {details && (itemCarbs(line) !== null || itemFat(line) !== null) && (
         <small className="meal-line-carbs">
           {[itemCarbs(line) !== null ? `${n(Math.round(itemCarbs(line)! * 10) / 10)} g de glucides` : "", itemFat(line) !== null ? `${n(Math.round(itemFat(line)! * 10) / 10)} g de lipides` : ""].filter(Boolean).join(" · ")}
         </small>
       )}
-      {extras.length > 0 && <small className="meal-line-carbs meal-line-extras">{extras.join(" · ")}</small>}
+      {details && extras.length > 0 && <small className="meal-line-carbs meal-line-extras">{extras.join(" · ")}</small>}
       {/* Boisson prête à boire enregistrée par erreur en grammes (thé glacé pris pour un sachet). */}
       {!line.liquid && (isReadyDrink(line.name) || (line.prepared && line.kcal100 >= 5 && line.kcal100 <= 100)) && (
         <button type="button" className="hydrate-toggle" onClick={() => onChange({ liquid: true, prepared: undefined, waterMl: undefined, hydrates: undefined })}>
@@ -348,6 +361,7 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
       )}
       {[quantityWarning(line)].filter(Boolean).map((warning) => <small className="meal-line-warning" key={warning}>⚠ {warning}</small>)}
       {coherenceWarnings(line).map((warning) => <small className="meal-line-warning" key={warning}>⚠ {warning}</small>)}
+      {details && (<>
       <div className="meal-line-source">
         <span className={`reliability ${reliability.tone}`}>{reliability.label}</span>
         {corrections && canCheckLabel(line) && !checking && (
@@ -366,6 +380,7 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
           <small>g · {n(Math.round(nutrientGrams(line)))} g comptés</small>
         </label>
       )}
+      </>)}
     </div>
   );
 }

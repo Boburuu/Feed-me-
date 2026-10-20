@@ -597,7 +597,21 @@ export function carbsOf(items: MealItem[]) {
 }
 
 /** Aliment prêt à ajouter : une portion si on la connaît, sinon 100 g. */
+/**
+ * Boîte d'œufs (« 20 oeufs frais de poules… ») : comptés à l'œuf plutôt qu'en grammes.
+ * 55 g, le poids moyen d'un œuf sans coquille déjà retenu pour les fiches Ciqual.
+ */
+export const isRawEggProduct = (name: string) => {
+  const simple = normalize(name);
+  if (/\b(pates?|nouilles|mayonnaise|brioche|gateau|biscuits?|chocolat|lardons?|jaunes?|blancs?|liquides?|poudre|en chocolat)\b/.test(simple)) return false;
+  return /^(\d+ |x\d+ )?(gros |moyens |petits )?oeufs?\b/.test(simple) || /\boeufs? (frais|de poules?|bio|plein air|label rouge|de ferme|extra frais)\b/.test(simple);
+};
+
 export function toMealItem(result: FoodResult): MealItem {
+  // Œufs vendus en boîte : 1 œuf ≈ 55 g, quand l'emballage ne donne pas de poids à la pièce.
+  if (!result.pieceGrams && !result.portionGrams && !result.perPortionOnly && result.source !== "recette" && isRawEggProduct(result.name)) {
+    result = { ...result, pieceGrams: 55, pieceLabel: "1 œuf" };
+  }
   const { source, ref, kcal100, protein100, carbs100, fat100, sugars100, satFat100, fiber100, salt100, brand, liquid, prepared, packageGrams, pieceGrams, pieceLabel, recipePortions, recipePieces, recipeGrams, recipeGramsEstimated, drinkMlPerPart } = result;
   // Sans portion indiquée, un paquet vendu à la pièce se compte en pièces (« 1 tranche »).
   const portionGrams = result.portionGrams ?? pieceGrams;

@@ -815,3 +815,10 @@ h2 { font-size: 20px; font-weight: 800; }
 .recap-link { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
 .free-day-note { margin: 4px 0 0; font-size: 12px; font-weight: 700; color: #9cc8e0; }
 .modal-card .recap-contents label.awake-toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+/* Ajouter un repas : mes recettes en un geste. */
+.quick-recipes { display: grid; gap: 6px; min-width: 0; }
+.quick-recipes .food-section { margin: 0; }
+.quick-recipes-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+.quick-recipe { flex: none; display: grid; gap: 2px; max-width: 180px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--white); text-align: left; cursor: pointer; scroll-snap-align: start; }
+.quick-recipe strong { font-size: 13px; line-height: 1.25; }
+.quick-recipe small { color: var(--muted); font-size: 11px; }

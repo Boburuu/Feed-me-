@@ -239,7 +239,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
     }).catch(() => undefined);
     setDraft((current) => ({
       ...current,
-      ingredients: current.ingredients.map((group, i) => (i === groupIndex ? { ...group, items: [...group.items.filter(hasContent), item] } : group)),
+      ingredients: current.ingredients.map((group, i) => (i === groupIndex ? { ...group, items: [item, ...group.items.filter(hasContent)] } : group)),
     }));
     // Produit de marque : la portion indiquée sur l'emballage arrive ensuite (comme dans un repas).
     if (result.source === "off" && /^\d+$/.test(result.ref ?? "") && !food.pieceGrams) {

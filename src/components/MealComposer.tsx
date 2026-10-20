@@ -113,9 +113,13 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const [query, setQuery] = useState(draft?.query ?? "");
   const corrections = useCorrections();
   const [lines, setLines] = useState<Line[]>(() => (draft ? draft.lines : editing ? itemsOf(editing) : initialItems ?? []).map((item, index) => ({ ...item, key: index + 1 })));
-  const [showAllRecipes, setShowAllRecipes] = useState(false);
   // Recettes du carnet, les plus récentes d'abord.
-  const myRecipes = useMemo(() => [...recipes].sort((a, b) => b.id - a.id), [recipes]);
+  // Recettes du carnet : les plus souvent notées d'abord, puis les plus récentes.
+  const myRecipes = useMemo(() => {
+    const uses = new Map<string, number>();
+    meals.forEach((meal) => meal.items?.forEach((item) => { if (item.source === "recette" && item.ref) uses.set(item.ref, (uses.get(item.ref) ?? 0) + 1); }));
+    return [...recipes].sort((a, b) => (uses.get(String(b.id)) ?? 0) - (uses.get(String(a.id)) ?? 0) || b.id - a.id);
+  }, [recipes, meals]);
   const [common, setCommon] = useState<FoodResult[]>([]);
   const [ciqual, setCiqual] = useState<FoodResult[]>([]);
   const [brands, setBrands] = useState<FoodResult[]>([]);
@@ -240,7 +244,8 @@ export default function MealComposer({ date: initialDate, category: initialCateg
     const pref = corrections?.cookPrefs[cookKey(item)];
     // Portion pesée la dernière fois (cookie Subway : 45 g) : comptable en grammes.
     const weighed = pref?.portionGrams && needsPortionWeight(item) ? withPortionWeight(item, pref.portionGrams) : {};
-    setLines((current) => [...current, { ...item, ...weighed, ...(item.cookedFactor ? { weighedCooked: pref?.weighedCooked ?? mode === "meal" } : {}), key }]);
+    // Le dernier aliment ajouté s'affiche en haut, juste sous la recherche : pas besoin de descendre.
+    setLines((current) => [{ ...item, ...weighed, ...(item.cookedFactor ? { weighedCooked: pref?.weighedCooked ?? mode === "meal" } : {}), key }, ...current]);
     setQuery("");
     if (pref?.variantRef && pref.variantRef !== item.ref && item.unit === "g") {
       cookingVariants(item).then((list) => {
@@ -391,7 +396,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const lastMeals = useMemo(() => recentMeals(meals.filter((meal) => meal.id !== editing?.id), 20), [meals, editing]);
   const [allLastMeals, setAllLastMeals] = useState(false);
   const addPast = (item: MealItem) => {
-    setLines((current) => [...current, { ...applyCorrection({ ...item }, corrections?.corrections), key: Date.now() }]);
+    setLines((current) => [{ ...applyCorrection({ ...item }, corrections?.corrections), key: Date.now() }, ...current]);
     setQuery("");
   };
   /** Refaire un repas : ses aliments, chacun modifiable (la part mangée pour une assiette). */
@@ -459,10 +464,10 @@ export default function MealComposer({ date: initialDate, category: initialCateg
         </label>
       )}
 
-      <div className="sex-selector meal-mode three" role="radiogroup" aria-label="Type de repas">
+      <div className={`sex-selector meal-mode${free || (!initialItems?.length && !lines.length) ? " three" : ""}`} role="radiogroup" aria-label="Type de repas">
         <button type="button" role="radio" aria-checked={!isPlate && !free} className={!isPlate && !free ? "selected" : ""} onClick={() => { setFree(false); setMode("meal"); }}>Repas</button>
         <button type="button" role="radio" aria-checked={isPlate && !free} className={isPlate && !free ? "selected" : ""} onClick={() => { setFree(false); setMode("plate"); }}>Assiette maison</button>
-        <button type="button" role="radio" aria-checked={free} className={free ? "selected" : ""} onClick={() => setFree(true)}>Repas libre</button>
+        {(free || (!initialItems?.length && !lines.length)) && <button type="button" role="radio" aria-checked={free} className={free ? "selected" : ""} onClick={() => setFree(true)}>Repas libre</button>}
       </div>
       {free && (
         <section className="free-meal">
@@ -594,6 +599,20 @@ export default function MealComposer({ date: initialDate, category: initialCateg
         </div>
       )}
       {scanNote && !searching && <p className="food-hint">{scanNote}</p>}
+      {/* Mes recettes en un geste, en haut (les plus utilisées d'abord) ; la quantité se règle sur la ligne. */}
+      {!free && !searching && !creating && myRecipes.length > 0 && (
+        <div className="quick-recipes">
+          <p className="food-section">Mes recettes</p>
+          <div className="quick-recipes-row">
+            {myRecipes.map((recipe) => (
+              <button type="button" key={recipe.id} className="quick-recipe" onClick={() => add(recipeResult(recipe))}>
+                <strong>{recipe.name}</strong>
+                <small>{recipe.calories ? `${recipe.calories} kcal la part` : "calories à calculer"}</small>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {fastFoodOpen && !searching && !creating && (
         <FastFoodPanel
           onAdd={(foods) => { foods.forEach(add); setFastFoodOpen(false); }}
@@ -746,18 +765,6 @@ export default function MealComposer({ date: initialDate, category: initialCateg
                   <button type="button" className="icon-button" onClick={() => onDiscardLeftover(item.id)} aria-label="Jeter ce reste"><Icon name="trash" size={15} /></button>
                 </div>
               ))}
-            </div>
-          )}
-
-          {myRecipes.length > 0 && (
-            <div className="food-results">
-              <p className="food-section">Mes recettes</p>
-              {(showAllRecipes ? myRecipes : myRecipes.slice(0, 3)).map((recipe) => (
-                <FoodResultRow key={`recette-${recipe.id}`} result={recipeResult(recipe)} onPick={add} />
-              ))}
-              {!showAllRecipes && myRecipes.length > 3 && (
-                <button type="button" className="text-button food-more" onClick={() => setShowAllRecipes(true)}>Voir {myRecipes.length - 3} de plus</button>
-              )}
             </div>
           )}
 
