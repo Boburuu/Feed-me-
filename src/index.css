@@ -71,6 +71,7 @@ button { color: inherit; }
   width: 100%;
   min-height: 100vh;
   overflow: hidden;
+  overflow: clip; /* coupe sans empêcher les barres collantes (position: sticky) */
   background: var(--cream);
   transition: color .25s ease, background-color .25s ease;
 }
@@ -223,6 +224,7 @@ h2 { font-size: 20px; font-weight: 800; }
   justify-content: space-between;
   padding: 25px 22px;
   overflow: hidden;
+  overflow: clip; /* coupe sans empêcher les barres collantes (position: sticky) */
   border-radius: 26px;
   color: var(--on-accent);
   background:

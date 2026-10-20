@@ -305,3 +305,38 @@
 .modal-card form.recipe-total, .recipe-total { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; color: var(--muted); }
 .modal-card .recipe-total input { width: 76px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--cream); font-size: 16px; font-weight: 700; text-align: center; }
 .recipe-total small { flex-basis: 100%; font-size: 12px; }
+/* Ajouter un repas en 2 étapes (maquette B) : cocher, puis régler. */
+.composer-steps { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.composer-steps i { width: 24px; height: 4px; border-radius: 4px; background: var(--line); }
+.composer-steps i.on { background: var(--green); }
+.composer-steps span { margin-left: 4px; }
+.search-tools { display: flex; gap: 4px; margin-left: auto; }
+.search-tools button { display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 10px; color: var(--ink); background: var(--cream); cursor: pointer; }
+.composer-tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+.composer-tabs button { flex: none; padding: 8px 10px; border: 0; color: var(--muted); background: none; font-size: 13px; font-weight: 700; cursor: pointer; }
+.composer-tabs button.selected { color: var(--green); box-shadow: inset 0 -2px var(--green); }
+.food-result.picked { outline: 2px solid var(--green); outline-offset: -2px; }
+.pick-check { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; color: var(--on-accent, #00210f); background: var(--green); font-weight: 800; }
+.drink-chips button.picked { outline: 2px solid var(--green); outline-offset: -2px; }
+.free-meal-link { justify-self: start; }
+.add-more { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.composer-bar { position: sticky; bottom: 0; z-index: 3; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-top: 4px; padding: 12px 14px; border-radius: 18px; color: var(--on-accent); background: var(--green); box-shadow: 0 -8px 24px rgba(0, 0, 0, .35); }
+.composer-bar span { display: grid; gap: 2px; min-width: 0; }
+.composer-bar strong { font-size: 15px; }
+.composer-bar small { overflow: hidden; color: var(--on-accent); opacity: .8; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.composer-bar button { display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border: 0; border-radius: 12px; color: var(--ink); background: var(--white); font-weight: 800; cursor: pointer; }
+.composer-bar button:disabled { opacity: .5; cursor: default; }
+/* Recette en 3 étapes (maquette B). */
+.recipe-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.recipe-steps button { display: grid; gap: 6px; padding: 0; border: 0; color: var(--muted); background: none; font-size: 11px; font-weight: 700; text-align: left; cursor: pointer; }
+.recipe-steps button i { height: 4px; border-radius: 4px; background: var(--line); }
+.recipe-steps button.on i { background: var(--green); }
+.recipe-steps button[aria-selected="true"] { color: var(--ink); }
+.recipe-bar-actions { display: flex; gap: 6px; }
+.composer-bar .recipe-bar-actions button.secondary { color: var(--on-accent); background: transparent; box-shadow: inset 0 0 0 1px var(--on-accent); }
+.recipe-bar { bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); }
+.recipe-bar-actions { flex-wrap: nowrap; }
+.composer-bar .recipe-bar-actions button { padding: 10px 12px; white-space: nowrap; }
+.food-picker .capture-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.food-picker .capture-actions .add-part { flex-direction: column; gap: 2px; margin: 0; padding: 8px 2px; font-size: 11px; }
+.composer-bar .recipe-bar-actions { display: flex; flex-wrap: nowrap; gap: 6px; }

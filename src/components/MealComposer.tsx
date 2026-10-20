@@ -414,8 +414,23 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   };
   const shortDate = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 
+  // --- Étape 1 : cocher ce qu'on a mangé ---------------------------------------------------------
+  // Modification, brouillon, repas reçu ou recette : on arrive directement sur les quantités.
+  const [stage, setStage] = useState<1 | 2>(() => (editing || draft?.lines.length || initialItems?.length ? 2 : 1));
+  const pickTabs = (["Récents", "Recettes", "Fast-food", "Boissons", "Restes", "Refaire"] as const).filter((name) =>
+    (name !== "Restes" || freshLeftovers.length > 0) && (name !== "Refaire" || lastMeals.length > 0) && (name !== "Boissons" || drinks.length > 0));
+  const [pickTab, setPickTab] = useState<(typeof pickTabs)[number]>("Récents");
+  const pickKey = (item: Pick<MealItem, "source" | "ref" | "name">) => `${item.source}:${item.ref ?? normalize(item.name)}`;
+  const pickedKeys = new Set(lines.map(pickKey));
+  const isPicked = (result: FoodResult) => pickedKeys.has(pickKey(result));
+  /** Cocher ajoute l'aliment (quantité habituelle) ; décocher le retire. */
+  const togglePick = (result: FoodResult) => {
+    if (isPicked(result)) setLines((current) => current.filter((line) => pickKey(line) !== pickKey(result)));
+    else add(result);
+  };
+
   const resultRow = (result: FoodResult, index: number) => (
-    <FoodResultRow key={`${result.source}-${result.ref ?? result.name}-${index}`} result={result} onPick={add} />
+    <FoodResultRow key={`${result.source}-${result.ref ?? result.name}-${index}`} result={result} onPick={togglePick} selected={isPicked(result)} />
   );
 
   /** Section repliable : les premiers résultats, puis « Voir plus ». */
@@ -449,43 +464,13 @@ export default function MealComposer({ date: initialDate, category: initialCateg
           </div>
         </div>
       )}
-      <div className="meal-composer-when">
-        <label>Jour<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
-        <label>Moment
-          <select value={category} onChange={(e) => setCategory(e.target.value as MealCategory)}>
-            {mealCategories.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-          </select>
-        </label>
+      {/* Deux étapes : 1. cocher ce qu'on a mangé, 2. régler les quantités (maquette B). */}
+      <div className="composer-steps" aria-label={`Étape ${stage} sur 2`}>
+        <i className="on" /><i className={stage === 2 ? "on" : ""} />
+        <span>{stage === 1 ? "1. Je coche ce que j'ai mangé" : "2. Je règle les quantités"}</span>
       </div>
-      {date >= today && (
-        <label className="awake-toggle planned-toggle">
-          <input type="checkbox" checked={planned} disabled={date > today} onChange={(e) => setPlannedChoice(e.target.checked)} />
-          <span>{date > today ? "Repas prévu (jour à venir) : il comptera quand vous l'aurez confirmé « mangé »" : "Prévu, pas encore mangé (ne compte pas tant qu'il n'est pas confirmé)"}</span>
-        </label>
-      )}
 
-      <div className={`sex-selector meal-mode${free || (!initialItems?.length && !lines.length) ? " three" : ""}`} role="radiogroup" aria-label="Type de repas">
-        <button type="button" role="radio" aria-checked={!isPlate && !free} className={!isPlate && !free ? "selected" : ""} onClick={() => { setFree(false); setMode("meal"); }}>Repas</button>
-        <button type="button" role="radio" aria-checked={isPlate && !free} className={isPlate && !free ? "selected" : ""} onClick={() => { setFree(false); setMode("plate"); }}>Assiette maison</button>
-        {(free || (!initialItems?.length && !lines.length)) && <button type="button" role="radio" aria-checked={free} className={free ? "selected" : ""} onClick={() => setFree(true)}>Repas libre</button>}
-      </div>
-      {free && (
-        <section className="free-meal">
-          <p>Un repas que tu ne peux pas compter (chez quelqu'un, au restaurant, un cheat meal). <strong>Ce jour sera « libre »</strong> : il ne compte ni dans tes moyennes ni dans ton bilan, et ne casse pas ta série de jours notés.</p>
-          <label>Où, avec qui ?<input value={freeName} onChange={(e) => setFreeName(e.target.value)} placeholder="Ex. Dîner chez papa" /></label>
-          <label>Estimation (facultative)<div className="free-estimate"><input value={freeKcal} onChange={(e) => setFreeKcal(e.target.value)} inputMode="numeric" placeholder="—" /><small>kcal</small></div></label>
-          <small className="food-hint">L'estimation n'est qu'un repère pour toi : elle s'affiche avec « ≈ » et n'entre dans aucun calcul.</small>
-          <button type="button" className="submit-button" onClick={saveFree}><Icon name="check" /> {editing ? "Enregistrer les modifications" : "Noter ce repas libre"}</button>
-        </section>
-      )}
-      {!free && (<>
-      {isPlate && !searching && !creating && (
-        <div className="plate-intro">
-          <input value={plateName} onChange={(e) => setPlateName(e.target.value)} placeholder="Nom du plat (facultatif) : colin, riz…" aria-label="Nom du plat" />
-          <small>Ajoutez tout ce qui va dans la casserole (boîte entière ou entamée, filets, riz cru…), puis indiquez votre part.</small>
-        </div>
-      )}
-
+      {stage === 1 && (<>
       {!creating && (
         <div className="food-search">
           <Icon name="apple" size={18} />
@@ -496,14 +481,22 @@ export default function MealComposer({ date: initialDate, category: initialCateg
             autoComplete="off"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={lines.length ? "Ajouter un autre aliment" : "Banane, bœuf bourguignon, Kinder…"}
+            placeholder="Banane, bœuf bourguignon, Kinder…"
             aria-label="Rechercher un aliment ou un plat"
           />
-          {searching && <button type="button" className="food-search-clear" onClick={() => { setQuery(""); searchInput.current?.focus(); }} aria-label="Effacer la recherche"><Icon name="close" size={16} /></button>}
+          {searching
+            ? <button type="button" className="food-search-clear" onClick={() => { setQuery(""); searchInput.current?.focus(); }} aria-label="Effacer la recherche"><Icon name="close" size={16} /></button>
+            : photoRecognitionAvailable() && (
+              <span className="search-tools">
+                <button type="button" onClick={() => photoInput.current?.click()} aria-label="Photo"><Icon name="camera" size={16} /></button>
+                <button type="button" onClick={() => galleryInput.current?.click()} aria-label="Photo de la galerie"><Icon name="image" size={16} /></button>
+                <button type="button" onClick={scan} aria-label="Code-barres"><Icon name="target" size={16} /></button>
+              </span>
+            )}
         </div>
       )}
 
-      {/* Pendant la recherche : uniquement les résultats, rien ne se superpose. */}
+      {/* Pendant la recherche : uniquement les résultats, à cocher. */}
       {searching && !creating && (
         <div className="food-results">
           {pastMatches.length > 0 && (
@@ -524,7 +517,6 @@ export default function MealComposer({ date: initialDate, category: initialCateg
           {common.length > 0 ? (
             <>
               {section("Aliments courants", common, "common")}
-              {/* Variantes techniques (« pulpe et peau », « appertisé »…) seulement sur demande. */}
               {ciqual.length > 0 && (expanded.variants
                 ? section("Autres variantes · Ciqual (ANSES)", ciqual, "ciqual")
                 : <button type="button" className="text-button food-more" onClick={() => setExpanded((value) => ({ ...value, variants: true }))}>Plus de choix ({ciqual.length} variantes : cuit, cru, en conserve…)</button>)}
@@ -571,9 +563,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
             <label><span>Glucides</span><div><input value={custom.carbs} onChange={(e) => setCustom({ ...custom, carbs: e.target.value })} inputMode="decimal" placeholder="—" /><small>g</small></div></label>
             <label><span>Lipides</span><div><input value={custom.fat} onChange={(e) => setCustom({ ...custom, fat: e.target.value })} inputMode="decimal" placeholder="—" /><small>g</small></div></label>
           </div>
-          {(
-            <label>{custom.perPortion ? "Poids de cette portion (facultatif, pour compter aussi en grammes)" : "Poids d'une portion (facultatif)"}<input value={custom.portion} onChange={(e) => setCustom({ ...custom, portion: e.target.value })} inputMode="decimal" placeholder="Ex. 23,5 pour une barre" /></label>
-          )}
+          <label>{custom.perPortion ? "Poids de cette portion (facultatif, pour compter aussi en grammes)" : "Poids d'une portion (facultatif)"}<input value={custom.portion} onChange={(e) => setCustom({ ...custom, portion: e.target.value })} inputMode="decimal" placeholder="Ex. 23,5 pour une barre" /></label>
           <label className="awake-toggle"><input type="checkbox" checked={custom.keep} onChange={(e) => setCustom({ ...custom, keep: e.target.checked })} /><span>Garder dans mes aliments</span></label>
           <div className="form-actions">
             <button type="button" className="ghost-button" onClick={() => setCreating(false)}>Retour</button>
@@ -582,45 +572,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
         </form>
       )}
 
-      {!searching && !creating && photoRecognitionAvailable() && !photo && (
-        <div className="capture-actions">
-          <button type="button" className="add-part" onClick={() => photoInput.current?.click()}>
-            <Icon name="camera" size={16} /> Photo
-          </button>
-          <button type="button" className="add-part" onClick={() => galleryInput.current?.click()}>
-            <Icon name="image" size={16} /> Galerie
-          </button>
-          <button type="button" className="add-part" onClick={scan}>
-            <Icon name="target" size={16} /> Code-barres
-          </button>
-          <button type="button" className="add-part" onClick={() => { setBarcodeOpen(false); setFastFoodOpen(true); }}>
-            <Icon name="flame" size={16} /> Fast-food
-          </button>
-        </div>
-      )}
       {scanNote && !searching && <p className="food-hint">{scanNote}</p>}
-      {/* Mes recettes en un geste, en haut (les plus utilisées d'abord) ; la quantité se règle sur la ligne. */}
-      {!free && !searching && !creating && myRecipes.length > 0 && (
-        <div className="quick-recipes">
-          <p className="food-section">Mes recettes</p>
-          <div className="quick-recipes-row">
-            {myRecipes.map((recipe) => (
-              <button type="button" key={recipe.id} className="quick-recipe" onClick={() => add(recipeResult(recipe))}>
-                <strong>{recipe.name}</strong>
-                <small>{recipe.calories ? `${recipe.calories} kcal la part` : "calories à calculer"}</small>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {fastFoodOpen && !searching && !creating && (
-        <FastFoodPanel
-          onAdd={(foods) => { foods.forEach(add); setFastFoodOpen(false); }}
-          onClose={() => setFastFoodOpen(false)}
-          onSearch={(text) => { setFastFoodOpen(false); setQuery(text); setExpanded((value) => ({ ...value, brands: true })); searchInput.current?.focus(); }}
-          onCreate={(name) => { setFastFoodOpen(false); setCustom((value) => ({ ...value, name })); setCreating(true); }}
-        />
-      )}
       {barcodeOpen && !searching && !creating && (
         <BarcodePanel
           onFound={(food) => { add(food); setBarcodeOpen(false); }}
@@ -643,9 +595,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
               <img src={photo.src} alt="Photo du repas" />
               <div>
                 <strong>{photo.state === "loading" ? "Analyse de la photo…" : photo.state === "error" ? "Analyse impossible" : found ? "Qu'avez-vous pris ?" : "Rien de reconnu"}</strong>
-                <small>
-                  {photo.state === "loading" ? "Code-barres, emballage, puis plat." : found ? "Touchez le bon, puis ajustez la quantité." : "Essayez le code-barres, ou cherchez-le ci-dessus."}
-                </small>
+                <small>{photo.state === "loading" ? "Code-barres, emballage, puis plat." : found ? "Touchez le bon : il est coché." : "Essayez le code-barres, ou cherchez-le ci-dessus."}</small>
               </div>
               {photo.state === "loading"
                 ? <span className="loader" />
@@ -666,121 +616,41 @@ export default function MealComposer({ date: initialDate, category: initialCateg
         );
       })()}
 
+      {/* Les suggestions rangées en onglets, au lieu d'une longue page. */}
       {!searching && !creating && (
         <>
-          {lines.length > 0 && (
-            <section className="meal-lines">
-              {lines.map((line) => (
-                <MealLineEditor
-                  key={line.key}
-                  line={line}
-                  onChange={(change) => update(line.key, change)}
-                  onRemove={() => setLines((current) => current.filter((item) => item.key !== line.key))}
-                />
-              ))}
-              {/* Viande, poisson ou aliment poêlé sans matière grasse notée : on la propose. */}
-              {!fatDismissed && suggestCookingFat(lines) && (
-                <div className="cooking-fat" role="group" aria-label="Matière grasse de cuisson">
-                  <small>🍳 Cuit avec de la matière grasse ?</small>
-                  <div className="container-chips">
-                    <button type="button" onClick={() => void addFat("huile d'olive", 5, "1 c. à café")}>huile <small>1 c. à café · 5 g</small></button>
-                    <button type="button" onClick={() => void addFat("huile d'olive", 10, "1 c. à soupe")}>huile <small>1 c. à soupe · 10 g</small></button>
-                    <button type="button" onClick={() => void addFat("beurre", 10, "1 noisette")}>beurre <small>10 g</small></button>
-                    <button type="button" onClick={() => setFatDismissed(true)}>sans</button>
-                  </div>
-                </div>
-              )}
-              <div className="meal-total">
-                <span>
-                  {isPlate ? `Plat entier (pour ${servings} pers.)` : "Total du repas"}
-                  <small>{carbsLabel(carbs)}{protein > 0 ? ` · ${protein} g de protéines` : ""}{fat > 0 ? ` · ${Math.round(fat)} g de lipides` : ""}</small>
-                </span>
-                <strong>{Math.round(total)} kcal</strong>
-              </div>
-            </section>
-          )}
-
-          {isPlate && lines.length > 0 && (
-            <section className="plate-share">
-              <div className="share-row">
-                <span>Préparé pour</span>
-                <div className="stepper">
-                  <button type="button" onClick={() => { setServings((value) => Math.max(1, value - 1)); setParts((value) => Math.min(value, Math.max(1, servings - 1))); }} aria-label="Une personne de moins"><Icon name="minus" size={15} /></button>
-                  <strong>{servings}</strong>
-                  <button type="button" onClick={() => setServings((value) => Math.min(12, value + 1))} aria-label="Une personne de plus"><Icon name="plus" size={15} /></button>
-                </div>
-                <span>pers.</span>
-              </div>
-              <div className="share-row">
-                <span>J'en mange</span>
-                <div className="stepper">
-                  <button type="button" onClick={() => { setParts((value) => Math.max(0.5, value - 0.5)); setAdjust(0); }} aria-label="Une demi-part de moins"><Icon name="minus" size={15} /></button>
-                  <strong>{parts.toLocaleString("fr-FR")}</strong>
-                  <button type="button" onClick={() => { setParts((value) => Math.min(servings, value + 0.5)); setAdjust(0); }} aria-label="Une demi-part de plus"><Icon name="plus" size={15} /></button>
-                </div>
-                <span>part{parts > 1 ? "s" : ""}</span>
-              </div>
-              <div className="share-row">
-                <span>Ma part réelle</span>
-                <div className="stepper">
-                  <button type="button" onClick={() => setAdjust((value) => value - 5)} disabled={share <= 0.05} aria-label="Un peu moins"><Icon name="minus" size={15} /></button>
-                  <strong>{Math.round(share * 100)} %</strong>
-                  <button type="button" onClick={() => setAdjust((value) => value + 5)} disabled={share >= 1} aria-label="Un peu plus"><Icon name="plus" size={15} /></button>
-                </div>
-                <span>{adjust > 0 ? "un peu plus" : adjust < 0 ? "un peu moins" : "du plat"}</span>
-              </div>
-              <p className="plate-sentence">
-                Tu manges {Math.round(share * 100)} % du plat
-                {plateGrams > 0 ? `, soit ≈ ${Math.round(plateGrams * share).toLocaleString("fr-FR")} ${plateUnit}` : ""} et {Math.round(total * share)} kcal.
-              </p>
-              <div className="plate-mine">
-                <span>
-                  Ma part
-                  <small>{carbsLabel(carbs * share)}{fat > 0 ? ` · ${Math.round(fat * share)} g de lipides` : ""}</small>
-                </span>
-                <strong>{Math.round(total * share)} kcal</strong>
-              </div>
-              {leftoverParts > 0 && !editing && !planned && (
-                <label className="awake-toggle">
-                  <input type="checkbox" checked={keepLeftover} onChange={(e) => setKeepLeftover(e.target.checked)} />
-                  <span>Garder le reste ({leftoverParts.toLocaleString("fr-FR")} part{leftoverParts > 1 ? "s" : ""} · {Math.round(total / servings)} kcal la part) pour un prochain repas</span>
-                </label>
-              )}
-            </section>
-          )}
-
-          {!isPlate && freshLeftovers.length > 0 && (
+          <div className="composer-tabs" role="tablist" aria-label="Suggestions">
+            {pickTabs.map((name) => (
+              <button type="button" role="tab" aria-selected={pickTab === name} key={name} className={pickTab === name ? "selected" : ""} onClick={() => setPickTab(name)}>{name}</button>
+            ))}
+          </div>
+          {pickTab === "Récents" && (
             <div className="food-results">
-              <p className="food-section">Mes restes</p>
-              {freshLeftovers.map((item) => (
-                <div className="leftover-row" key={item.id}>
-                  <button type="button" className="food-result" onClick={() => addLeftover(item)}>
-                    <span className="food-icon source-perso"><Icon name="clock" size={16} /></span>
-                    <span className="food-result-text">
-                      <strong>{item.name.replace(/^Assiette maison : /, "")}</strong>
-                      <small>{item.partsLeft.toLocaleString("fr-FR")} part{item.partsLeft > 1 ? "s" : ""} · préparé le {new Date(`${item.date}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" })}</small>
-                    </span>
-                    <em>{item.kcalPerPart} kcal</em>
-                  </button>
-                  <button type="button" className="icon-button" onClick={() => onDiscardLeftover(item.id)} aria-label="Jeter ce reste"><Icon name="trash" size={15} /></button>
-                </div>
-              ))}
+              {recents.length ? recents.map(resultRow) : <p className="food-hint">Tapez un aliment, un plat ou un produit. Les valeurs viennent de la table officielle Ciqual (ANSES) et d'Open Food Facts pour les marques.</p>}
             </div>
           )}
-
-          {!isPlate && drinks.length > 0 && (
+          {pickTab === "Recettes" && (
+            <div className="food-results">
+              {myRecipes.length ? myRecipes.map((recipe, index) => resultRow(recipeResult(recipe), index)) : <p className="food-hint">Pas encore de recette : crée-en une dans l'onglet Recettes.</p>}
+            </div>
+          )}
+          {pickTab === "Fast-food" && (
+            <FastFoodPanel
+              onAdd={(foods) => foods.forEach(add)}
+              onClose={() => setPickTab("Récents")}
+              onSearch={(text) => { setQuery(text); setExpanded((value) => ({ ...value, brands: true })); searchInput.current?.focus(); }}
+              onCreate={(name) => { setCustom((value) => ({ ...value, name })); setCreating(true); }}
+            />
+          )}
+          {pickTab === "Boissons" && (
             <div className="drink-shortcuts">
-              <p className="food-section">Boissons</p>
               <div className="drink-chips">
-                {(showAllDrinks ? drinks : drinks.slice(0, 8)).map((drink) => (
-                  <button type="button" key={drink.ref} onClick={() => add(drink)}>
-                    <strong>{drink.name}</strong>
+                {drinks.map((drink) => (
+                  <button type="button" key={drink.ref} className={isPicked(drink) ? "picked" : ""} aria-pressed={isPicked(drink)} onClick={() => togglePick(drink)}>
+                    <strong>{isPicked(drink) ? "✓ " : ""}{drink.name}</strong>
                     <small>{kcalLabel(drink)} · {drink.portionLabel?.replace(/^1 /, "")}</small>
                   </button>
                 ))}
-                {!showAllDrinks && drinks.length > 8 && (
-                  <button type="button" className="drink-more" onClick={() => setShowAllDrinks(true)}><strong>+ {drinks.length - 8}</strong><small>autres</small></button>
-                )}
               </div>
               {energyBrand === null ? (
                 <button type="button" className="add-part" onClick={() => setEnergyBrand(energyBrands[0])}>
@@ -797,19 +667,33 @@ export default function MealComposer({ date: initialDate, category: initialCateg
                       <button type="button" role="radio" aria-checked={brand === energyBrand} key={brand} className={brand === energyBrand ? "selected" : ""} onClick={() => setEnergyBrand(brand)}>{brand}</button>
                     ))}
                   </div>
-                  {energyDrinks.filter((drink) => drink.brand === energyBrand).map((drink) => (
-                    <FoodResultRow key={drink.name} result={energyResult(drink)} onPick={(food) => { add(food); setEnergyBrand(null); }} />
-                  ))}
+                  {energyDrinks.filter((drink) => drink.brand === energyBrand).map((drink, index) => resultRow(energyResult(drink), index))}
                   <small className="photo-note">Valeurs moyennes des canettes vendues en France (Open Food Facts). Le code-barres donne la valeur exacte.</small>
                 </div>
               )}
             </div>
           )}
-          {!isPlate && !lines.length && lastMeals.length > 0 && (
+          {pickTab === "Restes" && (
             <div className="food-results">
-              <p className="food-section">Refaire un repas</p>
-              {(allLastMeals ? lastMeals : lastMeals.slice(0, 4)).map((meal) => (
-                <button type="button" className="food-result past-food" key={`refaire-${meal.id}`} onClick={() => addMealAgain(meal)}>
+              {freshLeftovers.map((item) => (
+                <div className="leftover-row" key={item.id}>
+                  <button type="button" className="food-result" onClick={() => addLeftover(item)}>
+                    <span className="food-icon source-perso"><Icon name="clock" size={16} /></span>
+                    <span className="food-result-text">
+                      <strong>{item.name.replace(/^Assiette maison : /, "")}</strong>
+                      <small>{item.partsLeft.toLocaleString("fr-FR")} part{item.partsLeft > 1 ? "s" : ""} · préparé le {new Date(`${item.date}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" })}</small>
+                    </span>
+                    <em>{item.kcalPerPart} kcal</em>
+                  </button>
+                  <button type="button" className="icon-button" onClick={() => onDiscardLeftover(item.id)} aria-label="Jeter ce reste"><Icon name="trash" size={15} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          {pickTab === "Refaire" && (
+            <div className="food-results">
+              {(allLastMeals ? lastMeals : lastMeals.slice(0, 6)).map((meal) => (
+                <button type="button" className="food-result past-food" key={`refaire-${meal.id}`} onClick={() => { addMealAgain(meal); setStage(2); }}>
                   <span className="food-icon source-perso"><Icon name="clock" size={16} /></span>
                   <span className="food-result-text">
                     <strong>{meal.name.replace(/^Assiette maison : /, "")}</strong>
@@ -818,30 +702,149 @@ export default function MealComposer({ date: initialDate, category: initialCateg
                   <em>{meal.calories} kcal</em>
                 </button>
               ))}
-              {!allLastMeals && lastMeals.length > 4 && (
-                <button type="button" className="text-button food-more" onClick={() => setAllLastMeals(true)}>Voir {lastMeals.length - 4} repas de plus</button>
+              {!allLastMeals && lastMeals.length > 6 && (
+                <button type="button" className="text-button food-more" onClick={() => setAllLastMeals(true)}>Voir {lastMeals.length - 6} repas de plus</button>
               )}
             </div>
           )}
-          {recents.length > 0 && (
-            <div className="food-results">
-              <p className="food-section">Récemment utilisés</p>
-              {recents.map(resultRow)}
-            </div>
+          {!lines.length && !initialItems?.length && (
+            <button type="button" className="text-button free-meal-link" onClick={() => { setFree(true); setStage(2); }}>Repas libre (chez quelqu'un, sans compter) ›</button>
           )}
-          {!lines.length && !recents.length && (
-            <p className="food-hint">Tapez un aliment, un plat ou un produit. Les valeurs viennent de la table officielle Ciqual (ANSES) et d'Open Food Facts pour les marques.</p>
-          )}
-
-          {!!editing?.items?.length && !sharePayload && (
-            <button type="button" className="text-button share-meal" onClick={() => setSharing(true)}><Icon name="share" size={15} /> Partager {editing.plate ? "cette assiette" : "ce repas"}</button>
-          )}
-          {sharePayload && <ShareSheet payload={sharePayload} onClose={() => setSharing(false)} />}
-          <button type="button" className="submit-button" onClick={save} disabled={!lines.length}>
-            <Icon name="check" /> {!lines.length ? "Ajoutez au moins un aliment" : planned ? `Prévoir ce repas · ${Math.round(total * share)} kcal` : editing ? `Enregistrer les modifications · ${Math.round(total * share)} kcal` : isPlate ? `Ajouter ma part · ${Math.round(total * share)} kcal` : `Enregistrer le repas · ${Math.round(total)} kcal`}
-          </button>
         </>
       )}
+
+      {!creating && (
+        <div className="composer-bar">
+          <span>
+            <strong>{lines.length ? `${lines.length} aliment${lines.length > 1 ? "s" : ""} choisi${lines.length > 1 ? "s" : ""}` : "Rien de coché"}</strong>
+            {lines.length > 0 && <small>{lines.slice(0, 3).map((line) => line.name.split(" · ")[0]).join(", ")}{lines.length > 3 ? "…" : ""}</small>}
+          </span>
+          <button type="button" onClick={() => { setQuery(""); setStage(2); }} disabled={!lines.length}>Quantités ›</button>
+        </div>
+      )}
+      </>)}
+
+      {stage === 2 && (<>
+      <div className="meal-composer-when">
+        <label>Jour<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+        <label>Moment
+          <select value={category} onChange={(e) => setCategory(e.target.value as MealCategory)}>
+            {mealCategories.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </select>
+        </label>
+      </div>
+      {date >= today && (
+        <label className="awake-toggle planned-toggle">
+          <input type="checkbox" checked={planned} disabled={date > today} onChange={(e) => setPlannedChoice(e.target.checked)} />
+          <span>{date > today ? "Repas prévu (jour à venir) : il comptera quand vous l'aurez confirmé « mangé »" : "Prévu, pas encore mangé (ne compte pas tant qu'il n'est pas confirmé)"}</span>
+        </label>
+      )}
+
+      <div className={`sex-selector meal-mode${free || (!initialItems?.length && !lines.length) ? " three" : ""}`} role="radiogroup" aria-label="Type de repas">
+        <button type="button" role="radio" aria-checked={!isPlate && !free} className={!isPlate && !free ? "selected" : ""} onClick={() => { setFree(false); setMode("meal"); }}>Repas</button>
+        <button type="button" role="radio" aria-checked={isPlate && !free} className={isPlate && !free ? "selected" : ""} onClick={() => { setFree(false); setMode("plate"); }}>Assiette maison</button>
+        {(free || (!initialItems?.length && !lines.length)) && <button type="button" role="radio" aria-checked={free} className={free ? "selected" : ""} onClick={() => setFree(true)}>Repas libre</button>}
+      </div>
+      {free && (
+        <section className="free-meal">
+          <p>Un repas que tu ne peux pas compter (chez quelqu'un, au restaurant, un cheat meal). <strong>Ce jour sera « libre »</strong> : il ne compte ni dans tes moyennes ni dans ton bilan, et ne casse pas ta série de jours notés.</p>
+          <label>Où, avec qui ?<input value={freeName} onChange={(e) => setFreeName(e.target.value)} placeholder="Ex. Dîner chez papa" /></label>
+          <label>Estimation (facultative)<div className="free-estimate"><input value={freeKcal} onChange={(e) => setFreeKcal(e.target.value)} inputMode="numeric" placeholder="—" /><small>kcal</small></div></label>
+          <small className="food-hint">L'estimation n'est qu'un repère pour toi : elle s'affiche avec « ≈ » et n'entre dans aucun calcul.</small>
+          <button type="button" className="submit-button" onClick={saveFree}><Icon name="check" /> {editing ? "Enregistrer les modifications" : "Noter ce repas libre"}</button>
+        </section>
+      )}
+      {!free && (<>
+      {isPlate && (
+        <div className="plate-intro">
+          <input value={plateName} onChange={(e) => setPlateName(e.target.value)} placeholder="Nom du plat (facultatif) : colin, riz…" aria-label="Nom du plat" />
+          <small>Tout ce qui va dans la casserole (boîte entière ou entamée, filets, riz cru…), puis ta part.</small>
+        </div>
+      )}
+      {lines.length > 0 && (
+        <section className="meal-lines">
+          {lines.map((line) => (
+            <MealLineEditor
+              key={line.key}
+              line={line}
+              onChange={(change) => update(line.key, change)}
+              onRemove={() => setLines((current) => current.filter((item) => item.key !== line.key))}
+            />
+          ))}
+          {/* Viande, poisson ou aliment poêlé sans matière grasse notée : on la propose. */}
+          {!fatDismissed && suggestCookingFat(lines) && (
+            <div className="cooking-fat" role="group" aria-label="Matière grasse de cuisson">
+              <small>🍳 Cuit avec de la matière grasse ?</small>
+              <div className="container-chips">
+                <button type="button" onClick={() => void addFat("huile d'olive", 5, "1 c. à café")}>huile <small>1 c. à café · 5 g</small></button>
+                <button type="button" onClick={() => void addFat("huile d'olive", 10, "1 c. à soupe")}>huile <small>1 c. à soupe · 10 g</small></button>
+                <button type="button" onClick={() => void addFat("beurre", 10, "1 noisette")}>beurre <small>10 g</small></button>
+                <button type="button" onClick={() => setFatDismissed(true)}>sans</button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+      <button type="button" className="ghost-button add-more" onClick={() => setStage(1)}><Icon name="plus" size={16} /> Ajouter un autre aliment</button>
+
+      {isPlate && lines.length > 0 && (
+        <section className="plate-share">
+          <div className="share-row">
+            <span>Préparé pour</span>
+            <div className="stepper">
+              <button type="button" onClick={() => { setServings((value) => Math.max(1, value - 1)); setParts((value) => Math.min(value, Math.max(1, servings - 1))); }} aria-label="Une personne de moins"><Icon name="minus" size={15} /></button>
+              <strong>{servings}</strong>
+              <button type="button" onClick={() => setServings((value) => Math.min(12, value + 1))} aria-label="Une personne de plus"><Icon name="plus" size={15} /></button>
+            </div>
+            <span>pers.</span>
+          </div>
+          <div className="share-row">
+            <span>J'en mange</span>
+            <div className="stepper">
+              <button type="button" onClick={() => { setParts((value) => Math.max(0.5, value - 0.5)); setAdjust(0); }} aria-label="Une demi-part de moins"><Icon name="minus" size={15} /></button>
+              <strong>{parts.toLocaleString("fr-FR")}</strong>
+              <button type="button" onClick={() => { setParts((value) => Math.min(servings, value + 0.5)); setAdjust(0); }} aria-label="Une demi-part de plus"><Icon name="plus" size={15} /></button>
+            </div>
+            <span>part{parts > 1 ? "s" : ""}</span>
+          </div>
+          <div className="share-row">
+            <span>Ma part réelle</span>
+            <div className="stepper">
+              <button type="button" onClick={() => setAdjust((value) => value - 5)} disabled={share <= 0.05} aria-label="Un peu moins"><Icon name="minus" size={15} /></button>
+              <strong>{Math.round(share * 100)} %</strong>
+              <button type="button" onClick={() => setAdjust((value) => value + 5)} disabled={share >= 1} aria-label="Un peu plus"><Icon name="plus" size={15} /></button>
+            </div>
+            <span>{adjust > 0 ? "un peu plus" : adjust < 0 ? "un peu moins" : "du plat"}</span>
+          </div>
+          <p className="plate-sentence">
+            Tu manges {Math.round(share * 100)} % du plat
+            {plateGrams > 0 ? `, soit ≈ ${Math.round(plateGrams * share).toLocaleString("fr-FR")} ${plateUnit}` : ""} et {Math.round(total * share)} kcal.
+          </p>
+          {leftoverParts > 0 && !editing && !planned && (
+            <label className="awake-toggle">
+              <input type="checkbox" checked={keepLeftover} onChange={(e) => setKeepLeftover(e.target.checked)} />
+              <span>Garder le reste ({leftoverParts.toLocaleString("fr-FR")} part{leftoverParts > 1 ? "s" : ""} · {Math.round(total / servings)} kcal la part) pour un prochain repas</span>
+            </label>
+          )}
+        </section>
+      )}
+
+      {!!editing?.items?.length && !sharePayload && (
+        <button type="button" className="text-button share-meal" onClick={() => setSharing(true)}><Icon name="share" size={15} /> Partager {editing.plate ? "cette assiette" : "ce repas"}</button>
+      )}
+      {sharePayload && <ShareSheet payload={sharePayload} onClose={() => setSharing(false)} />}
+
+      {/* Total et enregistrement toujours visibles en bas. */}
+      <div className="composer-bar save">
+        <span>
+          <strong>{isPlate ? `Ma part · ${Math.round(total * share)} kcal` : `${Math.round(total)} kcal`}</strong>
+          <small>{carbsLabel(carbs * share)}{protein > 0 ? ` · ${Math.round(protein * share)} g de protéines` : ""}{fat > 0 ? ` · ${Math.round(fat * share)} g de lipides` : ""}</small>
+        </span>
+        <button type="button" onClick={save} disabled={!lines.length}>
+          <Icon name="check" size={15} /> {!lines.length ? "Aucun aliment" : planned ? "Prévoir" : editing ? "Enregistrer" : "Enregistrer"}
+        </button>
+      </div>
+      </>)}
       </>)}
     </div>
   );

@@ -250,6 +250,15 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
     }
   };
 
+  // --- Étapes du formulaire : 1. nom et parts, 2. ingrédients, 3. préparation ------------------
+  // Recette existante (ou reçue en partage) : on ouvre sur les ingrédients.
+  const [formStep, setFormStep] = useState<1 | 2 | 3>(initial ? 2 : 1);
+  const goStep = (next: 1 | 2 | 3) => {
+    if (next > 1 && !draft.name.trim()) { setFormStep(1); flash("Donne d'abord un nom à la recette"); return; }
+    setFormStep(next);
+    window.scrollTo(0, 0);
+  };
+
   // Calories calculées d'après les ingrédients trouvés dans les bases.
   const draftIngredients = draft.ingredients.flatMap((group) => group.items.filter(hasContent).map(toIngredient));
   const computed = ingredientsNutrition(draftIngredients);
@@ -284,6 +293,9 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    // Entrée dans un champ (recherche d'ingrédient…) : on n'enregistre qu'avec le bouton de la dernière étape.
+    if (formStep !== 3) return;
+    if (!draft.name.trim()) { goStep(1); flash("Donne un nom à la recette"); return; }
     const ingredients = draft.ingredients
       .map((group) => ({
         title: group.title.trim(),
@@ -335,6 +347,15 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
           <button type="button" className="text-button" onClick={onDiscardDraft}>Recommencer</button>
         </div>
       )}
+      {/* Trois étapes courtes (maquette B) ; chaque pastille ramène à son étape. */}
+      <div className="recipe-steps" role="tablist" aria-label="Étapes de la recette">
+        {["Nom et parts", "Ingrédients", "Préparation"].map((name, index) => (
+          <button type="button" role="tab" aria-selected={formStep === index + 1} key={name} className={index + 1 <= formStep ? "on" : ""} onClick={() => goStep((index + 1) as 1 | 2 | 3)}>
+            <i /><span>{index + 1}. {name}</span>
+          </button>
+        ))}
+      </div>
+      {formStep === 1 && (<>
       {!initial && (
         <div className="import-box">
           <p className="plan-label">Importer une recette</p>
@@ -387,8 +408,10 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
         <label><span>Temps total</span><div><input value={draft.time} onChange={(e) => set({ time: e.target.value })} type="number" placeholder="—" min="1" /><small>min</small></div></label>
       </div>
 
+      </>)}
+      {formStep === 2 && (
       <section className="editor-section">
-        <h3>Ingrédients</h3>
+        <h3>Ingrédients{draft.name.trim() ? ` · ${draft.name.trim()}` : ""}</h3>
         <datalist id="unit-options">{commonUnits.map((unit) => <option key={unit} value={unit} />)}</datalist>
         {draft.ingredients.map((group, groupIndex) => (
           <div className="part-card" key={groupIndex}>
@@ -453,6 +476,8 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
         <button type="button" className="add-part" onClick={() => { set({ ingredients: [...draft.ingredients, { title: "", items: [] }] }); setPicking(draft.ingredients.length); }}><Icon name="plus" size={15} /> Ajouter une partie (ex. Garniture)</button>
       </section>
 
+      )}
+      {formStep === 3 && (<>
       <section className="editor-section">
         <h3>Étapes</h3>
         {draft.steps.map((group, groupIndex) => (
@@ -534,9 +559,20 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
       <label><span>Notes</span><textarea value={draft.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Ex. moins de crème, ajouter des épinards…" /></label>
       <label><span>Lien de la source (facultatif)</span><input value={draft.url} onChange={(e) => set({ url: e.target.value })} placeholder="https://www.instagram.com/p/…" inputMode="url" /></label>
 
-      <div className="form-actions">
-        <button type="button" className="ghost-button" onClick={onCancel}>Annuler</button>
-        <button className="submit-button" type="submit"><Icon name="check" /> {initial ? "Enregistrer" : "Ajouter la recette"}</button>
+      </>)}
+
+      {/* Toujours visible : calories par personne, retour, suivant ou enregistrer. */}
+      <div className="composer-bar recipe-bar">
+        <span>
+          <strong>{computed.known ? `≈ ${perPerson.kcal} kcal / pers.` : "Calories à calculer"}</strong>
+          <small>{portionCount} pers. · {draftIngredients.length} ingrédient{draftIngredients.length > 1 ? "s" : ""}</small>
+        </span>
+        <span className="recipe-bar-actions">
+          {formStep > 1 ? <button type="button" className="secondary" onClick={() => goStep((formStep - 1) as 1 | 2)}>‹ Retour</button> : <button type="button" className="secondary" onClick={onCancel}>Annuler</button>}
+          {formStep < 3
+            ? <button type="button" onClick={() => goStep((formStep + 1) as 2 | 3)}>Suivant ›</button>
+            : <button type="submit"><Icon name="check" size={15} /> {initial ? "Enregistrer" : "Ajouter"}</button>}
+        </span>
       </div>
     </form>
   );

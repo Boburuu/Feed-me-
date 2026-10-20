@@ -26,6 +26,8 @@ type FoodResultRowProps = {
   onPick: (result: FoodResult) => void;
   /** Remplace l'icône de la source (probabilité d'un plat reconnu sur photo). */
   badge?: string;
+  /** Déjà coché dans le repas (étape « je coche ») : une coche remplace la photo. */
+  selected?: boolean;
 };
 
 /** Photo du produit (Open Food Facts) ; l'icône de la source si elle manque ou ne charge pas. */
@@ -38,11 +40,11 @@ function ResultPicture({ result }: { result: FoodResult }) {
 }
 
 /** Un aliment trouvé : photo, nom, portion et source, calories à droite ; ses autres versions sur demande. */
-export default function FoodResultRow({ result, onPick, badge }: FoodResultRowProps) {
+export default function FoodResultRow({ result, onPick, badge, selected }: FoodResultRowProps) {
   const [open, setOpen] = useState(false);
   const row = (item: FoodResult, version = false) => (
-    <button type="button" className={`food-result${version ? " food-version" : ""}`} onClick={() => onPick(item)} key={item.ref ?? item.name}>
-      {badge && !version ? <span className="photo-score">{badge}</span> : <ResultPicture result={item} />}
+    <button type="button" className={`food-result${version ? " food-version" : ""}${selected && !version ? " picked" : ""}`} onClick={() => onPick(item)} key={item.ref ?? item.name} aria-pressed={selected === undefined || version ? undefined : selected}>
+      {selected && !version ? <span className="pick-check" aria-hidden="true">✓</span> : badge && !version ? <span className="photo-score">{badge}</span> : <ResultPicture result={item} />}
       <span className="food-result-text">
         <strong>{version ? item.versionLabel ?? item.name : item.name}</strong>
         <small>{version ? `${item.name} · ${resultDetail(item)}` : resultDetail(item)}</small>
