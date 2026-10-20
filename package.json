@@ -25,6 +25,8 @@
     "@fontsource/dm-sans": "^5.3.0",
     "@fontsource/manrope": "^5.3.0",
     "capacitor-health": "8.4.0",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tesseract.js": "7.0.0",

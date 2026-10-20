@@ -17,6 +17,7 @@ import { mealPayload, shareInHash, type SharedMeal, type SharedRecipe, type Shar
 import ShareSheet from "../components/ShareSheet";
 import { INCOMING_EVENT, takeIncomingShare } from "../lib/incomingShare";
 import { cleanMealName, eatenItems, recipeFromMeal } from "../lib/sharedMeal";
+import { freeLabel } from "../lib/freeDays";
 import type { MealItem } from "../lib/storage";
 import StepsPanel from "../components/StepsPanel";
 import TrackingTab, { type TrackingView } from "../components/TrackingTab";
@@ -29,6 +30,7 @@ import { programFor } from "../lib/goals";
 import { tipAt, tips, tipThemes } from "../lib/tips";
 import TipSplash from "../components/TipSplash";
 import TipsCorner from "../components/TipsCorner";
+import RecapDownload from "../components/RecapDownload";
 import { restoreImages } from "../lib/images";
 import { readPhoneSteps, readSteps } from "../lib/steps";
 import { recipeResult, toMealItem } from "../lib/foods";
@@ -60,7 +62,7 @@ type MainAppProps = {
 };
 
 type Tab = "Accueil" | "Suivi" | "Activité" | "Recettes" | "Profil";
-type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | "share-out" | "weigh" | "tips" | null;
+type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | "share-out" | "weigh" | "tips" | "recap" | null;
 
 function defaultCategory(date = new Date()): MealCategory {
   const hour = date.getHours() + date.getMinutes() / 60;
@@ -355,7 +357,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     mealDraft.clear();
     setRestoredDraft(null);
     setModal(null);
-    flash(editingMeal ? `Repas modifié · ${meal.calories} kcal` : extras.leftover ? `Ma part : ${meal.calories} kcal · reste gardé` : `Repas enregistré · ${meal.calories} kcal`);
+    flash(meal.free ? `Repas libre noté : ce jour sort de tes moyennes` : editingMeal ? `Repas modifié · ${meal.calories} kcal` : extras.leftover ? `Ma part : ${meal.calories} kcal · reste gardé` : `Repas enregistré · ${meal.calories} kcal`);
   };
 
   /** Repas prévu confirmé « mangé tel quel » : il compte à partir de maintenant. */
@@ -580,6 +582,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               <span className="status-pill"><Icon name="flame" size={14} /> Objectif du jour</span>
               <p className="calorie-number">{Math.abs(remaining).toLocaleString("fr-FR")}</p>
               <p className="calorie-label">{remaining >= 0 ? "kcal restantes" : "kcal au-delà de l'objectif"}</p>
+              {todayMeals.some((meal) => meal.free) && <p className="free-day-note">Journée libre : un repas libre est noté, ce jour sort de tes moyennes.</p>}
               <div className="calorie-meta">
                 <span><strong>{consumed.toLocaleString("fr-FR")}</strong> consommées</span>
                 <span><strong>{goal.toLocaleString("fr-FR")}</strong> objectif</span>
@@ -732,7 +735,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 <div className="meal-row editable" key={meal.id} onClick={() => editMeal(meal)}>
                   <span className={`meal-icon ${categoryStyle[meal.category]}`}><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
                   <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
-                  <span className="meal-calories"><strong>{meal.calories}</strong><small>kcal</small></span>
+                  <span className="meal-calories">{meal.free ? <><strong>{freeLabel(meal)}</strong><small>{meal.freeEstimate ? "kcal" : "repas"}</small></> : <><strong>{meal.calories}</strong><small>kcal</small></>}</span>
                   {/* Modifier et supprimer toujours visibles (une erreur se corrige vite) ; partager si le repas a ses aliments. */}
                   <span className="meal-actions">
                     <button className="icon-button" onClick={(event) => { event.stopPropagation(); editMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
@@ -764,6 +767,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           onEditMeal={editMeal}
           onShareMeal={shareMeal}
           onPlanMeal={(date) => openMealForm(date, true)}
+          onRecap={() => setModal("recap")}
           flash={flash}
         />
       )}
@@ -999,6 +1003,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   <button onClick={() => goTo("Activité")}><span className="meal-icon mint-icon"><Icon name="shoe" /></span><span><strong>Une séance de sport</strong><small>Marche, course, musculation, yoga…</small></span><Icon name="chevron" /></button>
                   <button onClick={openShareImport}><span className="meal-icon lunch"><Icon name="link" /></span><span><strong>Un partage reçu</strong><small>Recette, assiette ou repas envoyé par un ami</small></span><Icon name="chevron" /></button>
                 </div>
+              </>
+            )}
+            {modal === "recap" && (
+              <>
+                <p className="eyebrow">Mon suivi</p>
+                <h2>Télécharger un récap</h2>
+                <RecapDownload data={data} person={displayName} flash={flash} />
               </>
             )}
             {modal === "tips" && (

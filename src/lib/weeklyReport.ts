@@ -4,6 +4,7 @@
 // action concrète. Moins de 4 jours notés : « données insuffisantes » (un bilan sur 2 jours
 // dirait n'importe quoi). Repères : fibres 30 g/jour (ANSES), protéines et calories du plan.
 
+import { isFreeDay } from "./freeDays";
 import { itemExtra, itemProtein } from "./foods";
 import { hydrationOf } from "./hydration";
 import { addDays, eatenMeals, weekStart } from "./planning";
@@ -18,8 +19,10 @@ export type ReportTargets = { kcal: number; protein: number; waterMl: number; st
 export type WeekFigures = {
   start: string;
   end: string;
-  /** Jours avec au moins un repas noté. */
+  /** Jours avec au moins un repas noté (hors jours libres). */
   daysLogged: number;
+  /** Jours libres (repas libre, calories inconnues) : hors moyennes. */
+  freeDays: number;
   /** Jours « complets » : au moins 3 repas notés. */
   completeDays: number;
   kcal: number | null;
@@ -42,7 +45,8 @@ export function weekFigures(data: AppData, start: string): WeekFigures {
   const days = Array.from({ length: 7 }, (_, index) => addDays(start, index));
   const end = days[6];
   const meals = eatenMeals(data.meals).filter((meal) => meal.date >= start && meal.date <= end);
-  const logged = days.filter((day) => meals.some((meal) => meal.date === day));
+  const free = days.filter((day) => isFreeDay(meals, day));
+  const logged = days.filter((day) => !free.includes(day) && meals.some((meal) => meal.date === day));
   const perDay = logged.map((day) => {
     const dayMeals = meals.filter((meal) => meal.date === day);
     const items = dayMeals.flatMap((meal) => (meal.items ?? []).map((item) => ({ item, share: meal.plate?.share ?? 1 })));
@@ -63,6 +67,7 @@ export function weekFigures(data: AppData, start: string): WeekFigures {
     start,
     end,
     daysLogged: logged.length,
+    freeDays: free.length,
     completeDays: perDay.filter((day) => day.count >= 3).length,
     kcal: average(perDay.map((day) => day.kcal)),
     protein: average(perDay.map((day) => day.protein)),

@@ -133,3 +133,7 @@
 
 /* Ingrédient « au choix » sur la fiche de la recette. */
 .ingredient-list .choice-chips { margin: 6px 0 2px 42px; }
+/* Jour libre (repas libre) : ni objectif, ni dépassement. */
+.calendar-day.day-free { color: var(--ink); background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--blue-strong, #6fa8c8) 30%, transparent), color-mix(in srgb, var(--blue-strong, #6fa8c8) 30%, transparent) 4px, transparent 4px, transparent 8px); }
+.calendar-legend .day-free { background: color-mix(in srgb, var(--blue-strong, #6fa8c8) 40%, transparent); }
+.week-bars i.bar-free { background: color-mix(in srgb, var(--blue-strong, #6fa8c8) 60%, transparent); }

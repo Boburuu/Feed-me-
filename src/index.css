@@ -798,3 +798,20 @@ h2 { font-size: 20px; font-weight: 800; }
 .share-choice svg { margin-top: 2px; color: var(--green); }
 .share-choice span { display: grid; gap: 2px; }
 .share-choice small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+/* Ajouter un repas : 3 types, et le repas libre. */
+.sex-selector.meal-mode.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sex-selector.meal-mode.three button { padding-inline: 4px; }
+.free-meal { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; }
+.free-meal p { margin: 0; font-size: 14px; line-height: 1.45; }
+.free-meal label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+.free-meal input { padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--cream); font-size: 16px; }
+.free-estimate { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.free-estimate input { width: 100%; box-sizing: border-box; }
+/* Récap PDF */
+.recap-download { display: grid; gap: 10px; }
+.recap-download .eyebrow { margin: 4px 0 0; }
+.recap-download .container-chips { flex-wrap: wrap; }
+.recap-contents { display: grid; gap: 6px; }
+.recap-link { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+.free-day-note { margin: 4px 0 0; font-size: 12px; font-weight: 700; color: #9cc8e0; }
+.modal-card .recap-contents label.awake-toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; }

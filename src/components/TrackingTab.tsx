@@ -7,6 +7,7 @@ import { sessionLabel } from "../lib/activity";
 import { mealCategories, todayKey, type AppData, type GoalType, type Meal } from "../lib/storage";
 import { hydrationOf } from "../lib/hydration";
 import { eatenMeals } from "../lib/planning";
+import { freeLabel, isFreeDay } from "../lib/freeDays";
 import { formatWater, WATER_MAX } from "../lib/water";
 
 /** Onglets du suivi : la journée, la semaine (planning et courses), le bilan, le poids. */
@@ -30,10 +31,12 @@ type TrackingTabProps = {
   /** Envoyer un repas à quelqu'un (il ou elle choisit ses quantités). */
   onShareMeal: (meal: Meal) => void;
   onPlanMeal: (date: string) => void;
+  /** Ouvre « Télécharger un récap » (PDF). */
+  onRecap: () => void;
   flash: (message: string) => void;
 };
 
-type DayStatus = "none" | "partial" | "ok" | "over" | "under";
+type DayStatus = "none" | "partial" | "ok" | "over" | "under" | "free";
 
 const statusLabels: Record<DayStatus, string> = {
   ok: "Dans l'objectif",
@@ -41,6 +44,7 @@ const statusLabels: Record<DayStatus, string> = {
   under: "En dessous",
   partial: "Journal incomplet",
   none: "Rien de noté",
+  free: "Journée libre",
 };
 
 const keyOf = (date: Date) => todayKey(date);
@@ -51,7 +55,7 @@ const WATER_STEP = 200;
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const hours = (ms: number) => `${Math.floor(ms / 3_600_000)} h ${String(Math.floor((ms % 3_600_000) / 60_000)).padStart(2, "0")}`;
 
-export default function TrackingTab({ view, onView: setView, data, update, target, goal, waterGoal, proteinGoal, onAddMeal, onSaveWeight, onDeleteWeight, onEditMeal, onShareMeal, onPlanMeal, flash }: TrackingTabProps) {
+export default function TrackingTab({ view, onView: setView, data, update, target, goal, waterGoal, proteinGoal, onAddMeal, onSaveWeight, onDeleteWeight, onEditMeal, onShareMeal, onPlanMeal, onRecap, flash }: TrackingTabProps) {
   const reportTargets = useMemo(() => ({ kcal: target, protein: proteinGoal, waterMl: waterGoal, stepGoal: data.stepGoal, goal }), [target, proteinGoal, waterGoal, data.stepGoal, goal]);
   const today = todayKey();
   const [selected, setSelected] = useState(today);
@@ -63,6 +67,8 @@ export default function TrackingTab({ view, onView: setView, data, update, targe
   const caloriesOf = (day: string) => eatenMeals(mealsByDay.get(day) ?? []).reduce((sum, meal) => sum + meal.calories, 0);
 
   const statusOf = (day: string): DayStatus => {
+    // Repas libre ce jour-là : calories inconnues, le jour n'est ni « au-dessus » ni « incomplet ».
+    if (isFreeDay(data.meals, day)) return "free";
     const consumed = caloriesOf(day);
     if (!consumed) return "none";
     if (consumed < target * 0.5) return "partial";
@@ -86,10 +92,12 @@ export default function TrackingTab({ view, onView: setView, data, update, targe
   const monday = addDays(today, -((parse(today).getDay() + 6) % 7));
   const week = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const last7 = Array.from({ length: 7 }, (_, i) => addDays(today, -i));
-  const logged7 = last7.filter((day) => caloriesOf(day) >= target * 0.5);
+  const logged7 = last7.filter((day) => !isFreeDay(data.meals, day) && caloriesOf(day) >= target * 0.5);
   const average = logged7.length ? Math.round(logged7.reduce((sum, day) => sum + caloriesOf(day), 0) / logged7.length) : null;
   let streak = 0;
-  for (let day = caloriesOf(today) ? today : addDays(today, -1); caloriesOf(day) > 0; day = addDays(day, -1)) streak += 1;
+  // Un jour libre compte dans la série : il a bien été noté.
+  const notedDay = (day: string) => caloriesOf(day) > 0 || isFreeDay(data.meals, day);
+  for (let day = notedDay(today) ? today : addDays(today, -1); notedDay(day); day = addDays(day, -1)) streak += 1;
   const sortedWeights = [...data.weights].sort((a, b) => a.date.localeCompare(b.date));
   const monthAgo = addDays(today, -30);
   const weightStart = sortedWeights.find((entry) => entry.date >= monthAgo);
@@ -125,6 +133,7 @@ export default function TrackingTab({ view, onView: setView, data, update, targe
       <section className="page-heading">
         <p className="eyebrow">Mon suivi</p>
         <h2>{view === "jour" ? "Jour après jour" : view === "semaine" ? "Semaine et courses" : view === "bilan" ? "Bilan de la semaine" : "Mon poids"}</h2>
+        <button type="button" className="text-button recap-link" onClick={onRecap}><Icon name="upload" size={15} /> Télécharger un récap (PDF)</button>
       </section>
 
       <div className="sex-selector tracking-view tracking-tabs" role="tablist" aria-label="Mon suivi">
@@ -198,6 +207,7 @@ export default function TrackingTab({ view, onView: setView, data, update, targe
           <span><i className="day-over" />Au-dessus</span>
           {goal === "prise" && <span><i className="day-under" />En dessous</span>}
           <span><i className="day-partial" />Incomplet</span>
+          {data.meals.some((meal) => meal.free) && <span><i className="day-free" />Libre</span>}
           <span><i className="mark-weight" />Pesée</span>
           {data.fasts.length > 0 && <span><i className="mark-fast" />Jeûne réussi</span>}
           {data.sessions.length > 0 && <span><i className="mark-sport" />Sport</span>}
@@ -245,7 +255,7 @@ export default function TrackingTab({ view, onView: setView, data, update, targe
             <div className="meal-row editable" key={meal.id} onClick={() => onEditMeal(meal)}>
               <span className="meal-icon breakfast"><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
               <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
-              <span className="meal-calories"><strong>{meal.calories}</strong><small>kcal</small></span>
+              <span className="meal-calories">{meal.free ? <><strong>{freeLabel(meal)}</strong><small>{meal.freeEstimate ? "kcal" : "repas"}</small></> : <><strong>{meal.calories}</strong><small>kcal</small></>}</span>
               <span className="meal-actions">
                 <button className="icon-button" onClick={(event) => { event.stopPropagation(); onEditMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
                 {meal.items?.length ? <button className="icon-button" onClick={(event) => { event.stopPropagation(); onShareMeal(meal); }} aria-label={`Partager ${meal.name}`}><Icon name="share" size={16} /></button> : null}

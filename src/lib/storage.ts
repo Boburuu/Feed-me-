@@ -56,6 +56,10 @@ export type Meal = {
   items?: MealItem[];
   /** Assiette maison : plat préparé pour plusieurs, dont on a mangé une part (items = plat entier). */
   plate?: { servings: number; share: number };
+  /** Repas libre (chez quelqu'un, cheat meal) : calories inconnues, le jour sort des statistiques. */
+  free?: boolean;
+  /** Estimation facultative d'un repas libre, affichée « ≈ » mais comptée nulle part. */
+  freeEstimate?: number;
 };
 
 /** Part restante d'une assiette maison, proposée aux repas suivants (4 jours au frigo). */
