@@ -51,3 +51,18 @@ describe("repas libre", () => {
     expect(week).toMatchObject({ daysLogged: 1, freeDays: 1, kcal: 1500 });
   });
 });
+
+import { firstDay } from "../components/RecapDownload";
+
+describe("bilan depuis le début", () => {
+  it("part du premier jour noté (repas, poids, eau…)", () => {
+    expect(firstDay(data, "2026-10-21")).toBe("2026-10-19");
+    expect(firstDay({ ...data, weights: [{ id: 9, date: "2026-09-30", kg: 88 }] } as AppData, "2026-10-21")).toBe("2026-09-30");
+  });
+  it("aucune donnée : aujourd'hui", () => {
+    expect(firstDay({ meals: [], water: {}, steps: {}, sessions: [], weights: [], fasts: [] } as unknown as AppData, "2026-10-21")).toBe("2026-10-21");
+  });
+  it("une longue période passe en entier", () => {
+    expect(periodDays("2025-10-21", "2026-10-21")).toHaveLength(366);
+  });
+});

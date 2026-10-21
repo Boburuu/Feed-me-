@@ -11,12 +11,25 @@ type RecapDownloadProps = {
   flash: (message: string) => void;
 };
 
-type Period = "jour" | "hier" | "semaine" | "semaine-1" | "mois" | "30j" | "dates";
+type Period = "jour" | "hier" | "semaine" | "semaine-1" | "mois" | "30j" | "debut" | "dates";
 
 const monday = (day: string) => addDays(day, -((new Date(`${day}T12:00:00`).getDay() + 6) % 7));
 
+/** Premier jour avec quelque chose de noté (repas, eau, pas, sport, poids, jeûne). */
+export function firstDay(data: AppData, today: string) {
+  const days = [
+    ...data.meals.map((meal) => meal.date),
+    ...Object.keys(data.water ?? {}),
+    ...Object.keys(data.steps ?? {}),
+    ...data.sessions.map((session) => session.date),
+    ...data.weights.map((entry) => entry.date),
+    ...data.fasts.map((fast) => todayKey(new Date(fast.start))),
+  ].filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day) && day <= today);
+  return days.length ? days.reduce((a, b) => (a < b ? a : b)) : today;
+}
+
 /** Début et fin d'une période prédéfinie. */
-function rangeOf(period: Period, today: string, from: string, to: string) {
+function rangeOf(period: Period, today: string, from: string, to: string, first: string) {
   switch (period) {
     case "jour": return { from: today, to: today };
     case "hier": return { from: addDays(today, -1), to: addDays(today, -1) };
@@ -24,11 +37,12 @@ function rangeOf(period: Period, today: string, from: string, to: string) {
     case "semaine-1": return { from: addDays(monday(today), -7), to: addDays(monday(today), -1) };
     case "mois": return { from: `${today.slice(0, 7)}-01`, to: today };
     case "30j": return { from: addDays(today, -29), to: today };
+    case "debut": return { from: first, to: today };
     default: return from <= to ? { from, to } : { from: to, to: from };
   }
 }
 
-const periods: [Period, string][] = [["jour", "Aujourd'hui"], ["hier", "Hier"], ["semaine", "Cette semaine"], ["semaine-1", "Semaine dernière"], ["mois", "Ce mois"], ["30j", "30 derniers jours"], ["dates", "Dates au choix"]];
+const periods: [Period, string][] = [["jour", "Aujourd'hui"], ["hier", "Hier"], ["semaine", "Cette semaine"], ["semaine-1", "Semaine dernière"], ["mois", "Ce mois"], ["30j", "30 derniers jours"], ["debut", "Depuis le début"], ["dates", "Dates au choix"]];
 const contents: [keyof RecapSections, string][] = [["summary", "Résumé et moyennes"], ["meals", "Repas"], ["nutrients", "Protéines, glucides, lipides"], ["water", "Hydratation"], ["activity", "Pas et sport"], ["weight", "Poids"], ["fasting", "Jeûne"]];
 
 /** Télécharger un récapitulatif en PDF : la période, puis ce qu'il contient. */
@@ -40,7 +54,7 @@ export default function RecapDownload({ data, person, flash }: RecapDownloadProp
   const [sections, setSections] = useState<RecapSections>({ summary: true, meals: true, nutrients: true, water: true, activity: true, weight: true, fasting: true });
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<SavedRecap | null>(null);
-  const range = rangeOf(period, today, from, to);
+  const range = rangeOf(period, today, from, to, firstDay(data, today));
   const recap = useMemo(() => buildRecap(data, range), [data, range.from, range.to]); // eslint-disable-line react-hooks/exhaustive-deps
   const nothing = !Object.values(sections).some(Boolean);
 

@@ -47,10 +47,10 @@ const order = (category: MealCategory) => mealCategories.findIndex((item) => ite
 const label = (category: MealCategory) => mealCategories.find((item) => item.id === category)?.label ?? category;
 const mean = (values: number[]) => (values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null);
 
-/** Jours de la période, du premier au dernier (au plus 366). */
+/** Jours de la période, du premier au dernier (au plus 10 ans). */
 export function periodDays(from: string, to: string) {
   const days: string[] = [];
-  for (let day = from; day <= to && days.length < 366; day = addDays(day, 1)) days.push(day);
+  for (let day = from; day <= to && days.length < 3660; day = addDays(day, 1)) days.push(day);
   return days;
 }
 
