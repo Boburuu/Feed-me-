@@ -163,7 +163,7 @@ export default function BarcodePanel({ onFound, onClose, onSearchByName, onCreat
           </div>
           <div className="barcode-choices">
             <button type="button" className="add-part" onClick={onSearchByName}><Icon name="apple" size={16} /> Aucun ne correspond : chercher par le nom</button>
-            <button type="button" className="add-part" onClick={() => toCrop(state.file)}><Icon name="target" size={16} /> Entourer le code-barres sur la photo</button>
+            <button type="button" className="add-part" onClick={() => toCrop(state.file)}><Icon name="barcode" size={16} /> Entourer le code-barres sur la photo</button>
           </div>
         </>
       )}

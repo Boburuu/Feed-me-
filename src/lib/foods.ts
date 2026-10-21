@@ -331,13 +331,26 @@ function wordsFound(query: string, text: string) {
 
 const brandOf = (brands: OffHit["brands"]) => (Array.isArray(brands) ? brands[0] : brands?.split(",")[0])?.trim() ?? "";
 
+/**
+ * Marque de distributeur écrite en une lettre (« lardons U », « pain de mie Super U ») : la lettre
+ * seule ne veut rien dire pour le moteur de recherche, on cherche alors dans la marque U.
+ */
+export function storeBrand(query: string): { brand: string; rest: string } | null {
+  const words = normalize(query).split(" ");
+  const at = words.findIndex((word, index) => word === "u" || (["systeme", "super", "hyper", "magasins", "marche"].includes(word) && words[index + 1] === "u"));
+  if (at < 0) return null;
+  const rest = words.filter((word, index) => index !== at && !(word === "u" && index === at + 1) && !(index === at && word !== "u")).join(" ").trim();
+  return rest ? { brand: "u", rest } : null;
+}
+
 export async function searchOpenFoodFacts(query: string, signal?: { cancelled: boolean }): Promise<FoodResult[]> {
   const fields = "code,product_name,product_name_fr,brands,nutriments,quantity,categories_tags,countries_tags,completeness,unique_scans_n,image_front_small_url";
   // Le moteur récent refuse les requêtes venant d'un site web (version iPhone) :
   // dans un navigateur, on passe par l'ancien, qui les accepte.
+  const brand = storeBrand(query);
   const url = Capacitor.isNativePlatform()
-    ? `https://search.openfoodfacts.org/search?q=${encodeURIComponent(query)}&page_size=15&langs=fr&fields=${fields}`
-    : `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15&fields=${fields}`;
+    ? `https://search.openfoodfacts.org/search?q=${encodeURIComponent(brand ? `${brand.rest} brands_tags:"${brand.brand}"` : query)}&page_size=15&langs=fr&fields=${fields}`
+    : `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(brand ? brand.rest : query)}${brand ? `&tagtype_0=brands&tag_contains_0=contains&tag_0=${brand.brand}` : ""}&search_simple=1&action=process&json=1&page_size=15&fields=${fields}`;
   const data = await getJson(url);
   if (signal?.cancelled) return [];
   const found = ((data.hits ?? data.products ?? []) as OffHit[])

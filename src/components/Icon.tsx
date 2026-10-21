@@ -10,6 +10,7 @@ export type IconName =
   | "camera"
   | "image"
   | "target"
+  | "barcode"
   | "calendar"
   | "book"
   | "clock"
@@ -41,6 +42,8 @@ export default function Icon({ name, size = 20 }: { name: IconName; size?: numbe
     apple: <><path d="M12 7c-2.4-3.5-8-2.4-8 3.6C4 16 7.5 21 10 21c1 0 1.2-.7 2-.7s1 .7 2 .7c2.5 0 6-5 6-10.4C20 4.6 14.4 3.5 12 7Z" /><path d="M12 7c0-2.5 1.6-4 4-4" /></>,
     image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5-9 9" /></>,
     camera: <><path d="M14.5 5 13 3h-2L9.5 5H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4.5Z" /><circle cx="12" cy="12.5" r="4" /></>,
+    // Code-barres : cadre de visée et barres verticales, reconnaissable d'un coup d'œil.
+    barcode: <><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" /><path d="M7 8v8M10 8v8M12.5 8v8M15 8v8M17.5 8v8" /></>,
     target: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></>,
     calendar: <><path d="M5 3v3m14-3v3M3 9h18" /><rect x="3" y="5" width="18" height="16" rx="2" /></>,
     book: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /></>,

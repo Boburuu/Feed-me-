@@ -182,3 +182,18 @@ describe("liens de partage courts", () => {
     expect(unpackShare(payload)).toBe(payload);
   });
 });
+
+import { storeBrand } from "./foods";
+
+describe("produits de la marque U", () => {
+  it("reconnaît U, Super U, Système U", () => {
+    expect(storeBrand("lardons U")).toEqual({ brand: "u", rest: "lardons" });
+    expect(storeBrand("pain de mie Super U")).toEqual({ brand: "u", rest: "pain de mie" });
+    expect(storeBrand("Système U yaourt nature")).toEqual({ brand: "u", rest: "yaourt nature" });
+  });
+  it("ne touche pas aux autres recherches", () => {
+    expect(storeBrand("pain de mie")).toBeNull();
+    expect(storeBrand("ultra rosa")).toBeNull();
+    expect(storeBrand("U")).toBeNull();
+  });
+});

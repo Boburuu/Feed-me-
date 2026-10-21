@@ -86,7 +86,7 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
         <div className="capture-actions">
           <button type="button" className="add-part" onClick={() => photoInput.current?.click()}><Icon name="camera" size={16} /> Photo</button>
           <button type="button" className="add-part" onClick={() => galleryInput.current?.click()}><Icon name="image" size={16} /> Galerie</button>
-          <button type="button" className="add-part" onClick={scan}><Icon name="target" size={16} /> Code-barres</button>
+          <button type="button" className="add-part" onClick={scan}><Icon name="barcode" size={16} /> Code-barres</button>
           <button type="button" className="add-part" onClick={() => { setBarcodeOpen(false); setFastFoodOpen(true); }}><Icon name="flame" size={16} /> Fast-food</button>
         </div>
       )}

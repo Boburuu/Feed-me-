@@ -490,7 +490,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
               <span className="search-tools">
                 <button type="button" onClick={() => photoInput.current?.click()} aria-label="Photo"><Icon name="camera" size={16} /></button>
                 <button type="button" onClick={() => galleryInput.current?.click()} aria-label="Photo de la galerie"><Icon name="image" size={16} /></button>
-                <button type="button" onClick={scan} aria-label="Code-barres"><Icon name="target" size={16} /></button>
+                <button type="button" onClick={scan} aria-label="Code-barres"><Icon name="barcode" size={18} /></button>
               </span>
             )}
         </div>
@@ -713,7 +713,8 @@ export default function MealComposer({ date: initialDate, category: initialCateg
         </>
       )}
 
-      {!creating && (
+      {/* La barre n'apparaît qu'une fois au moins un aliment coché. */}
+      {!creating && lines.length > 0 && (
         <div className="composer-bar">
           <span>
             <strong>{lines.length ? `${lines.length} aliment${lines.length > 1 ? "s" : ""} choisi${lines.length > 1 ? "s" : ""}` : "Rien de coché"}</strong>

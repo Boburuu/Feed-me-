@@ -133,7 +133,7 @@ export default function TrackingTab({ view, onView: setView, data, update, targe
       <section className="page-heading">
         <p className="eyebrow">Mon suivi</p>
         <h2>{view === "jour" ? "Jour après jour" : view === "semaine" ? "Semaine et courses" : view === "bilan" ? "Bilan de la semaine" : "Mon poids"}</h2>
-        <button type="button" className="text-button recap-link" onClick={onRecap}><Icon name="upload" size={15} /> Télécharger un récap (PDF)</button>
+        <button type="button" className="recap-button" onClick={onRecap}><Icon name="download" size={18} /><span><strong>Télécharger mon bilan en PDF</strong><small>Jour, semaine, mois ou dates au choix</small></span></button>
       </section>
 
       <div className="sex-selector tracking-view tracking-tabs" role="tablist" aria-label="Mon suivi">

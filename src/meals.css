@@ -340,3 +340,9 @@
 .food-picker .capture-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .food-picker .capture-actions .add-part { flex-direction: column; gap: 2px; margin: 0; padding: 8px 2px; font-size: 11px; }
 .composer-bar .recipe-bar-actions { display: flex; flex-wrap: nowrap; gap: 6px; }
+/* Ajouter un repas : rien ne doit élargir l'écran (grand texte du téléphone). */
+.meal-composer { min-width: 0; overflow-x: clip; }
+.meal-composer > * { min-width: 0; }
+.free-meal-link { white-space: normal; text-align: left; }
+.composer-bar small { white-space: normal; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.food-search { min-width: 0; }
