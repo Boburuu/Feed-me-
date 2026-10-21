@@ -27,7 +27,12 @@ export const recapFileName = (recap: Recap) => `feedme-recap-${recap.from}${reca
 
 /** Crée le PDF (en mémoire). */
 export async function recapPdf(recap: Recap, sections: RecapSections, person: string) {
-  const [{ jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+  const [{ jsPDF }, tables] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+  // Selon l'empaquetage, la fonction est l'export par défaut, nommée, ou doublement emballée.
+  type AutoTable = (doc: unknown, options: Record<string, unknown>) => void;
+  const candidates = [tables.default, (tables as { autoTable?: unknown }).autoTable, (tables.default as unknown as { default?: unknown })?.default];
+  const autoTable = candidates.find((entry): entry is AutoTable => typeof entry === "function");
+  if (!autoTable) throw new Error("module des tableaux introuvable");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const left = 14;
   let y = 18;

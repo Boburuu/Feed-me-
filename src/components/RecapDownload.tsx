@@ -48,8 +48,9 @@ export default function RecapDownload({ data, person, flash }: RecapDownloadProp
     setBusy(true);
     try {
       setSaved(await saveRecapPdf(recap, sections, person));
-    } catch {
-      flash("Le PDF n'a pas pu être créé");
+    } catch (problem) {
+      console.error("Récap PDF", problem);
+      flash(`Le PDF n'a pas pu être créé : ${problem instanceof Error ? problem.message : String(problem)}`);
     } finally {
       setBusy(false);
     }
