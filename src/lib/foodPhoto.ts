@@ -132,6 +132,11 @@ async function writePhoto(file: File) {
 /** Plats probables d'après le modèle, regroupés par aliment Ciqual (probabilités additionnées). */
 async function classifyDish(uri: string, limit: number): Promise<PhotoSuggestion[]> {
   const { results } = await FoodClassifier.classify({ path: uri, limit: 10 });
+  return dishSuggestions(results, limit);
+}
+
+/** Noms de plats du modèle → aliments de la table Ciqual (même traitement sur Android et iPhone). */
+async function dishSuggestions(results: { label: string; score: number }[], limit: number): Promise<PhotoSuggestion[]> {
   const byFood = new Map<string, PhotoSuggestion>();
   for (const { label, score } of results) {
     if (score < 0.02) continue;
@@ -246,12 +251,16 @@ export type PhotoAnalysis = {
  */
 export async function analyzeMealPhoto(file: File): Promise<PhotoAnalysis> {
   if (!native()) {
-    // Navigateur : code-barres (ZXing) puis texte de l'emballage (Tesseract) ; pas de modèle de plats.
+    // Navigateur (iPhone) : code-barres (ZXing), texte de l'emballage (Tesseract) et plats (MediaPipe).
     const code = await readBarcodeFromFile(file).catch(() => null);
     const barcode = code ? await openFoodFactsByBarcode(code).catch(() => null) : null;
     if (barcode) return { barcode, packaging: [], dishes: [] };
-    const packaging = await readLinesFromFile(file).then(packagingProducts).catch(() => []);
-    return { barcode: null, packaging, dishes: [] };
+    // Nom sur l'emballage (Tesseract) et plat probable (même modèle que sur Android, via MediaPipe).
+    const [packaging, dishes] = await Promise.all([
+      readLinesFromFile(file).then(packagingProducts).catch(() => []),
+      import("./webDish").then(({ classifyDishInBrowser }) => classifyDishInBrowser(file)).then((results) => dishSuggestions(results, 3)).catch(() => []),
+    ]);
+    return { barcode: null, packaging, dishes };
   }
   const { uri, remove } = await writePhoto(file);
   try {
