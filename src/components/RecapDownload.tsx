@@ -2,11 +2,13 @@ import { useMemo, useState } from "react";
 import Icon from "./Icon";
 import { addDays } from "../lib/planning";
 import { buildRecap, type RecapSections } from "../lib/recap";
-import { saveRecapPdf, shareSavedRecap, type SavedRecap } from "../lib/recapPdf";
+import { notifyRecapSaved, openSavedRecap, saveRecapPdf, shareSavedRecap, type SavedRecap } from "../lib/recapPdf";
 import { todayKey, type AppData } from "../lib/storage";
 
 type RecapDownloadProps = {
   data: AppData;
+  /** Objectif de calories par jour. */
+  target?: number;
   person: string;
   flash: (message: string) => void;
 };
@@ -46,7 +48,7 @@ const periods: [Period, string][] = [["jour", "Aujourd'hui"], ["hier", "Hier"], 
 const contents: [keyof RecapSections, string][] = [["summary", "Résumé et moyennes"], ["meals", "Repas"], ["nutrients", "Protéines, glucides, lipides"], ["water", "Hydratation"], ["activity", "Pas et sport"], ["weight", "Poids"], ["fasting", "Jeûne"]];
 
 /** Télécharger un récapitulatif en PDF : la période, puis ce qu'il contient. */
-export default function RecapDownload({ data, person, flash }: RecapDownloadProps) {
+export default function RecapDownload({ data, target, person, flash }: RecapDownloadProps) {
   const today = todayKey();
   const [period, setPeriod] = useState<Period>("semaine");
   const [from, setFrom] = useState(addDays(today, -6));
@@ -55,13 +57,15 @@ export default function RecapDownload({ data, person, flash }: RecapDownloadProp
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<SavedRecap | null>(null);
   const range = rangeOf(period, today, from, to, firstDay(data, today));
-  const recap = useMemo(() => buildRecap(data, range), [data, range.from, range.to]); // eslint-disable-line react-hooks/exhaustive-deps
+  const recap = useMemo(() => buildRecap(data, { ...range, target }), [data, range.from, range.to, target]); // eslint-disable-line react-hooks/exhaustive-deps
   const nothing = !Object.values(sections).some(Boolean);
 
   const download = async () => {
     setBusy(true);
     try {
-      setSaved(await saveRecapPdf(recap, sections, person));
+      const file = await saveRecapPdf(recap, sections, person);
+      setSaved(file);
+      void notifyRecapSaved(file).catch(() => undefined);
     } catch (problem) {
       console.error("Récap PDF", problem);
       flash(`Le PDF n'a pas pu être créé : ${problem instanceof Error ? problem.message : String(problem)}`);
@@ -103,7 +107,12 @@ export default function RecapDownload({ data, person, flash }: RecapDownloadProp
           <strong>✓ PDF enregistré dans {saved.place}</strong>
           <small>{saved.fileName}</small>
           {saved.place === "Téléchargements" && saved.uri && <small>Retrouve-le dans l'app « Mes fichiers », dossier Téléchargements (ou Download).</small>}
-          {saved.uri && <button type="button" className="plan-confirm" onClick={() => void shareSavedRecap(saved).catch(() => flash("Partage impossible"))}><Icon name="share" size={14} /> Partager (mail, WhatsApp, Drive…)</button>}
+          {saved.uri && (
+            <div className="recap-saved-actions">
+              <button type="button" className="plan-confirm" onClick={() => void openSavedRecap(saved.uri!).catch(() => flash("Aucune application pour ouvrir un PDF"))}><Icon name="download" size={14} /> Ouvrir</button>
+              <button type="button" className="plan-confirm" onClick={() => void shareSavedRecap(saved).catch(() => flash("Partage impossible"))}><Icon name="share" size={14} /> Partager</button>
+            </div>
+          )}
         </div>
       )}
       <button type="button" className="submit-button" onClick={() => void download()} disabled={busy || nothing}>

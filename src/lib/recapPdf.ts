@@ -66,7 +66,7 @@ export async function recapPdf(recap: Recap, sections: RecapSections, person: st
   if (sections.summary) {
     text("Résumé de la période", 13, [20, 20, 20], true);
     const rows: string[][] = [["Jours notés", `${s.daysLogged} sur ${s.days}${s.freeDays ? ` (+ ${s.freeDays} jour${s.freeDays > 1 ? "s" : ""} libre${s.freeDays > 1 ? "s" : ""}, hors moyennes)` : ""}`]];
-    if (sections.meals || sections.nutrients) rows.push(["Calories / jour (moyenne)", n(s.kcal, "kcal")]);
+    if (sections.meals || sections.nutrients) rows.push(["Calories / jour (moyenne)", recap.target ? `${n(s.kcal)} / ${n(recap.target)} kcal (objectif)` : n(s.kcal, "kcal")]);
     if (sections.nutrients) rows.push(["Protéines / glucides / lipides (moyenne)", `${n(s.protein, "g")} / ${n(s.carbs, "g")} / ${n(s.fat, "g")}`]);
     if (sections.water) rows.push(["Hydratation / jour (moyenne)", water(s.waterMl)]);
     if (sections.activity) rows.push(["Pas / jour (moyenne)", n(s.steps)], ["Sport", s.sessions ? `${s.sessions} séance${s.sessions > 1 ? "s" : ""} · ${s.sessionMinutes} min` : "-"]);
@@ -77,7 +77,8 @@ export async function recapPdf(recap: Recap, sections: RecapSections, person: st
   if (!recap.days.length) text("Rien de noté sur cette période.", 11, GREY);
   for (const day of recap.days) {
     if (y > 250) { doc.addPage(); y = 18; }
-    text(`${longDay(day.date)}${day.free ? " · journée libre" : ""}`, 12, GREEN, true);
+    const consumed = day.meals.length && !day.free ? ` · ${n(day.totals.kcal)}${recap.target ? ` / ${n(recap.target)}` : ""} kcal` : "";
+    text(`${longDay(day.date)}${day.free ? " · journée libre" : consumed}`, 12, GREEN, true);
     if (sections.meals && day.meals.length) {
       const head = sections.nutrients ? ["Moment", "Repas", "kcal", "Prot.", "Gluc.", "Lip."] : ["Moment", "Repas", "kcal"];
       const body = day.meals.map((meal) => {
@@ -85,7 +86,7 @@ export async function recapPdf(recap: Recap, sections: RecapSections, person: st
         const row = [meal.category, meal.name, kcal];
         return sections.nutrients ? [...row, meal.free ? "-" : n(meal.protein, "g"), meal.free ? "-" : n(meal.carbs, "g"), meal.free ? "-" : n(meal.fat, "g")] : row;
       });
-      const total = ["", day.free ? "Total (hors repas libre)" : "Total", String(day.totals.kcal)];
+      const total = ["", day.free ? "Total (hors repas libre)" : recap.target ? `Total · objectif ${n(recap.target)} kcal` : "Total", recap.target && !day.free ? `${day.totals.kcal} / ${recap.target}` : String(day.totals.kcal)];
       body.push(sections.nutrients ? [...total, `${day.totals.protein} g`, `${day.totals.carbs} g`, `${day.totals.fat} g`] : total);
       table(head, body, sections.nutrients ? [26, 86, 22, 16, 16, 16] : [30, 120, 32]);
     }
@@ -132,6 +133,31 @@ export async function saveRecapPdf(recap: Recap, sections: RecapSections, person
     const file = await Filesystem.writeFile({ path: fileName, data, directory: Directory.Cache });
     return { fileName, place: "l'app (à partager)", uri: file.uri };
   }
+}
+
+/**
+ * Notification « Bilan téléchargé » (flèche dans la barre du téléphone) ; la toucher ouvre le PDF.
+ * Sans autorisation des notifications, rien n'est affiché (le message dans l'app reste).
+ */
+export async function notifyRecapSaved(saved: SavedRecap) {
+  if (!Capacitor.isNativePlatform() || !saved.uri) return;
+  const { LocalNotifications } = await import("@capacitor/local-notifications");
+  let { display } = await LocalNotifications.checkPermissions();
+  if (display === "prompt" || display === "prompt-with-rationale") display = (await LocalNotifications.requestPermissions()).display;
+  if (display !== "granted") return;
+  await LocalNotifications.schedule({ notifications: [{
+    id: 900_000 + Math.floor(Math.random() * 90_000),
+    title: "Bilan téléchargé",
+    body: `${saved.fileName} · ${saved.place}. Touche pour l'ouvrir.`,
+    smallIcon: "ic_stat_download",
+    extra: { openFile: saved.uri },
+  }] });
+}
+
+/** Ouvre le PDF avec l'application du téléphone (lecteur PDF, Drive…). */
+export async function openSavedRecap(uri: string) {
+  const { FileOpener } = await import("@capacitor-community/file-opener");
+  await FileOpener.open({ filePath: uri, contentType: "application/pdf", openWithDefault: true });
 }
 
 /** Ouvre la feuille de partage du téléphone (mail, WhatsApp, Drive…) pour un PDF enregistré. */

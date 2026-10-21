@@ -1009,7 +1009,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               <>
                 <p className="eyebrow">Mon suivi</p>
                 <h2>Télécharger un récap</h2>
-                <RecapDownload data={data} person={displayName} flash={flash} />
+                <RecapDownload data={data} target={goal} person={displayName} flash={flash} />
               </>
             )}
             {modal === "tips" && (

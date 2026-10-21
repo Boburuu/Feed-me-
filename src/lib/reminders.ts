@@ -107,6 +107,9 @@ export async function listenForReminderTaps() {
   if (!remindersAvailable()) return;
   const { LocalNotifications } = await import("@capacitor/local-notifications");
   await LocalNotifications.addListener("localNotificationActionPerformed", ({ notification }) => {
+    // Notification « Bilan téléchargé » : on ouvre le PDF.
+    const file = notification.extra?.openFile as string | undefined;
+    if (file) { void import("./recapPdf").then(({ openSavedRecap }) => openSavedRecap(file)).catch(() => undefined); return; }
     const target = notification.extra?.target as ReminderTarget | undefined;
     if (!target) return;
     try { sessionStorage.setItem(TARGET_KEY, target); } catch { /* lu par l'événement */ }

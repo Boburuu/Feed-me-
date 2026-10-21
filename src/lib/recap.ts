@@ -8,7 +8,7 @@ import { addDays, eatenMeals } from "./planning";
 import { mealCategories, todayKey, type AppData, type MealCategory } from "./storage";
 
 export type RecapSections = { meals: boolean; nutrients: boolean; water: boolean; activity: boolean; weight: boolean; fasting: boolean; summary: boolean };
-export type RecapOptions = { from: string; to: string; sections: RecapSections };
+export type RecapOptions = { from: string; to: string; sections: RecapSections; target?: number };
 
 export type RecapMeal = { category: string; name: string; kcal: number; protein: number | null; carbs: number | null; fat: number | null; free: boolean; estimate: number | null };
 export type RecapDay = {
@@ -25,6 +25,8 @@ export type RecapDay = {
 export type Recap = {
   from: string;
   to: string;
+  /** Objectif de calories par jour (repère « consommé / objectif »). */
+  target: number | null;
   days: RecapDay[];
   summary: {
     days: number;
@@ -55,7 +57,7 @@ export function periodDays(from: string, to: string) {
 }
 
 /** Chiffres du récapitulatif ; les jours sans rien de noté sont laissés de côté. */
-export function buildRecap(data: AppData, { from, to }: Pick<RecapOptions, "from" | "to">): Recap {
+export function buildRecap(data: AppData, { from, to, target }: Pick<RecapOptions, "from" | "to" | "target">): Recap {
   const meals = eatenMeals(data.meals);
   const days = periodDays(from, to).map((date): RecapDay => {
     const dayMeals = meals.filter((meal) => meal.date === date).sort((a, b) => order(a.category) - order(b.category));
@@ -97,6 +99,7 @@ export function buildRecap(data: AppData, { from, to }: Pick<RecapOptions, "from
   return {
     from,
     to,
+    target: target && target > 0 ? Math.round(target) : null,
     days,
     summary: {
       days: periodDays(from, to).length,

@@ -14,6 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@capacitor-community/file-opener": "^8.0.1",
     "@capacitor-mlkit/barcode-scanning": "8.2.1",
     "@capacitor-mlkit/text-recognition": "^8.2.1",
     "@capacitor/android": "^8.5.3",
