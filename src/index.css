@@ -830,3 +830,6 @@ h2 { font-size: 20px; font-weight: 800; }
 .recap-button span { display: grid; gap: 2px; }
 .recap-button strong { font-size: 15px; }
 .recap-button small { color: var(--muted); font-size: 12px; }
+.recap-saved { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--green); border-radius: 14px; background: color-mix(in srgb, var(--green) 10%, transparent); }
+.recap-saved small { color: var(--muted); font-size: 12px; word-break: break-all; }
+.recap-saved .plan-confirm { justify-self: start; margin-top: 6px; }

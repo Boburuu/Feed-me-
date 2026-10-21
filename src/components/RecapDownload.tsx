@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import Icon from "./Icon";
 import { addDays } from "../lib/planning";
 import { buildRecap, type RecapSections } from "../lib/recap";
-import { shareRecapPdf } from "../lib/recapPdf";
+import { saveRecapPdf, shareSavedRecap, type SavedRecap } from "../lib/recapPdf";
 import { todayKey, type AppData } from "../lib/storage";
 
 type RecapDownloadProps = {
@@ -39,6 +39,7 @@ export default function RecapDownload({ data, person, flash }: RecapDownloadProp
   const [to, setTo] = useState(today);
   const [sections, setSections] = useState<RecapSections>({ summary: true, meals: true, nutrients: true, water: true, activity: true, weight: true, fasting: true });
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<SavedRecap | null>(null);
   const range = rangeOf(period, today, from, to);
   const recap = useMemo(() => buildRecap(data, range), [data, range.from, range.to]); // eslint-disable-line react-hooks/exhaustive-deps
   const nothing = !Object.values(sections).some(Boolean);
@@ -46,7 +47,7 @@ export default function RecapDownload({ data, person, flash }: RecapDownloadProp
   const download = async () => {
     setBusy(true);
     try {
-      await shareRecapPdf(recap, sections, person);
+      setSaved(await saveRecapPdf(recap, sections, person));
     } catch {
       flash("Le PDF n'a pas pu être créé");
     } finally {
@@ -82,8 +83,16 @@ export default function RecapDownload({ data, person, flash }: RecapDownloadProp
           ? `${recap.days.length} jour${recap.days.length > 1 ? "s" : ""} avec des données${recap.summary.freeDays ? `, dont ${recap.summary.freeDays} libre${recap.summary.freeDays > 1 ? "s" : ""}` : ""}.`
           : "Rien de noté sur cette période."}
       </p>
+      {saved && (
+        <div className="recap-saved" role="status">
+          <strong>✓ PDF enregistré dans {saved.place}</strong>
+          <small>{saved.fileName}</small>
+          {saved.place === "Téléchargements" && saved.uri && <small>Retrouve-le dans l'app « Mes fichiers », dossier Téléchargements (ou Download).</small>}
+          {saved.uri && <button type="button" className="plan-confirm" onClick={() => void shareSavedRecap(saved).catch(() => flash("Partage impossible"))}><Icon name="share" size={14} /> Partager (mail, WhatsApp, Drive…)</button>}
+        </div>
+      )}
       <button type="button" className="submit-button" onClick={() => void download()} disabled={busy || nothing}>
-        <Icon name="upload" /> {busy ? "Création du PDF…" : "Télécharger le PDF"}
+        <Icon name="download" /> {busy ? "Création du PDF…" : saved ? "Télécharger à nouveau" : "Télécharger le PDF"}
       </button>
     </div>
   );

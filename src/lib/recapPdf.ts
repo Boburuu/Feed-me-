@@ -104,16 +104,34 @@ export async function recapPdf(recap: Recap, sections: RecapSections, person: st
   return doc;
 }
 
-/** Téléphone : feuille de partage (Drive, mail, WhatsApp…) ; navigateur : téléchargement. */
-export async function shareRecapPdf(recap: Recap, sections: RecapSections, person: string) {
+export type SavedRecap = { fileName: string; place: string; uri?: string };
+
+/**
+ * Téléphone : PDF enregistré dans « Téléchargements » (sinon dans l'app), à partager ensuite ;
+ * navigateur : téléchargement direct.
+ */
+export async function saveRecapPdf(recap: Recap, sections: RecapSections, person: string): Promise<SavedRecap> {
   const doc = await recapPdf(recap, sections, person);
   const fileName = recapFileName(recap);
-  if (Capacitor.isNativePlatform()) {
-    const [{ Directory, Filesystem }, { Share }] = await Promise.all([import("@capacitor/filesystem"), import("@capacitor/share")]);
-    const data = (doc.output("datauristring") as string).split(",")[1];
-    const file = await Filesystem.writeFile({ path: fileName, data, directory: Directory.Cache });
-    await Share.share({ title: "Récapitulatif Feed Me", files: [file.uri] });
-    return;
+  if (!Capacitor.isNativePlatform()) {
+    doc.save(fileName);
+    return { fileName, place: "Téléchargements" };
   }
-  doc.save(fileName);
+  const { Directory, Filesystem } = await import("@capacitor/filesystem");
+  const data = (doc.output("datauristring") as string).split(",")[1];
+  try {
+    const file = await Filesystem.writeFile({ path: `Download/${fileName}`, data, directory: Directory.ExternalStorage, recursive: true });
+    return { fileName, place: "Téléchargements", uri: file.uri };
+  } catch {
+    // Dossier public refusé : le fichier reste dans l'app, à partager.
+    const file = await Filesystem.writeFile({ path: fileName, data, directory: Directory.Cache });
+    return { fileName, place: "l'app (à partager)", uri: file.uri };
+  }
+}
+
+/** Ouvre la feuille de partage du téléphone (mail, WhatsApp, Drive…) pour un PDF enregistré. */
+export async function shareSavedRecap(saved: SavedRecap) {
+  if (!saved.uri) return;
+  const { Share } = await import("@capacitor/share");
+  await Share.share({ title: "Récapitulatif Feed Me", files: [saved.uri] });
 }
