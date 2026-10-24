@@ -18,6 +18,7 @@ import ShareSheet from "../components/ShareSheet";
 import { INCOMING_EVENT, takeIncomingShare } from "../lib/incomingShare";
 import { cleanMealName, eatenItems, recipeFromMeal } from "../lib/sharedMeal";
 import { freeLabel } from "../lib/freeDays";
+import { versionLabel } from "../lib/version";
 import type { MealItem } from "../lib/storage";
 import StepsPanel from "../components/StepsPanel";
 import TrackingTab, { type TrackingView } from "../components/TrackingTab";
@@ -279,6 +280,12 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     pastMeals: (key, correction) => mealsWithProduct(data.meals, key, correction).length,
     cookPrefs: data.cookPrefs ?? {},
     saveCookPref: (key, pref) => update((current) => ({ ...current, cookPrefs: { ...current.cookPrefs, [key]: { ...current.cookPrefs?.[key], ...pref } } })),
+    images: data.productImages ?? {},
+    saveImage: (key, image) => update((current) => {
+      const images = { ...current.productImages };
+      if (image) images[key] = image; else delete images[key];
+      return { ...current, productImages: images };
+    }),
   };
   const goalWater = waterGoal(profile.sex);
   const stepsToday = data.steps[today];
@@ -925,6 +932,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             </div>
             <input ref={backupInput} className="hidden-input" type="file" accept="application/json,.json" onChange={importBackup} />
           </section>
+          <p className="app-version">{versionLabel()}</p>
         </div>
       )}
 

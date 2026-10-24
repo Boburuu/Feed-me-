@@ -11,6 +11,9 @@ export type CorrectionsApi = {
   /** Cru / cuit, sec / cuit retenu par aliment (cookKey). */
   cookPrefs: CookPrefs;
   saveCookPref: (key: string, pref: CookPref) => void;
+  /** Photos de produits ajoutées à la main (clé : correctionKey). */
+  images: Record<string, string>;
+  saveImage: (key: string, image: string | null) => void;
 };
 
 /** Fourni par l'écran principal ; absent (null) hors de l'app, la vérification est alors masquée. */

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import Icon from "./Icon";
 import type { FoodResult } from "../lib/foods";
+import { correctionKey } from "../lib/corrections";
+import { useCorrections } from "../lib/correctionsContext";
 
 /** Calories d'une portion quand on la connaît (« 109 kcal » pour 1 banane), sinon pour 100 g. */
 export const kcalLabel = (result: FoodResult) => {
@@ -33,8 +35,11 @@ type FoodResultRowProps = {
 /** Photo du produit (Open Food Facts) ; l'icône de la source si elle manque ou ne charge pas. */
 function ResultPicture({ result }: { result: FoodResult }) {
   const [failed, setFailed] = useState(false);
-  if (result.image && !failed) {
-    return <img className="food-photo" src={result.image} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />;
+  // Photo de la fiche, sinon celle que tu as ajoutée toi-même.
+  const corrections = useCorrections();
+  const image = result.image ?? corrections?.images[correctionKey(result)];
+  if (image && !failed) {
+    return <img className="food-photo" src={image} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />;
   }
   return <span className={`food-icon source-${result.source}`}><Icon name={sourceIcon[result.source]} size={16} /></span>;
 }

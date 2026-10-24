@@ -197,3 +197,13 @@ describe("produits de la marque U", () => {
     expect(storeBrand("U")).toBeNull();
   });
 });
+
+import { versionLabel } from "./version";
+
+describe("version affichée", () => {
+  it("version publiée, puis mises à jour depuis", () => {
+    expect(versionLabel({ tag: "v1.5", after: 0, hash: "abc1234", date: "2026-10-24" })).toBe("Feed Me v1.5 (abc1234)");
+    expect(versionLabel({ tag: "v1.5", after: 12, hash: "e7101d9", date: "2026-10-24" })).toBe("Feed Me v1.5 · mise à jour du 24 octobre 2026 (e7101d9)");
+    expect(versionLabel(null)).toBe("Feed Me");
+  });
+});

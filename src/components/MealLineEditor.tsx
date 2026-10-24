@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
 import LabelCheck from "./LabelCheck";
-import { canCheckLabel, reliabilityOf } from "../lib/corrections";
+import { canCheckLabel, correctionKey, reliabilityOf } from "../lib/corrections";
+import { shrinkImage } from "../lib/images";
 import { cookingBase, cookingVariants, cookKey, withVariant, type CookingVariant } from "../lib/cooking";
 import { useCorrections } from "../lib/correctionsContext";
 import { coherenceWarnings, quantityWarning } from "../lib/coherence";
@@ -66,6 +67,8 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
   /** Fiche Ciqual : valeurs pour 100 g, même pour une boisson. */
   const per100g = line.source === "ciqual";
   const [checking, setChecking] = useState(false);
+  const photoInput = useRef<HTMLInputElement>(null);
+  const ownImage = corrections?.images[correctionKey(line)];
   const [details, setDetails] = useState(false);
   const reliability = reliabilityOf(line);
   /** Sucres, saturés, fibres, sel : affichés quand la fiche les donne. */
@@ -108,6 +111,17 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
   /** Morceaux ou grammes dans une part. */
   const perPart = counted ? countTotal! / servings! : 1;
   const [totalDraft, setTotalDraft] = useState("");
+  /** Nombre de parts du plat entier, modifiable sur la ligne (« 1 part sur 20 »). */
+  const [denominatorDraft, setDenominatorDraft] = useState<string | null>(null);
+  const commitDenominator = () => {
+    const value = Math.round(Number((denominatorDraft ?? "").replace(",", ".")));
+    setDenominatorDraft(null);
+    if (!servings || !(value >= 1) || value > 500) return;
+    // Le nombre de parts mangées reste le même (1 part), sur un plat partagé autrement.
+    const eaten = Math.max(1, Math.round((counted ? line.quantity * perPart : line.quantity) * 2) / 2);
+    if (value === servings) onChange({ recipeCount: undefined, quantity: eaten });
+    else onChange({ recipeCount: "pieces", recipePieces: value, quantity: (eaten * servings) / value });
+  };
   const [portionDraft, setPortionDraft] = useState("");
   /** Poids d'une portion donné à la main : l'aliment se compte ensuite aussi en grammes (retenu pour la prochaine fois). */
   const setPortionWeight = (event: React.FormEvent) => {
@@ -195,7 +209,13 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
         )}
         {!inVolume && (line.liquid || perPortionOnly || options.length < 2) && (
           <span className="unit-fixed">
-            {line.unit === "g" ? massUnit : counted && wantedCount === "grams" ? `g sur ${n(line.recipeGrams!)} g` : counted ? `morceau${line.quantity * perPart > 1 ? "x" : ""} sur ${line.recipePieces}` : servings ? `part${plural(line.quantity)} sur ${servings}` : `${unitName(line.portionLabel)}${line.quantity > 1 && line.liquid ? "s" : ""}`}
+            {line.unit === "g" ? massUnit : counted && wantedCount === "grams" ? `g sur ${n(line.recipeGrams!)} g` : servings && wantedCount !== "grams" ? (
+              // « 1 part sur [20] » : le nombre de parts du plat se change ici (plat partagé en 20).
+              <span className="denominator">
+                {counted ? `part${line.quantity * perPart > 1 ? "s" : ""}` : `part${plural(line.quantity)}`} sur
+                <input type="number" inputMode="numeric" min="1" value={denominatorDraft ?? String(counted ? line.recipePieces : servings)} onChange={(e) => setDenominatorDraft(e.target.value)} onBlur={commitDenominator} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitDenominator(); } }} aria-label="Nombre de parts du plat entier" />
+              </span>
+            ) : `${unitName(line.portionLabel)}${line.quantity > 1 && line.liquid ? "s" : ""}`}
           </span>
         )}
         {line.unit === "portion" && grams && !(counted && wantedCount === "grams") ? <span className="drink-total">= {amount(grams, line.liquid)}</span> : null}
@@ -369,6 +389,19 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
         )}
       </div>
       {checking && <LabelCheck line={line} onChange={onChange} onClose={() => setChecking(false)} />}
+      {/* Produit sans photo : on peut en ajouter une, pour le repérer d'un coup d'œil dans les listes. */}
+      {corrections && line.source !== "recette" && (
+        <div className="product-photo">
+          {ownImage && <img src={ownImage} alt="" />}
+          <button type="button" className="text-button" onClick={() => photoInput.current?.click()}>{ownImage ? "Changer la photo" : "📷 Ajouter une photo du produit"}</button>
+          {ownImage && <button type="button" className="text-button" onClick={() => corrections.saveImage(correctionKey(line), null)}>Retirer</button>}
+          <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) shrinkImage(file, 160).then((image) => corrections.saveImage(correctionKey(line), image)).catch(() => undefined);
+          }} />
+        </div>
+      )}
       <small className="meal-line-detail">
         {servings ? `Ma recette pour ${servings} pers. · ${Math.round(line.kcal100)} kcal la part` : `Base : ${n(Math.round(line.kcal100))} kcal ${perPortionOnly ? "par portion" : `pour 100 ${line.liquid && !per100g ? "ml" : "g"}`} · ${line.matchedName ? `${line.matchedName} (${sourceName[line.source]})` : sourceName[line.source]}`}
       </small>

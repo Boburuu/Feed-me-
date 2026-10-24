@@ -346,3 +346,5 @@
 .free-meal-link { white-space: normal; text-align: left; }
 .composer-bar small { white-space: normal; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
 .food-search { min-width: 0; }
+.denominator { display: inline-flex; align-items: center; gap: 6px; } .denominator input { width: 52px; padding: 6px 4px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--cream); font: inherit; font-weight: 800; text-align: center; }
+.product-photo { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; } .product-photo img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; }

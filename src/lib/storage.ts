@@ -280,6 +280,8 @@ export type AppData = {
   reminders?: import("./reminders").ReminderSettings;
   /** Cru / cuit retenu par aliment (voir cooking.ts). */
   cookPrefs?: Record<string, import("./cooking").CookPref>;
+  /** Photos de produits ajoutées par l'utilisateur (clé du produit → petite image), quand la fiche n'en a pas. */
+  productImages?: Record<string, string>;
   /** Durée de conservation des brouillons de repas, en heures (24 par défaut). */
   draftHours?: number;
   /** Fiches produits corrigées d'après l'étiquette (par produit, voir corrections.ts). */
