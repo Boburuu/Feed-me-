@@ -207,3 +207,12 @@ describe("version affichée", () => {
     expect(versionLabel(null)).toBe("Feed Me");
   });
 });
+
+import { shortVersion } from "./version";
+
+describe("version courte", () => {
+  it("v1.5 · màj 24/10", () => {
+    expect(shortVersion({ tag: "v1.5", after: 3, hash: "x", date: "2026-10-24" })).toBe("v1.5 · màj 24/10");
+    expect(shortVersion({ tag: "v1.6", after: 0, hash: "x", date: "2026-10-24" })).toBe("v1.6");
+  });
+});

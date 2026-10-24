@@ -9,3 +9,10 @@ export function versionLabel(version = typeof __APP_VERSION__ === "undefined" ? 
   const extra = version.after > 0 ? ` · mise à jour du ${day(version.date)}` : version.tag ? "" : ` · ${day(version.date)}`;
   return `${name}${extra}${version.hash ? ` (${version.hash})` : ""}`;
 }
+
+/** Version courte, visible sur tous les écrans : « v1.5 · màj 24/10 ». */
+export function shortVersion(version = typeof __APP_VERSION__ === "undefined" ? null : __APP_VERSION__) {
+  if (!version) return "";
+  const date = new Date(`${version.date}T12:00:00`).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+  return [version.tag, version.after > 0 || !version.tag ? `màj ${date}` : ""].filter(Boolean).join(" · ");
+}

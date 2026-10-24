@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { versionLabel } from "../lib/version";
 import PinPad from "../components/PinPad";
 import { checkPin, initials, pinLength, type AppData } from "../lib/storage";
 
@@ -66,6 +67,7 @@ export default function LockScreen({ data, onUnlock, onReset }: LockScreenProps)
         onComplete={submit}
       />
       <button type="button" className="text-button forgot-button" onClick={forgot}>Code oublié ?</button>
+      <small className="lock-version">{versionLabel()}</small>
     </div>
   );
 }

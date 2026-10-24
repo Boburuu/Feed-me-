@@ -18,7 +18,7 @@ import ShareSheet from "../components/ShareSheet";
 import { INCOMING_EVENT, takeIncomingShare } from "../lib/incomingShare";
 import { cleanMealName, eatenItems, recipeFromMeal } from "../lib/sharedMeal";
 import { freeLabel } from "../lib/freeDays";
-import { versionLabel } from "../lib/version";
+import { shortVersion, versionLabel } from "../lib/version";
 import type { MealItem } from "../lib/storage";
 import StepsPanel from "../components/StepsPanel";
 import TrackingTab, { type TrackingView } from "../components/TrackingTab";
@@ -574,7 +574,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
       )}
       <header className="topbar">
         <div>
-          <p className="eyebrow">{dateLabel}</p>
+          <p className="eyebrow">{dateLabel}<span className="version-tag" title={versionLabel()}>{shortVersion()}</span></p>
           <h1>Bonjour, {displayName}</h1>
         </div>
         <button className={activeTab === "Profil" ? "avatar active" : "avatar"} onClick={() => goTo("Profil")} aria-label="Ouvrir mon profil">

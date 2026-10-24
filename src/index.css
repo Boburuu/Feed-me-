@@ -835,3 +835,6 @@ h2 { font-size: 20px; font-weight: 800; }
 .recap-saved .plan-confirm { justify-self: start; margin-top: 6px; }
 .recap-saved-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; } .recap-saved-actions .plan-confirm { margin: 0; }
 .app-version { margin: 18px 0 0; color: var(--muted); font-size: 11px; text-align: center; opacity: .7; }
+/* Version visible partout, discrète : à côté de la date, et sous l'écran du code. */
+.version-tag { margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--line); font-weight: 600; letter-spacing: .04em; text-transform: none; opacity: .55; }
+.lock-version { display: block; margin-top: 10px; color: var(--muted); font-size: 11px; text-align: center; opacity: .6; }
