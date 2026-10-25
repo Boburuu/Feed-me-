@@ -282,6 +282,8 @@ export type AppData = {
   cookPrefs?: Record<string, import("./cooking").CookPref>;
   /** Photos de produits ajoutées par l'utilisateur (clé du produit → petite image), quand la fiche n'en a pas. */
   productImages?: Record<string, string>;
+  /** « Mes ingrédients » : produits gardés pour les réutiliser (repas, assiettes, recettes). */
+  pantry?: import("./pantry").PantryItem[];
   /** Durée de conservation des brouillons de repas, en heures (24 par défaut). */
   draftHours?: number;
   /** Fiches produits corrigées d'après l'étiquette (par produit, voir corrections.ts). */

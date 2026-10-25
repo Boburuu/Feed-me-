@@ -3,6 +3,7 @@ import Icon from "./Icon";
 import LabelCheck from "./LabelCheck";
 import { canCheckLabel, correctionKey, reliabilityOf } from "../lib/corrections";
 import { shrinkImage } from "../lib/images";
+import { toPantry } from "../lib/pantry";
 import { cookingBase, cookingVariants, cookKey, withVariant, type CookingVariant } from "../lib/cooking";
 import { useCorrections } from "../lib/correctionsContext";
 import { coherenceWarnings, quantityWarning } from "../lib/coherence";
@@ -16,6 +17,8 @@ type MealLineEditorProps = {
   onRemove: () => void;
   /** Ingrédient de recette : l'hydratation se règle avec le volume final de la recette. */
   hideHydration?: boolean;
+  /** Recette dans un repas : ouvrir ses ingrédients pour les changer ce jour-là seulement. */
+  onAdapt?: () => void;
 };
 
 const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma recette", perso: "Mon aliment", enseigne: "carte officielle" } as const;
@@ -57,7 +60,7 @@ type VolumeUnit = NonNullable<MealItem["volumeUnit"]>;
 const volumeUnits: { id: VolumeUnit; ml: number }[] = [{ id: "ml", ml: 1 }, { id: "cl", ml: 10 }, { id: "dl", ml: 100 }, { id: "L", ml: 1000 }];
 
 /** Une ligne d'aliment : quantité et unité (portion, boîte, contenant, grammes ou ml). */
-export default function MealLineEditor({ line, onChange, onRemove, hideHydration }: MealLineEditorProps) {
+export default function MealLineEditor({ line, onChange, onRemove, hideHydration, onAdapt }: MealLineEditorProps) {
   const grams = itemGrams(line);
   const corrections = useCorrections();
   /** Boisson comptée en volume : l'unité affichée (la quantité reste en ml). */
@@ -240,6 +243,9 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
         </form>
       )}
 
+      {onAdapt && servings && (
+        <button type="button" className="text-button adapt-recipe" onClick={onAdapt}>✎ Adapter les ingrédients pour ce repas</button>
+      )}
       {/* Recette : compter en parts, en morceaux (gâteau coupé en 12) ou en grammes (plat pesé). */}
       {servings && (
         <div className="container-chips" role="radiogroup" aria-label="Compter la recette en">
@@ -389,6 +395,9 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
         )}
       </div>
       {checking && <LabelCheck line={line} onChange={onChange} onClose={() => setChecking(false)} />}
+      {corrections && line.source !== "recette" && !corrections.pantry.some((entry) => correctionKey(entry) === correctionKey(line)) && (
+        <button type="button" className="text-button" onClick={() => corrections.savePantry(toPantry(line))}>☆ Garder dans mes ingrédients</button>
+      )}
       {/* Produit sans photo : on peut en ajouter une, pour le repérer d'un coup d'œil dans les listes. */}
       {corrections && line.source !== "recette" && (
         <div className="product-photo">

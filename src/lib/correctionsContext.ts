@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { CookPref, CookPrefs } from "./cooking";
 import type { Corrections, ProductCorrection } from "./corrections";
+import type { PantryItem } from "./pantry";
 
 export type CorrectionsApi = {
   corrections: Corrections;
@@ -14,6 +15,10 @@ export type CorrectionsApi = {
   /** Photos de produits ajoutées à la main (clé : correctionKey). */
   images: Record<string, string>;
   saveImage: (key: string, image: string | null) => void;
+  /** « Mes ingrédients » : la liste et son enregistrement. */
+  pantry: PantryItem[];
+  savePantry: (item: PantryItem) => void;
+  removePantry: (id: number) => void;
 };
 
 /** Fourni par l'écran principal ; absent (null) hors de l'app, la vérification est alors masquée. */

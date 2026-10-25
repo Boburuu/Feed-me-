@@ -280,6 +280,12 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     pastMeals: (key, correction) => mealsWithProduct(data.meals, key, correction).length,
     cookPrefs: data.cookPrefs ?? {},
     saveCookPref: (key, pref) => update((current) => ({ ...current, cookPrefs: { ...current.cookPrefs, [key]: { ...current.cookPrefs?.[key], ...pref } } })),
+    pantry: data.pantry ?? [],
+    savePantry: (item) => update((current) => {
+      const list = current.pantry ?? [];
+      return { ...current, pantry: list.some((entry) => entry.pantryId === item.pantryId) ? list.map((entry) => (entry.pantryId === item.pantryId ? item : entry)) : [item, ...list] };
+    }),
+    removePantry: (id) => update((current) => ({ ...current, pantry: (current.pantry ?? []).filter((entry) => entry.pantryId !== id) })),
     images: data.productImages ?? {},
     saveImage: (key, image) => update((current) => {
       const images = { ...current.productImages };

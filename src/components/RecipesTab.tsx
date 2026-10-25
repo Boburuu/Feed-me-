@@ -3,6 +3,7 @@ import { mealsWithRecipe, recalculatedRecipe, updateMealsWithRecipe } from "../l
 import Icon from "./Icon";
 import RecipeDetail from "./RecipeDetail";
 import RecipeForm from "./RecipeForm";
+import PantryPanel from "./PantryPanel";
 import StoredImage from "./StoredImage";
 import { recipeDraft, type RecipeDraft } from "../lib/drafts";
 import { deleteImage } from "../lib/images";
@@ -32,6 +33,7 @@ const normalize = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, ""
 export default function RecipesTab({ recipes, meals, prefill, onPrefillUsed, update, onAddToJournal, flash, onReceive, focusRecipeId }: RecipesTabProps) {
   const [filter, setFilter] = useState<RecipeCategory | "toutes">("toutes");
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<"recettes" | "ingredients">("recettes");
   // Recette en cours de saisie quand l'app a été fermée : le formulaire se rouvre avec elle.
   const [startDraft] = useState(() => recipeDraft.load());
   const [creating, setCreating] = useState(!!startDraft && !startDraft.recipeId);
@@ -151,9 +153,17 @@ export default function RecipesTab({ recipes, meals, prefill, onPrefillUsed, upd
       <section className="page-heading recipe-heading">
         <span className="large-icon blue-icon"><Icon name="book" size={25} /></span>
         <p className="eyebrow">Mon carnet</p>
-        <h2>Mes recettes</h2>
-        <p>Vos recettes à cuisiner : ingrédients, étapes, et ajout au journal en un geste.</p>
+        <h2>{view === "recettes" ? "Mes recettes" : "Mes ingrédients"}</h2>
+        {view === "recettes" && <p>Vos recettes à cuisiner : ingrédients, étapes, et ajout au journal en un geste.</p>}
       </section>
+
+      {/* Le carnet : les recettes, et la liste rapide des produits gardés. */}
+      <div className="sex-selector carnet-view" role="tablist" aria-label="Mon carnet">
+        <button type="button" role="tab" aria-selected={view === "recettes"} className={view === "recettes" ? "selected" : ""} onClick={() => setView("recettes")}>Mes recettes</button>
+        <button type="button" role="tab" aria-selected={view === "ingredients"} className={view === "ingredients" ? "selected" : ""} onClick={() => setView("ingredients")}>Mes ingrédients</button>
+      </div>
+      {view === "ingredients" && <PantryPanel flash={flash} />}
+      {view === "recettes" && (<>
 
       <button className="create-recipe" onClick={() => setCreating(true)}>
         <span><Icon name="plus" /></span>
@@ -265,6 +275,7 @@ export default function RecipesTab({ recipes, meals, prefill, onPrefillUsed, upd
           }}
         />
       )}
+      </>)}
     </div>
   );
 }

@@ -838,3 +838,17 @@ h2 { font-size: 20px; font-weight: 800; }
 /* Version visible partout, discrète : à côté de la date, et sous l'écran du code. */
 .version-tag { margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--line); font-weight: 600; letter-spacing: .04em; text-transform: none; opacity: .55; }
 .lock-version { display: block; margin-top: 10px; color: var(--muted); font-size: 11px; text-align: center; opacity: .6; }
+/* Mon carnet : recettes / mes ingrédients. */
+.carnet-view { margin: 4px 0 12px; }
+.pantry { display: grid; gap: 12px; }
+.pantry-row { display: grid; gap: 8px; }
+.pantry-editor { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--white); }
+.pantry-editor .food-section { margin: 0; }
+.pantry-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pantry-fields label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.pantry-fields label > div { display: flex; align-items: center; gap: 6px; }
+.pantry-fields input { width: 100%; min-width: 0; box-sizing: border-box; padding: 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--cream); font: inherit; font-size: 15px; font-weight: 700; }
+.pantry-fields small { color: var(--muted); }
+.pantry-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.pantry-actions .plan-confirm { margin: 0; }
+.danger-text { color: var(--coral) !important; }

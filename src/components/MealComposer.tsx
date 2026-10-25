@@ -35,6 +35,7 @@ import { energyBrands, energyDrinks } from "../lib/energyDrinks";
 import { analyzeMealPhoto, photoRecognitionAvailable, type PhotoAnalysis } from "../lib/foodPhoto";
 import BarcodePanel from "./BarcodePanel";
 import FastFoodPanel from "./FastFoodPanel";
+import { pantryResult } from "../lib/pantry";
 import ShareSheet from "./ShareSheet";
 import { mealPayload } from "../lib/share";
 import { fastFoodResult, searchFastFood } from "../lib/fastFood";
@@ -414,11 +415,45 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   };
   const shortDate = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 
+  /**
+   * Recette adaptée pour ce repas (skyr remplacé par du Pâturage, 115 g de St Môret au lieu
+   * de 150) : ses ingrédients remplacent la ligne, la recette du carnet ne change pas.
+   * Seule dans le repas : elle devient une assiette maison (le plat entier, et ta part).
+   * Avec d'autres aliments : ses ingrédients, pour la quantité mangée.
+   */
+  const [adaptNote, setAdaptNote] = useState("");
+  const adaptRecipe = (line: Line) => {
+    const recipe = recipes.find((item) => String(item.id) === line.ref);
+    if (!recipe) { setAdaptNote("Recette introuvable dans ton carnet : ses ingrédients ne peuvent pas être ouverts."); return; }
+    const written = recipe.ingredients.flatMap((group) => group.items);
+    const foods = written.filter((item) => item.food).map((item) => applyCorrection({ ...item.food! }, corrections?.corrections));
+    if (!foods.length) { setAdaptNote("Cette recette n'a pas d'ingrédients avec des valeurs : modifie-la dans le carnet."); return; }
+    const portions = recipe.portions || 1;
+    const eaten = line.quantity; // en parts de la recette
+    const start = Date.now();
+    const missing = written.length - foods.length;
+    if (lines.length === 1) {
+      setLines(foods.map((item, index) => ({ ...item, key: start + index })));
+      setFree(false);
+      setMode("plate");
+      setPlateName(`${recipe.name} (adaptée)`);
+      setServings(portions);
+      const parts = Math.max(0.5, Math.round(eaten * 2) / 2);
+      setParts(parts);
+      setAdjust(Math.round((eaten / portions - parts / portions) * 100));
+    } else {
+      const factor = eaten / portions;
+      setLines((current) => current.flatMap((item) => (item.key !== line.key ? [item] : foods.map((food, index) => ({ ...food, quantity: Math.round(food.quantity * factor * 100) / 100, key: start + index })))));
+    }
+    setAdaptNote(`Ingrédients de « ${recipe.name} » pour ce repas : change ce qui diffère aujourd'hui. La recette du carnet ne change pas.${missing ? ` (${missing} ingrédient${missing > 1 ? "s" : ""} sans valeurs non repris)` : ""}`);
+  };
+
   // --- Étape 1 : cocher ce qu'on a mangé ---------------------------------------------------------
   // Modification, brouillon, repas reçu ou recette : on arrive directement sur les quantités.
   const [stage, setStage] = useState<1 | 2>(() => (editing || draft?.lines.length || initialItems?.length ? 2 : 1));
-  const pickTabs = (["Récents", "Recettes", "Fast-food", "Boissons", "Restes", "Refaire"] as const).filter((name) =>
-    (name !== "Restes" || freshLeftovers.length > 0) && (name !== "Refaire" || lastMeals.length > 0) && (name !== "Boissons" || drinks.length > 0));
+  const pantry = corrections?.pantry ?? [];
+  const pickTabs = (["Récents", "Mes ingrédients", "Recettes", "Fast-food", "Boissons", "Restes", "Refaire"] as const).filter((name) =>
+    (name !== "Mes ingrédients" || pantry.length > 0) && (name !== "Restes" || freshLeftovers.length > 0) && (name !== "Refaire" || lastMeals.length > 0) && (name !== "Boissons" || drinks.length > 0));
   const [pickTab, setPickTab] = useState<(typeof pickTabs)[number]>("Récents");
   const pickKey = (item: Pick<MealItem, "source" | "ref" | "name">) => `${item.source}:${item.ref ?? normalize(item.name)}`;
   const pickedKeys = new Set(lines.map(pickKey));
@@ -629,6 +664,11 @@ export default function MealComposer({ date: initialDate, category: initialCateg
               {recents.length ? recents.map(resultRow) : <p className="food-hint">Tapez un aliment, un plat ou un produit. Les valeurs viennent de la table officielle Ciqual (ANSES) et d'Open Food Facts pour les marques.</p>}
             </div>
           )}
+          {pickTab === "Mes ingrédients" && (
+            <div className="food-results">
+              {pantry.map((item, index) => resultRow(pantryResult(item), index))}
+            </div>
+          )}
           {pickTab === "Recettes" && (
             <div className="food-results">
               {myRecipes.length ? myRecipes.map((recipe, index) => resultRow(recipeResult(recipe), index)) : <p className="food-hint">Pas encore de recette : crée-en une dans l'onglet Recettes.</p>}
@@ -762,6 +802,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
           <small>Tout ce qui va dans la casserole (boîte entière ou entamée, filets, riz cru…), puis ta part.</small>
         </div>
       )}
+      {adaptNote && <p className="import-result" role="status">{adaptNote}</p>}
       {lines.length > 0 && (
         <section className="meal-lines">
           {lines.map((line) => (
@@ -770,6 +811,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
               line={line}
               onChange={(change) => update(line.key, change)}
               onRemove={() => setLines((current) => current.filter((item) => item.key !== line.key))}
+              onAdapt={line.source === "recette" ? () => adaptRecipe(line) : undefined}
             />
           ))}
           {/* Viande, poisson ou aliment poêlé sans matière grasse notée : on la propose. */}

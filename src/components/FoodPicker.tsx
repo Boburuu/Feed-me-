@@ -5,6 +5,8 @@ import { normalize, searchCiqual, searchCommon, searchOpenFoodFacts, type FoodRe
 import { analyzeMealPhoto, photoRecognitionAvailable, type PhotoAnalysis } from "../lib/foodPhoto";
 import BarcodePanel from "./BarcodePanel";
 import FastFoodPanel from "./FastFoodPanel";
+import { useCorrections } from "../lib/correctionsContext";
+import { pantryResult } from "../lib/pantry";
 
 type FoodPickerProps = {
   onPick: (food: FoodResult) => void;
@@ -63,6 +65,8 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
   const [barcodeOpen, setBarcodeOpen] = useState(false);
   const scan = () => { setNote(""); setFastFoodOpen(false); setBarcodeOpen(true); };
   const [fastFoodOpen, setFastFoodOpen] = useState(false);
+  const pantry = useCorrections()?.pantry ?? [];
+  const [allPantry, setAllPantry] = useState(false);
 
   const analysis = photo?.analysis;
   const photoFoods = analysis ? [...(analysis.barcode ? [analysis.barcode] : []), ...analysis.packaging, ...analysis.dishes.map((dish) => dish.food)] : [];
@@ -121,6 +125,14 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
         </section>
       )}
 
+      {/* Mes ingrédients en un geste, quand on ne cherche rien. */}
+      {!query.trim() && !photo && !barcodeOpen && !fastFoodOpen && pantry.length > 0 && (
+        <div className="food-results">
+          <p className="food-section">Mes ingrédients</p>
+          {(allPantry ? pantry : pantry.slice(0, 5)).map((item) => <FoodResultRow key={`garde-${item.pantryId}`} result={pantryResult(item)} onPick={onPick} />)}
+          {!allPantry && pantry.length > 5 && <button type="button" className="text-button food-more" onClick={() => setAllPantry(true)}>Voir {pantry.length - 5} de plus</button>}
+        </div>
+      )}
       {query.trim() && (
         <div className="food-results">
           {results.map((food, index) => <FoodResultRow key={`${food.ref ?? food.name}-${index}`} result={food} onPick={onPick} />)}
