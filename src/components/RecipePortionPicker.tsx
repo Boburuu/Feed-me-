@@ -2,10 +2,14 @@ import { useEffect, useState } from "react";
 import FoodPicker from "./FoodPicker";
 import Icon from "./Icon";
 import { carbsOf, fatOf, itemCalories, itemGrams, itemProtein, toMealItem, type FoodResult } from "../lib/foods";
+import { matchIngredient } from "../lib/ingredientMatch";
+import { formatIngredient } from "../lib/recipes";
 import { estimateRecipeWeight } from "../lib/recipeWeight";
 import { mealCategories, todayKey, type Meal, type MealCategory, type MealItem, type Recipe } from "../lib/storage";
 
 type Mode = "parts" | "pieces" | "grams";
+/** Un ingrédient de ce repas : l'aliment (ou rien, s'il n'a pas encore de valeurs) et la ligne écrite. */
+type Row = { food: MealItem | null; text: string; guessed?: boolean };
 
 type RecipePortionPickerProps = {
   recipe: Recipe;
@@ -56,26 +60,50 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
   }, [recipe]);
 
   // --- Ingrédients changés pour ce repas (la recette du carnet ne change pas) ---------------
-  const recipeFoods = recipe.ingredients.flatMap((group) => group.items).filter((item) => item.food).map((item) => ({ ...item.food! }));
-  const handWritten = recipe.ingredients.flatMap((group) => group.items).filter((item) => !item.food).length;
+  // Les ingrédients écrits à la main (« 2 tranches de cheddar ») sont aussi listés : l'app leur
+  // cherche des valeurs, et on peut les choisir, les remplacer ou les retirer.
+  const written = recipe.ingredients.flatMap((group) => group.items);
+  const startRows = (): Row[] => written.map((item) => ({ food: item.food ? { ...item.food } : null, text: formatIngredient(item) }));
   const [showIngredients, setShowIngredients] = useState(false);
-  /** null : la recette telle quelle ; sinon les ingrédients de ce repas (plat entier). */
-  const [changed, setChanged] = useState<MealItem[] | null>(null);
+  const [rows, setRows] = useState<Row[]>(startRows);
+  /** false : la recette telle quelle ; true : les ingrédients de ce repas (plat entier). */
+  const [changed, setChanged] = useState(false);
+  const [matching, setMatching] = useState(false);
+  const [matched, setMatched] = useState(false);
   const [replacing, setReplacing] = useState<number | "new" | null>(null);
-  const ingredients = changed ?? recipeFoods;
-  const setIngredient = (index: number, item: MealItem | null) => {
-    const next = [...ingredients];
-    if (item) next[index] = item; else next.splice(index, 1);
-    setChanged(next);
+  useEffect(() => {
+    if (!showIngredients || matched) return;
+    setMatched(true);
+    const todo = written.filter((item) => !item.food);
+    if (!todo.length) return;
+    let alive = true;
+    setMatching(true);
+    Promise.all(todo.map((item) => matchIngredient(item).catch(() => null))).then((found) => {
+      if (!alive) return;
+      const byText = new Map(todo.map((item, index) => [formatIngredient(item), found[index]]));
+      setRows((current) => current.map((row) => (row.food || !byText.get(row.text) ? row : { ...row, food: byText.get(row.text)!, guessed: true })));
+      setMatching(false);
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showIngredients, matched]);
+  const setRow = (index: number, row: Row | null) => {
+    const next = [...rows];
+    if (row) next[index] = row; else next.splice(index, 1);
+    setRows(next);
+    setChanged(true);
   };
   /** Remplacer un ingrédient : le nouveau garde la même quantité (en grammes quand on la connaît). */
   const replaceWith = (index: number | "new", result: FoodResult) => {
     const fresh = toMealItem(result);
-    if (index === "new") { setChanged([...ingredients, fresh]); setReplacing(null); return; }
-    const grams = itemGrams(ingredients[index]);
-    setIngredient(index, grams ? { ...fresh, unit: "g", quantity: Math.round(grams) } : fresh);
     setReplacing(null);
+    if (index === "new") { setRows([...rows, { food: fresh, text: fresh.name }]); setChanged(true); return; }
+    const old = rows[index].food;
+    const grams = old ? itemGrams(old) : null;
+    setRow(index, { food: grams ? { ...fresh, unit: "g", quantity: Math.round(grams) } : fresh, text: rows[index].text });
   };
+  const items = rows.flatMap((row) => (row.food ? [row.food] : []));
+  const missing = rows.filter((row) => !row.food).length;
   const unitText = (item: MealItem) => (item.unit === "g" ? (item.liquid ? "ml" : "g") : (item.portionLabel ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, ""));
 
   // Part du plat entier mangée (1 = tout le plat).
@@ -87,7 +115,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
   const share = Math.max(0, fraction);
   // Plat entier : la recette, ou la somme des ingrédients changés pour ce repas.
   const whole = changed
-    ? { kcal: changed.reduce((sum, item) => sum + itemCalories(item), 0), protein: changed.reduce((sum, item) => sum + itemProtein(item), 0), carbs: carbsOf(changed).carbs, fat: fatOf(changed).fat }
+    ? { kcal: items.reduce((sum, item) => sum + itemCalories(item), 0), protein: items.reduce((sum, item) => sum + itemProtein(item), 0), carbs: carbsOf(items).carbs, fat: fatOf(items).fat }
     : { kcal: recipe.calories * portions, protein: recipe.protein * portions, carbs: recipe.carbs === undefined ? null : recipe.carbs * portions, fat: recipe.fat === undefined ? null : recipe.fat * portions };
   const kcal = Math.round(whole.kcal * share);
   const carbs = whole.carbs === null ? null : Math.round(whole.carbs * share);
@@ -116,7 +144,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
         ...(fat !== null ? { fat } : {}),
         source: "manual",
         drinksCounted: true,
-        items: changed,
+        items,
         plate: { servings: portions, share },
       }, { pieces: recipe.pieces, totalGrams: recipe.totalGrams });
       return;
@@ -237,31 +265,44 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
 
       {!recipe.calories && <p className="food-hint">Calories de la recette pas encore calculées : modifiez la recette pour les ajouter.</p>}
 
-      {recipeFoods.length > 0 && (
+      {written.length > 0 && (
         <section className="adapt-ingredients">
           <button type="button" className="adapt-toggle" aria-expanded={showIngredients} onClick={() => setShowIngredients((value) => !value)}>
-            <span><strong>Ingrédients{changed ? " · changés pour ce repas" : ""}</strong><small>{changed ? "La recette du carnet ne change pas." : "Pas de skyr aujourd'hui ? Moins de St Môret ? Change-les ici."}</small></span>
+            <span><strong>Ingrédients{changed ? " · changés pour ce repas" : ""}</strong><small>{changed ? "La recette du carnet ne change pas." : "Un autre fromage, du bacon en plus ? Change-les ici."}</small></span>
             <Icon name="chevron" size={16} />
           </button>
           {showIngredients && (
             <div className="adapt-list">
               <small className="portion-hint">Quantités pour le plat entier ({portions} pers.).</small>
-              {ingredients.map((item, index) => (
-                <div className="adapt-row" key={`${item.name}-${index}`}>
-                  <div className="adapt-line">
-                    <strong>{item.name}</strong>
-                    <span className="adapt-kcal">{Math.round(itemCalories(item))} kcal</span>
-                  </div>
-                  <div className="adapt-line">
-                    <span className="adapt-qty">
-                      <input value={item.quantity} onChange={(e) => setIngredient(index, { ...item, quantity: Math.max(0, toNumber(e.target.value)) })} inputMode="decimal" aria-label={`Quantité de ${item.name}`} />
-                      <span>{unitText(item)}</span>
-                    </span>
-                    <span className="adapt-actions">
-                      <button type="button" className="text-button" onClick={() => setReplacing(replacing === index ? null : index)}>Remplacer</button>
-                      <button type="button" className="icon-button" onClick={() => setIngredient(index, null)} aria-label={`Retirer ${item.name}`}><Icon name="close" size={14} /></button>
-                    </span>
-                  </div>
+              {matching && <small className="portion-hint">Recherche des valeurs des ingrédients écrits à la main…</small>}
+              {rows.map((row, index) => (
+                <div className="adapt-row" key={`${row.text}-${index}`}>
+                  {row.food ? (<>
+                    <div className="adapt-line">
+                      <strong>{row.food.name}</strong>
+                      <span className="adapt-kcal">{Math.round(itemCalories(row.food))} kcal</span>
+                    </div>
+                    {row.guessed && <small className="portion-hint">Valeurs trouvées pour « {row.text} »{row.food.matchedName ? ` : ${row.food.matchedName}` : ""}. Remplace-le si ce n'est pas le bon.</small>}
+                    <div className="adapt-line">
+                      <span className="adapt-qty">
+                        <input value={row.food.quantity} onChange={(e) => setRow(index, { ...row, food: { ...row.food!, quantity: Math.max(0, toNumber(e.target.value)) } })} inputMode="decimal" aria-label={`Quantité de ${row.food.name}`} />
+                        <span>{unitText(row.food)}</span>
+                      </span>
+                      <span className="adapt-actions">
+                        <button type="button" className="text-button" onClick={() => setReplacing(replacing === index ? null : index)}>Remplacer</button>
+                        <button type="button" className="icon-button" onClick={() => setRow(index, null)} aria-label={`Retirer ${row.food.name}`}><Icon name="close" size={14} /></button>
+                      </span>
+                    </div>
+                  </>) : (<>
+                    <div className="adapt-line">
+                      <strong>{row.text}</strong>
+                      <span className="adapt-kcal">sans valeurs</span>
+                    </div>
+                    <div className="adapt-line">
+                      <button type="button" className="text-button" onClick={() => setReplacing(replacing === index ? null : index)}>Choisir l'aliment</button>
+                      <button type="button" className="icon-button" onClick={() => setRow(index, null)} aria-label={`Retirer ${row.text}`}><Icon name="close" size={14} /></button>
+                    </div>
+                  </>)}
                   {replacing === index && (
                     <FoodPicker onPick={(result) => replaceWith(index, result)}>
                       <button type="button" className="text-button" onClick={() => setReplacing(null)}>Annuler</button>
@@ -276,8 +317,9 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
               ) : (
                 <button type="button" className="add-part" onClick={() => setReplacing("new")}><Icon name="plus" size={15} /> Ajouter un ingrédient</button>
               )}
-              {handWritten > 0 && <small className="portion-hint">{handWritten} ingrédient{handWritten > 1 ? "s" : ""} écrit{handWritten > 1 ? "s" : ""} à la main (sel, poivre…) ne compte{handWritten > 1 ? "nt" : ""} pas.</small>}
-              {changed && <button type="button" className="text-button" onClick={() => { setChanged(null); setReplacing(null); }}>Remettre les ingrédients de la recette</button>}
+              {missing > 0 && <small className="portion-hint">{missing} ingrédient{missing > 1 ? "s" : ""} sans valeurs ne compte{missing > 1 ? "nt" : ""} pas (sel, poivre… ou à choisir).</small>}
+              {changed && <small className="portion-hint">Plat entier recalculé d'après ces ingrédients : {Math.round(whole.kcal)} kcal (recette : {Math.round(recipe.calories * portions)} kcal).</small>}
+              {changed && <button type="button" className="text-button" onClick={() => { setRows(startRows()); setMatched(false); setChanged(false); setReplacing(null); }}>Remettre les ingrédients de la recette</button>}
             </div>
           )}
         </section>

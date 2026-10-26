@@ -35,11 +35,13 @@ import { energyBrands, energyDrinks } from "../lib/energyDrinks";
 import { analyzeMealPhoto, photoRecognitionAvailable, type PhotoAnalysis } from "../lib/foodPhoto";
 import BarcodePanel from "./BarcodePanel";
 import FastFoodPanel from "./FastFoodPanel";
-import { pantryResult } from "../lib/pantry";
+import { pantryResult, toPantry } from "../lib/pantry";
+import { matchIngredient } from "../lib/ingredientMatch";
+import FoodPicker from "./FoodPicker";
 import ShareSheet from "./ShareSheet";
 import { mealPayload } from "../lib/share";
 import { fastFoodResult, searchFastFood } from "../lib/fastFood";
-import { applyCorrection } from "../lib/corrections";
+import { applyCorrection, correctionKey } from "../lib/corrections";
 import { cookingVariants, cookKey, suggestCookingFat, withVariant } from "../lib/cooking";
 import { amountLabel, pastFoods, recentMeals, repeatItems, searchPast } from "../lib/history";
 import { useCorrections } from "../lib/correctionsContext";
@@ -425,16 +427,19 @@ export default function MealComposer({ date: initialDate, category: initialCateg
    * Avec d'autres aliments : ses ingrédients, pour la quantité mangée.
    */
   const [adaptNote, setAdaptNote] = useState("");
-  const adaptRecipe = (line: Line) => {
+  const adaptRecipe = async (line: Line) => {
     const recipe = recipes.find((item) => String(item.id) === line.ref);
     if (!recipe) { setAdaptNote("Recette introuvable dans ton carnet : ses ingrédients ne peuvent pas être ouverts."); return; }
     const written = recipe.ingredients.flatMap((group) => group.items);
-    const foods = written.filter((item) => item.food).map((item) => applyCorrection({ ...item.food! }, corrections?.corrections));
-    if (!foods.length) { setAdaptNote("Cette recette n'a pas d'ingrédients avec des valeurs : modifie-la dans le carnet."); return; }
+    // Ingrédients écrits à la main (« 2 tranches de cheddar ») : on leur cherche des valeurs.
+    setAdaptNote(`Ouverture des ingrédients de « ${recipe.name} »…`);
+    const found = await Promise.all(written.map((item) => (item.food ? Promise.resolve({ ...item.food }) : matchIngredient(item).catch(() => null))));
+    const foods = found.flatMap((item) => (item ? [applyCorrection(item, corrections?.corrections)] : []));
+    if (!foods.length) { setAdaptNote("Aucun ingrédient de cette recette n'a de valeurs : ajoute les aliments un par un avec « Ajouter un autre aliment »."); return; }
     const portions = recipe.portions || 1;
     const eaten = line.quantity; // en parts de la recette
     const start = Date.now();
-    const missing = written.length - foods.length;
+    const missing = written.filter((_, index) => !found[index]).map((item) => item.name);
     if (lines.length === 1) {
       setLines(foods.map((item, index) => ({ ...item, key: start + index })));
       setFree(false);
@@ -448,15 +453,17 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       const factor = eaten / portions;
       setLines((current) => current.flatMap((item) => (item.key !== line.key ? [item] : foods.map((food, index) => ({ ...food, quantity: Math.round(food.quantity * factor * 100) / 100, key: start + index })))));
     }
-    setAdaptNote(`Ingrédients de « ${recipe.name} » pour ce repas : change ce qui diffère aujourd'hui. La recette du carnet ne change pas.${missing ? ` (${missing} ingrédient${missing > 1 ? "s" : ""} sans valeurs non repris)` : ""}`);
+    setAdaptNote(`Ingrédients de « ${recipe.name} » pour ce repas : change ce qui diffère aujourd'hui. La recette du carnet ne change pas.${missing.length ? ` Sans valeurs, à ajouter si besoin avec « Ajouter un autre aliment » : ${missing.join(", ")}.` : ""}`);
   };
 
   // --- Étape 1 : cocher ce qu'on a mangé ---------------------------------------------------------
   // Modification, brouillon, repas reçu ou recette : on arrive directement sur les quantités.
   const [stage, setStage] = useState<1 | 2>(() => (editing || draft?.lines.length || initialItems?.length ? 2 : 1));
   const pantry = corrections?.pantry ?? [];
+  const [addingPantry, setAddingPantry] = useState(false);
+  const [pantryNote, setPantryNote] = useState("");
   const pickTabs = (["Récents", "Mes ingrédients", "Recettes", "Fast-food", "Boissons", "Restes", "Refaire"] as const).filter((name) =>
-    (name !== "Mes ingrédients" || pantry.length > 0) && (name !== "Restes" || freshLeftovers.length > 0) && (name !== "Refaire" || lastMeals.length > 0) && (name !== "Boissons" || drinks.length > 0));
+    (name !== "Restes" || freshLeftovers.length > 0) && (name !== "Refaire" || lastMeals.length > 0) && (name !== "Boissons" || drinks.length > 0));
   const [pickTab, setPickTab] = useState<(typeof pickTabs)[number]>("Récents");
   const pickKey = (item: Pick<MealItem, "source" | "ref" | "name">) => `${item.source}:${item.ref ?? normalize(item.name)}`;
   const pickedKeys = new Set(lines.map(pickKey));
@@ -671,6 +678,21 @@ export default function MealComposer({ date: initialDate, category: initialCateg
           )}
           {pickTab === "Mes ingrédients" && (
             <div className="food-results">
+              {/* Garder un produit dans la liste sans l'ajouter à ce repas (cheddar, bacon achetés aujourd'hui). */}
+              {addingPantry ? (
+                <FoodPicker onPick={(food) => {
+                  const item = toPantry(toMealItem(food));
+                  if (pantry.some((entry) => correctionKey(entry) === correctionKey(item))) setPantryNote(`« ${item.name} » est déjà dans tes ingrédients.`);
+                  else { corrections?.savePantry(item); setPantryNote(`« ${item.name} » ajouté à tes ingrédients (pas à ce repas). Règle la tranche ou le paquet dans Recettes › Mes ingrédients.`); }
+                  setAddingPantry(false);
+                }}>
+                  <button type="button" className="text-button" onClick={() => setAddingPantry(false)}>Annuler</button>
+                </FoodPicker>
+              ) : (
+                <button type="button" className="add-part" onClick={() => { setPantryNote(""); setAddingPantry(true); }}><Icon name="plus" size={15} /> Ajouter un produit à ma liste (sans l'ajouter au repas)</button>
+              )}
+              {pantryNote && <p className="import-result" role="status">{pantryNote}</p>}
+              {!pantry.length && !addingPantry && <p className="food-hint">Ta liste est vide : ajoute les produits que tu achètes souvent (scan du code-barres, recherche ou photo du paquet).</p>}
               {pantry.map((item, index) => resultRow(pantryResult(item), index))}
             </div>
           )}
