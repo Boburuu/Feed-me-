@@ -113,7 +113,6 @@ export default function PantryPanel({ flash }: PantryPanelProps) {
 
   return (
     <section className="pantry">
-      <p className="theme-description">Garde ici les produits que tu achètes souvent (jambon Herta, mozzarella râpée…), avec leur photo et la façon de les compter. Tu les retrouves dans « Ajouter un repas » et dans les ingrédients des recettes, onglet « Mes ingrédients ».</p>
       {adding ? (
         <FoodPicker onPick={(food) => {
           const item = toPantry(toMealItem(food));
@@ -128,11 +127,12 @@ export default function PantryPanel({ flash }: PantryPanelProps) {
       ) : (
         <button type="button" className="create-recipe" onClick={() => setAdding(true)}>
           <span><Icon name="plus" /></span>
-          <div><strong>Ajouter un ingrédient</strong><small>Recherche, code-barres, photo du paquet ou fast-food</small></div>
+          <div><strong>Ajouter un ingrédient</strong><small>Scan du code-barres, recherche ou photo du paquet</small></div>
           <Icon name="chevron" size={18} />
         </button>
       )}
-      {pantry.length === 0 && !adding && <p className="food-hint">Aucun ingrédient pour l'instant.</p>}
+      <p className="theme-description">Les produits que tu achètes souvent, avec leur photo et comment les compter (tranche, paquet, grammes). Rien n'est ajouté à tes repas : tu les retrouves en un geste dans « Ajouter un repas » et dans les recettes.</p>
+      {pantry.length === 0 && !adding && <p className="food-hint">Ta liste est vide : scanne ton premier produit.</p>}
       <div className="food-results">
         {pantry.map((item) => (
           <div key={item.pantryId} className="pantry-row">

@@ -9,6 +9,7 @@ import PlanEditor from "../components/PlanEditor";
 import PlanResults from "../components/PlanResults";
 import RecipePortionPicker from "../components/RecipePortionPicker";
 import RecipesTab from "../components/RecipesTab";
+import PantryPanel from "../components/PantryPanel";
 import QuickWeigh from "../components/QuickWeigh";
 import ReminderSettings from "../components/ReminderSettings";
 import { REMINDER_EVENT, syncReminders, takeReminderTarget, type ReminderTarget } from "../lib/reminders";
@@ -63,7 +64,7 @@ type MainAppProps = {
 };
 
 type Tab = "Accueil" | "Suivi" | "Activité" | "Recettes" | "Profil";
-type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | "share-out" | "weigh" | "tips" | "recap" | null;
+type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | "share-out" | "weigh" | "tips" | "recap" | "pantry" | null;
 
 function defaultCategory(date = new Date()): MealCategory {
   const hour = date.getHours() + date.getMinutes() / 60;
@@ -1013,10 +1014,18 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 <h2>Que souhaitez-vous ajouter ?</h2>
                 <div className="choice-list">
                   <button onClick={() => openMealForm()}><span className="meal-icon breakfast"><Icon name="apple" /></span><span><strong>Un repas</strong><small>Suivre les calories consommées</small></span><Icon name="chevron" /></button>
+                  <button onClick={() => setModal("pantry")}><span className="meal-icon lunch"><Icon name="barcode" /></span><span><strong>Mes ingrédients</strong><small>Voir ta liste, scanner un produit sans l'ajouter à un repas</small></span><Icon name="chevron" /></button>
                   <button onClick={() => setModal("weigh")}><span className="meal-icon dinner"><Icon name="scale" /></span><span><strong>Une pesée</strong><small>Pesée rapide, le dernier poids pré-rempli</small></span><Icon name="chevron" /></button>
                   <button onClick={() => goTo("Activité")}><span className="meal-icon mint-icon"><Icon name="shoe" /></span><span><strong>Une séance de sport</strong><small>Marche, course, musculation, yoga…</small></span><Icon name="chevron" /></button>
                   <button onClick={openShareImport}><span className="meal-icon lunch"><Icon name="link" /></span><span><strong>Un partage reçu</strong><small>Recette, assiette ou repas envoyé par un ami</small></span><Icon name="chevron" /></button>
                 </div>
+              </>
+            )}
+            {modal === "pantry" && (
+              <>
+                <p className="eyebrow">Ma liste de produits</p>
+                <h2>Mes ingrédients</h2>
+                <PantryPanel flash={flash} />
               </>
             )}
             {modal === "recap" && (
