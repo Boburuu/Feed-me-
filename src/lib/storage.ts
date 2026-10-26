@@ -176,6 +176,8 @@ export type CustomFood = {
   fat100?: number | null;
   portionGrams?: number;
   portionLabel?: string;
+  /** Boisson : valeurs pour 100 ml, comptée dans l'hydratation (thé, infusion…). */
+  liquid?: boolean;
 };
 
 export type WeightEntry = { id: number; date: string; kg: number };

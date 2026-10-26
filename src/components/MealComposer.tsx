@@ -127,7 +127,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const [brandState, setBrandState] = useState<"idle" | "loading" | "error" | "offline">("idle");
   const [expanded, setExpanded] = useState({ common: false, ciqual: false, own: false, brands: false, variants: false, fastFood: false });
   const [creating, setCreating] = useState(false);
-  const [custom, setCustom] = useState({ name: "", kcal: "", protein: "", carbs: "", fat: "", portion: "", perPortion: false, keep: true });
+  const [custom, setCustom] = useState({ name: "", kcal: "", protein: "", carbs: "", fat: "", portion: "", perPortion: false, drink: false, keep: true });
   const searchInput = useRef<HTMLInputElement>(null);
   // Assiette maison : plat préparé pour plusieurs personnes, dont on mange une part.
   const [mode, setMode] = useState<"meal" | "plate">(draft?.mode ?? (editing?.plate ? "plate" : "meal"));
@@ -288,7 +288,8 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const createFood = (event: React.FormEvent) => {
     event.preventDefault();
     const kcal = Number(custom.kcal.replace(",", "."));
-    if (!custom.name.trim() || !kcal) return;
+    // 0 kcal est une vraie valeur (thé, infusion, eau aromatisée) : seul un champ vide bloque.
+    if (!custom.name.trim() || !custom.kcal.trim() || Number.isNaN(kcal) || kcal < 0) return;
     const protein = custom.protein ? Number(custom.protein.replace(",", ".")) : null;
     const carbs = custom.carbs ? Number(custom.carbs.replace(",", ".")) : null;
     const fat = custom.fat ? Number(custom.fat.replace(",", ".")) : null;
@@ -299,11 +300,13 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       ? { id: Date.now(), name: custom.name.trim(), kcal100: per100(kcal)!, protein100: per100(protein), carbs100: per100(carbs), fat100: per100(fat), portionGrams: portion, portionLabel: `1 portion (${n(portion)} g)` }
       : custom.perPortion
       ? { id: Date.now(), name: custom.name.trim(), kcal100: kcal, protein100: protein, carbs100: carbs, fat100: fat, portionLabel: "1 portion" }
+      : custom.drink
+      ? { id: Date.now(), name: custom.name.trim(), kcal100: kcal, protein100: protein, carbs100: carbs, fat100: fat, liquid: true, portionGrams: portion ?? 250, portionLabel: `1 tasse (${n(portion ?? 250)} ml)` }
       : { id: Date.now(), name: custom.name.trim(), kcal100: kcal, protein100: protein, carbs100: carbs, fat100: fat, portionGrams: portion, portionLabel: portion ? `1 portion (${n(portion)} g)` : undefined };
     if (custom.keep) onCreateFood(food);
     add({ ...food, source: "perso", ref: String(food.id), detail: "Mon aliment", perPortionOnly: custom.perPortion && !portion });
     setCreating(false);
-    setCustom({ name: "", kcal: "", protein: "", carbs: "", fat: "", portion: "", perPortion: false, keep: true });
+    setCustom({ name: "", kcal: "", protein: "", carbs: "", fat: "", portion: "", perPortion: false, drink: false, keep: true });
   };
 
   const total = lines.reduce((sum, line) => sum + itemCalories(line), 0);
@@ -586,9 +589,10 @@ export default function MealComposer({ date: initialDate, category: initialCateg
         <form className="custom-food" onSubmit={createFood}>
           <p className="plan-label">Nouvel aliment</p>
           <label>Nom<input value={custom.name} onChange={(e) => setCustom({ ...custom, name: e.target.value })} required /></label>
-          <div className="sex-selector" role="radiogroup" aria-label="Valeurs indiquées">
-            <button type="button" role="radio" aria-checked={!custom.perPortion} className={!custom.perPortion ? "selected" : ""} onClick={() => setCustom({ ...custom, perPortion: false })}>Pour 100 g</button>
-            <button type="button" role="radio" aria-checked={custom.perPortion} className={custom.perPortion ? "selected" : ""} onClick={() => setCustom({ ...custom, perPortion: true })}>Pour 1 portion</button>
+          <div className="sex-selector three-way" role="radiogroup" aria-label="Valeurs indiquées">
+            <button type="button" role="radio" aria-checked={!custom.perPortion && !custom.drink} className={!custom.perPortion && !custom.drink ? "selected" : ""} onClick={() => setCustom({ ...custom, perPortion: false, drink: false })}>Pour 100 g</button>
+            <button type="button" role="radio" aria-checked={custom.drink} className={custom.drink ? "selected" : ""} onClick={() => setCustom({ ...custom, perPortion: false, drink: true })}>Pour 100 ml</button>
+            <button type="button" role="radio" aria-checked={custom.perPortion} className={custom.perPortion ? "selected" : ""} onClick={() => setCustom({ ...custom, perPortion: true, drink: false })}>Pour 1 portion</button>
           </div>
           <div className="recipe-fields">
             <label><span>Calories</span><div><input value={custom.kcal} onChange={(e) => setCustom({ ...custom, kcal: e.target.value })} inputMode="decimal" required /><small>kcal</small></div></label>
@@ -598,7 +602,8 @@ export default function MealComposer({ date: initialDate, category: initialCateg
             <label><span>Glucides</span><div><input value={custom.carbs} onChange={(e) => setCustom({ ...custom, carbs: e.target.value })} inputMode="decimal" placeholder="—" /><small>g</small></div></label>
             <label><span>Lipides</span><div><input value={custom.fat} onChange={(e) => setCustom({ ...custom, fat: e.target.value })} inputMode="decimal" placeholder="—" /><small>g</small></div></label>
           </div>
-          <label>{custom.perPortion ? "Poids de cette portion (facultatif, pour compter aussi en grammes)" : "Poids d'une portion (facultatif)"}<input value={custom.portion} onChange={(e) => setCustom({ ...custom, portion: e.target.value })} inputMode="decimal" placeholder="Ex. 23,5 pour une barre" /></label>
+          {custom.drink && <small className="food-hint">Boisson (thé, infusion…) : l'étiquette donne souvent les valeurs pour 100 ml de boisson préparée, et 0 ou 1 kcal est une vraie valeur. Elle compte dans l'hydratation.</small>}
+          <label>{custom.drink ? "Tasse ou verre habituel (facultatif)" : custom.perPortion ? "Poids de cette portion (facultatif, pour compter aussi en grammes)" : "Poids d'une portion (facultatif)"}<input value={custom.portion} onChange={(e) => setCustom({ ...custom, portion: e.target.value })} inputMode="decimal" placeholder={custom.drink ? "250 (ml)" : "Ex. 23,5 pour une barre"} /></label>
           <label className="awake-toggle"><input type="checkbox" checked={custom.keep} onChange={(e) => setCustom({ ...custom, keep: e.target.checked })} /><span>Garder dans mes aliments</span></label>
           <div className="form-actions">
             <button type="button" className="ghost-button" onClick={() => setCreating(false)}>Retour</button>

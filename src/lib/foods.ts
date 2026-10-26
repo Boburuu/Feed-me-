@@ -354,9 +354,16 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
   const data = await getJson(url);
   if (signal?.cancelled) return [];
   const found = ((data.hits ?? data.products ?? []) as OffHit[])
-    .filter((hit) => offKcal(hit.nutriments) !== null && (hit.product_name_fr || hit.product_name))
+    // Fiche « thé préparé » seulement (Lipton) : gardée, comptée en ml de thé.
+    .filter((hit) => (offKcal(hit.nutriments) !== null || typeof hit.nutriments?.["energy-kcal_prepared_100g"] === "number") && (hit.product_name_fr || hit.product_name))
     .map((hit) => {
       const name = (hit.product_name_fr || hit.product_name || "").trim();
+      const preparedOnly = offKcal(hit.nutriments) === null;
+      if (preparedOnly) {
+        const n = hit.nutriments as Record<string, number | undefined>;
+        const brand = brandOf(hit.brands);
+        return { name, source: "off" as const, ref: hit.code, kcal100: n["energy-kcal_prepared_100g"]!, protein100: n.proteins_prepared_100g ?? null, carbs100: n.carbohydrates_prepared_100g ?? null, fat100: n.fat_prepared_100g ?? null, brand: brand || undefined, liquid: true as const, portionGrams: 250, portionLabel: "1 tasse (250 ml)", detail: `${brand ? `${brand} · ` : ""}valeurs du thé préparé`, image: hit.image_front_small_url || undefined, meta: { ...countryOf(hit.countries_tags), completeness: hit.completeness ?? 0, scans: hit.unique_scans_n ?? 0, quantity: hit.quantity } };
+      }
       const brand = brandOf(hit.brands);
       const packageGrams = parsePackage(hit.quantity);
       return {
@@ -400,8 +407,10 @@ export function offKcal(nutriments: OffNutriments | undefined): number | null {
 export async function openFoodFactsByBarcode(code: string): Promise<FoodResult | null> {
   const data = await getJson(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}?fields=product_name,product_name_fr,brands,nutriments,serving_size,serving_quantity,quantity,categories_tags`);
   const product = data.product;
-  const kcal = offKcal(product?.nutriments);
-  if (data.status !== 1 || kcal === null) return null;
+  if (data.status !== 1 || !product) return null;
+  const kcal = offKcal(product.nutriments);
+  // Thé, infusion… dont la fiche ne donne que le thé préparé, ou aucune valeur.
+  if (kcal === null) return infusionFromBarcode(code, product);
   const grams = Number(product.serving_quantity);
   const brand = brandOf(product.brands);
   const name = String(product.product_name_fr || product.product_name || "Produit").trim();
@@ -425,6 +434,32 @@ export async function openFoodFactsByBarcode(code: string): Promise<FoodResult |
     brand: brand || undefined,
     detail: brand ? `${brand} · code-barres` : "Code-barres · Open Food Facts",
   };
+}
+
+/**
+ * Fiche d'un thé ou d'une infusion sans valeurs pour 100 g (Lipton : seulement « pour 100 ml
+ * de thé préparé » ; Renuté : aucune valeur). On compte la boisson préparée, en ml :
+ * - les valeurs « préparé » de l'emballage quand la fiche les donne ;
+ * - sinon celles du thé infusé de la table Ciqual (thé noir, vert, ou tisane).
+ */
+async function infusionFromBarcode(code: string, product: { product_name?: string; product_name_fr?: string; brands?: string | string[]; categories_tags?: string[]; nutriments?: OffNutriments }) {
+  const nutriments = (product.nutriments ?? {}) as Record<string, number | undefined>;
+  const brand = brandOf(product.brands as OffHit["brands"]);
+  const categories = (product.categories_tags ?? []).join(" ");
+  const name = String(product.product_name_fr || product.product_name || "").trim();
+  const words = normalize(`${name} ${categories.replace(/en:|-/g, " ")}`);
+  const isInfusion = /\b(teas?|the|tisanes?|infusions?|herbal|rooibos|matcha|cafe|coffees?)\b/.test(words);
+  const prepared = nutriments["energy-kcal_prepared_100g"];
+  if (!isInfusion && typeof prepared !== "number") return null;
+  const cup = { liquid: true as const, portionGrams: 250, portionLabel: "1 tasse (250 ml)", brand: brand || undefined, ref: code, source: "off" as const };
+  if (typeof prepared === "number") {
+    return { ...cup, name: name || "Thé", kcal100: prepared, protein100: nutriments.proteins_prepared_100g ?? null, carbs100: nutriments.carbohydrates_prepared_100g ?? null, fat100: nutriments.fat_prepared_100g ?? null, detail: `${brand ? `${brand} · ` : ""}valeurs du thé préparé (emballage)` };
+  }
+  const ciqualCode = /\b(tisanes?|infusions?|herbal|rooibos)\b/.test(words) ? 18022 : /\b(vert|green|matcha)\b/.test(words) ? 18155 : /\b(noir|black)\b/.test(words) ? 18154 : 18020;
+  const { rows } = await loadCiqual();
+  const row = rows.find((item) => item[0] === ciqualCode);
+  if (!row) return null;
+  return { ...cup, name: name || row[1].replace(/, infusé.*$/i, ""), kcal100: row[2], protein100: row[3], carbs100: row[4], fat100: row[5], detail: `${brand ? `${brand} · ` : ""}fiche sans valeurs : ${row[1].toLowerCase()} (Ciqual)` };
 }
 
 /** Glucides pour 100 g d'un aliment Ciqual, par son code (null : non renseignés). */
@@ -505,6 +540,7 @@ export function searchOwn(query: string, recipes: Recipe[], customFoods: CustomF
       fat100: food.fat100 ?? null,
       portionGrams: food.portionGrams,
       portionLabel: food.portionLabel,
+      ...(food.liquid ? { liquid: true } : {}),
       detail: "Mon aliment",
     })),
   ];
