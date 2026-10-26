@@ -137,11 +137,12 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
     setPortionDraft("");
   };
 
-  /** Changer d'unité en gardant la même quantité mangée. */
+  /** Grammes / ml : on garde la même quantité. Contenant, cuillère ou portion touchés : on en compte 1
+      (toucher « grand verre » = 1 grand verre de 300 ml, pas « 0,75 grand verre »). */
   const useUnit = (unit: "g" | { label: string; grams: number }) => {
     const total = grams ?? line.quantity;
     if (unit === "g") onChange({ unit: "g", quantity: Math.round(total) });
-    else onChange({ unit: "portion", portionGrams: unit.grams, portionLabel: unit.label, quantity: Math.max(0.1, Math.round((total / unit.grams) * 4) / 4) });
+    else onChange({ unit: "portion", portionGrams: unit.grams, portionLabel: unit.label, quantity: 1 });
   };
   const step = (direction: 1 | -1) => {
     if (counted) {
