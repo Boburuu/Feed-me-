@@ -39,3 +39,23 @@ export function withPieceSize(item: PantryItem, size: { label: string; grams?: n
     unit: "portion", quantity: 1,
   };
 }
+
+/** « 1 boîte » : le libellé que la ligne d'aliment reconnaît comme paquet entier (½, ¼…). */
+export const PACKAGE_LABEL = "1 boîte";
+
+/** Sachet ou paquet (mozzarella râpée 150 g) : compté au sachet entier ou en fractions (½, ¼). */
+export function withPackage(item: PantryItem, grams: number): PantryItem {
+  if (!(grams > 0)) return item;
+  const { pieceGrams: _pg, pieceLabel: _pl, servingGrams: _sg, servingLabel: _sl, ...rest } = item;
+  return { ...rest, packageGrams: grams, portionGrams: grams, portionLabel: PACKAGE_LABEL, unit: "portion", quantity: 1 };
+}
+
+/** Compté seulement en grammes : plus de pièce ni de portion par défaut. */
+export function gramsOnly(item: PantryItem): PantryItem {
+  const { pieceGrams: _pg, pieceLabel: _pl, portionGrams: _po, portionLabel: _pol, servingGrams: _sg, servingLabel: _sl, ...rest } = item;
+  return { ...rest, unit: "g", quantity: 100 };
+}
+
+/** Façon d'utiliser l'ingrédient, d'après ce qui est réglé. */
+export const pantryMode = (item: PantryItem): "grams" | "piece" | "package" =>
+  item.portionLabel === PACKAGE_LABEL && item.packageGrams ? "package" : item.pieceGrams ? "piece" : "grams";

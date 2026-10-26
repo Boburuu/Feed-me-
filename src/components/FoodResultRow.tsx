@@ -16,7 +16,8 @@ export const resultDetail = (result: FoodResult) => {
   const parts: string[] = [];
   if (result.recipePortions) parts.push("1 part");
   else if (result.perPortionOnly) parts.push("par portion");
-  else if (result.portionLabel && result.portionGrams) parts.push(`${result.portionLabel} ≈ ${Math.round(result.portionGrams)} ${result.liquid ? "ml" : "g"}`, `${Math.round(result.kcal100)} kcal/100 ${result.liquid ? "ml" : "g"}`);
+  // « 1 boîte » (paquet entier, nom interne) s'affiche « 1 paquet » : c'est souvent un sachet.
+  else if (result.portionLabel && result.portionGrams) parts.push(`${result.portionLabel === "1 boîte" ? "1 paquet" : result.portionLabel} ≈ ${Math.round(result.portionGrams)} ${result.liquid ? "ml" : "g"}`, `${Math.round(result.kcal100)} kcal/100 ${result.liquid ? "ml" : "g"}`);
   parts.push(result.detail);
   return parts.join(" · ");
 };

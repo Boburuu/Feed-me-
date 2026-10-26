@@ -6,56 +6,99 @@ import { correctionKey } from "../lib/corrections";
 import { useCorrections } from "../lib/correctionsContext";
 import { toMealItem } from "../lib/foods";
 import { shrinkImage } from "../lib/images";
-import { pantryResult, toPantry, withPieceSize, type PantryItem } from "../lib/pantry";
+import { gramsOnly, pantryMode, pantryResult, toPantry, withPackage, withPieceSize, type PantryItem } from "../lib/pantry";
 
 type PantryPanelProps = {
   flash: (message: string) => void;
 };
 
+type Mode = "grams" | "piece" | "package";
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+const pieceNames = ["tranche", "pot", "biscuit", "part", "barre", "boule"];
+const toNumber = (text: string) => Number(text.replace(",", ".")) || undefined;
 
-/** Réglages d'un ingrédient gardé : taille d'une pièce (ou du paquet), photo, retrait. */
+/** Réglages d'un ingrédient gardé : comment on l'utilise (grammes, pièce, sachet), photo, retrait. */
 function PantryEditor({ item, onClose, flash }: { item: PantryItem; onClose: () => void; flash: (message: string) => void }) {
   const corrections = useCorrections()!;
+  const [mode, setMode] = useState<Mode>(pantryMode(item));
   const [label, setLabel] = useState((item.pieceLabel ?? "").replace(/^1\s+/, "") || "tranche");
   const [grams, setGrams] = useState(item.pieceGrams ? String(item.pieceGrams) : "");
   const [count, setCount] = useState("");
   const [pack, setPack] = useState(item.packageGrams ? String(item.packageGrams) : "");
-  const photoInput = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
+  const gallery = useRef<HTMLInputElement>(null);
   const key = correctionKey(item);
   const image = corrections.images[key];
-  const toNumber = (text: string) => Number(text.replace(",", ".")) || undefined;
 
-  const saveSize = () => {
-    const next = withPieceSize(item, { label, grams: toNumber(grams), count: toNumber(count), packageGrams: toNumber(pack) });
-    if (next === item) { flash("Indique le poids d'une pièce, ou le paquet et le nombre de pièces"); return; }
+  const save = () => {
+    let next: PantryItem = item;
+    if (mode === "grams") next = gramsOnly(item);
+    if (mode === "package") next = withPackage(item, toNumber(pack) ?? 0);
+    if (mode === "piece") next = withPieceSize(item, { label, grams: toNumber(grams), count: toNumber(count), packageGrams: toNumber(pack) });
+    if (mode !== "grams" && next === item) {
+      flash(mode === "package" ? "Indique le poids du sachet ou du paquet" : "Indique le poids d'une pièce, ou le nombre de pièces et le poids du paquet");
+      return;
+    }
     corrections.savePantry(next);
-    flash(`${next.pieceLabel} ≈ ${n(next.pieceGrams!)} g`);
+    flash(mode === "grams" ? `${item.name} : en grammes` : mode === "package" ? `${item.name} : sachet de ${n(next.packageGrams!)} g` : `${next.pieceLabel} ≈ ${n(next.pieceGrams!)} g`);
     onClose();
+  };
+  const addPhoto = (file?: File) => {
+    if (file) shrinkImage(file, 160).then((src) => corrections.saveImage(key, src)).catch(() => flash("Photo illisible"));
   };
 
   return (
     <div className="pantry-editor">
-      <p className="food-section">Taille d'une pièce</p>
-      <div className="pantry-fields">
-        <label>Pièce<input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="tranche, pot, biscuit…" /></label>
-        <label>Poids d'une pièce<div><input value={grams} onChange={(e) => setGrams(e.target.value)} inputMode="decimal" placeholder="—" /><small>g</small></div></label>
+      <p className="food-section">Je l'utilise…</p>
+      <div className="sex-selector pantry-mode" role="radiogroup" aria-label="Façon de l'utiliser">
+        {([["grams", "en grammes"], ["piece", "à la pièce"], ["package", "au sachet"]] as const).map(([id, text]) => (
+          <button type="button" role="radio" aria-checked={mode === id} key={id} className={mode === id ? "selected" : ""} onClick={() => setMode(id)}>{text}</button>
+        ))}
       </div>
-      <small className="food-hint">Ou le paquet : la pièce est calculée.</small>
-      <div className="pantry-fields">
-        <label>Pièces dans le paquet<input value={count} onChange={(e) => setCount(e.target.value)} inputMode="numeric" placeholder="4" /></label>
-        <label>Poids du paquet<div><input value={pack} onChange={(e) => setPack(e.target.value)} inputMode="decimal" placeholder="160" /><small>g</small></div></label>
+
+      {mode === "grams" && <small className="food-hint">Tu indiques les grammes à chaque fois (ex. 30 g de mozzarella râpée).</small>}
+
+      {mode === "package" && (
+        <>
+          <div className="pantry-fields single">
+            <label>Poids du sachet ou du paquet<div><input value={pack} onChange={(e) => setPack(e.target.value)} inputMode="decimal" placeholder="150" /><small>g</small></div></label>
+          </div>
+          <small className="food-hint">Tu choisiras ensuite le sachet entier, ½, ¼… ou des grammes.</small>
+        </>
+      )}
+
+      {mode === "piece" && (
+        <>
+          <div className="container-chips" role="radiogroup" aria-label="Pièce">
+            {pieceNames.map((name) => (
+              <button type="button" role="radio" aria-checked={label === name} key={name} className={label === name ? "selected" : ""} onClick={() => setLabel(name)}>{name}</button>
+            ))}
+          </div>
+          <div className="pantry-fields">
+            <label>Autre pièce<input value={pieceNames.includes(label) ? "" : label} onChange={(e) => setLabel(e.target.value || "tranche")} placeholder="ex. galette" /></label>
+            <label>Poids d'une {label}<div><input value={grams} onChange={(e) => setGrams(e.target.value)} inputMode="decimal" placeholder="—" /><small>g</small></div></label>
+          </div>
+          <small className="food-hint">Ou le paquet, et la {label} est calculée :</small>
+          <div className="pantry-fields">
+            <label>Nombre de {label}s<input value={count} onChange={(e) => setCount(e.target.value)} inputMode="numeric" placeholder="4" /></label>
+            <label>Poids du paquet<div><input value={pack} onChange={(e) => setPack(e.target.value)} inputMode="decimal" placeholder="160" /><small>g</small></div></label>
+          </div>
+        </>
+      )}
+
+      <button type="button" className="plan-confirm" onClick={save}><Icon name="check" size={14} /> Enregistrer</button>
+
+      <p className="food-section">Photo</p>
+      <div className="product-photo">
+        {image && <img src={image} alt="" />}
+        <button type="button" className="text-button" onClick={() => camera.current?.click()}><Icon name="camera" size={15} /> Prendre une photo</button>
+        <button type="button" className="text-button" onClick={() => gallery.current?.click()}><Icon name="image" size={15} /> Depuis la galerie</button>
+        {image && <button type="button" className="text-button" onClick={() => corrections.saveImage(key, null)}>Retirer la photo</button>}
       </div>
-      <div className="pantry-actions">
-        <button type="button" className="plan-confirm" onClick={saveSize}><Icon name="check" size={14} /> Enregistrer la taille</button>
-        <button type="button" className="text-button" onClick={() => photoInput.current?.click()}>{image ? "Changer la photo" : "📷 Ajouter une photo"}</button>
-        <button type="button" className="text-button danger-text" onClick={() => { corrections.removePantry(item.pantryId); flash(`« ${item.name} » retiré de mes ingrédients`); onClose(); }}>Retirer</button>
-      </div>
-      <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={(e) => {
-        const file = e.target.files?.[0];
-        e.target.value = "";
-        if (file) shrinkImage(file, 160).then((src) => corrections.saveImage(key, src)).catch(() => flash("Photo illisible"));
-      }} />
+      <input ref={camera} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={(e) => { addPhoto(e.target.files?.[0]); e.target.value = ""; }} />
+      <input ref={gallery} className="hidden-input" type="file" accept="image/*" onChange={(e) => { addPhoto(e.target.files?.[0]); e.target.value = ""; }} />
+
+      <button type="button" className="text-button danger-text" onClick={() => { corrections.removePantry(item.pantryId); flash(`« ${item.name} » retiré de mes ingrédients`); onClose(); }}>Retirer de mes ingrédients</button>
     </div>
   );
 }
@@ -70,16 +113,17 @@ export default function PantryPanel({ flash }: PantryPanelProps) {
 
   return (
     <section className="pantry">
-      <p className="theme-description">Garde ici les produits que tu achètes souvent (jambon Herta, skyr…), avec leur photo et la taille d'une tranche ou d'un pot. Tu les retrouves dans « Ajouter un repas » et dans les ingrédients des recettes, onglet « Mes ingrédients ».</p>
+      <p className="theme-description">Garde ici les produits que tu achètes souvent (jambon Herta, mozzarella râpée…), avec leur photo et la façon de les compter. Tu les retrouves dans « Ajouter un repas » et dans les ingrédients des recettes, onglet « Mes ingrédients ».</p>
       {adding ? (
         <FoodPicker onPick={(food) => {
           const item = toPantry(toMealItem(food));
           if (pantry.some((entry) => correctionKey(entry) === correctionKey(item))) { flash(`« ${item.name} » est déjà dans tes ingrédients`); return; }
           corrections.savePantry(item);
           setOpenId(item.pantryId);
-          flash(`« ${item.name} » ajouté à mes ingrédients`);
+          setAdding(false);
+          flash(`« ${item.name} » ajouté : choisis comment tu l'utilises`);
         }}>
-          <button type="button" className="text-button" onClick={() => setAdding(false)}>Terminé</button>
+          <button type="button" className="text-button" onClick={() => setAdding(false)}>Annuler</button>
         </FoodPicker>
       ) : (
         <button type="button" className="create-recipe" onClick={() => setAdding(true)}>

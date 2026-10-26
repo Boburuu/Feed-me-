@@ -10,6 +10,8 @@ type RecipePortionPickerProps = {
   category: MealCategory;
   /** Le repas, et ce qu'on retient pour la prochaine fois (nombre de morceaux, poids du plat). */
   onSave: (meal: Omit<Meal, "id">, remember: Pick<Recipe, "pieces" | "totalGrams">) => void;
+  /** Changer des ingrédients ou des quantités pour ce repas seulement (la recette ne change pas). */
+  onAdapt?: (choice: { share: number; date: string; category: Meal["category"] }) => void;
 };
 
 const modes: { id: Mode; label: string; hint: string }[] = [
@@ -25,7 +27,7 @@ const toNumber = (text: string) => Number(text.replace(",", ".")) || 0;
  * « Ajouter à mes repas » depuis une recette : la quantité mangée en parts, en morceaux
  * ou en grammes, convertie en fraction du plat entier.
  */
-export default function RecipePortionPicker({ recipe, category: initialCategory, onSave }: RecipePortionPickerProps) {
+export default function RecipePortionPicker({ recipe, category: initialCategory, onSave, onAdapt }: RecipePortionPickerProps) {
   const today = todayKey();
   const portions = recipe.portions || 1;
   const [mode, setMode] = useState<Mode>(recipe.pieces ? "pieces" : "parts");
@@ -191,6 +193,11 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
 
       {!recipe.calories && <p className="food-hint">Calories de la recette pas encore calculées : modifiez la recette pour les ajouter.</p>}
 
+      {onAdapt && recipe.ingredients.some((group) => group.items.some((item) => item.food)) && (
+        <button type="button" className="add-part adapt-recipe-button" onClick={() => onAdapt({ share: valid ? share : 1 / portions, date, category })}>
+          <Icon name="edit" size={16} /> Changer des ingrédients ou des quantités pour ce repas
+        </button>
+      )}
       <button type="button" className="submit-button" onClick={save} disabled={!valid}>
         <Icon name="check" /> {valid ? `${planned ? "Prévoir ce repas" : "Ajouter à mes repas"} · ${kcal} kcal` : "Ajouter à mes repas"}
       </button>

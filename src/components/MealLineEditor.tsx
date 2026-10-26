@@ -71,6 +71,7 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
   const per100g = line.source === "ciqual";
   const [checking, setChecking] = useState(false);
   const photoInput = useRef<HTMLInputElement>(null);
+  const galleryInput = useRef<HTMLInputElement>(null);
   const ownImage = corrections?.images[correctionKey(line)];
   const [details, setDetails] = useState(false);
   const reliability = reliabilityOf(line);
@@ -174,7 +175,7 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
       });
     }
     if (line.packageGrams) {
-      options.push({ key: "package", label: `boîte ${amount(line.packageGrams)}`, selected: isPackage, pick: () => useUnit({ label: PACKAGE_LABEL, grams: line.packageGrams! }) });
+      options.push({ key: "package", label: `paquet ${amount(line.packageGrams)}`, selected: isPackage, pick: () => useUnit({ label: PACKAGE_LABEL, grams: line.packageGrams! }) });
     }
     // Cuillère à café / à soupe : ≈ 5 g et ≈ 15 g (repère ; pour l'huile ou la farine, corriger en grammes).
     if (spoonFood.test(normalize(line.name))) {
@@ -402,13 +403,17 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
       {corrections && line.source !== "recette" && (
         <div className="product-photo">
           {ownImage && <img src={ownImage} alt="" />}
-          <button type="button" className="text-button" onClick={() => photoInput.current?.click()}>{ownImage ? "Changer la photo" : "📷 Ajouter une photo du produit"}</button>
+          <span className="sub-label">{ownImage ? "Photo du produit :" : "Ajouter une photo du produit :"}</span>
+          <button type="button" className="text-button" onClick={() => photoInput.current?.click()}><Icon name="camera" size={15} /> Photo</button>
+          <button type="button" className="text-button" onClick={() => galleryInput.current?.click()}><Icon name="image" size={15} /> Galerie</button>
           {ownImage && <button type="button" className="text-button" onClick={() => corrections.saveImage(correctionKey(line), null)}>Retirer</button>}
-          <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            if (file) shrinkImage(file, 160).then((image) => corrections.saveImage(correctionKey(line), image)).catch(() => undefined);
-          }} />
+          {[photoInput, galleryInput].map((ref, index) => (
+            <input key={index} ref={ref} className="hidden-input" type="file" accept="image/*" {...(index === 0 ? { capture: "environment" as const } : {})} onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) shrinkImage(file, 160).then((image) => corrections.saveImage(correctionKey(line), image)).catch(() => undefined);
+            }} />
+          ))}
         </div>
       )}
       <small className="meal-line-detail">

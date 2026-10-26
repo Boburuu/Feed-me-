@@ -201,6 +201,28 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     setComposerKey((value) => value + 1);
     setModal("meal");
   };
+  /**
+   * Recette du carnet, adaptée pour ce repas : ses ingrédients s'ouvrent en assiette maison
+   * (plat entier + ta part), modifiables ; la recette du carnet ne change pas.
+   */
+  const adaptRecipeMeal = (recipe: Recipe, choice: { share: number; date: string; category: MealCategory }) => {
+    const items = recipe.ingredients.flatMap((group) => group.items).filter((item) => item.food).map((item) => ({ ...item.food! }));
+    const servings = recipe.portions || 1;
+    const parts = Math.max(0.5, Math.round(choice.share * servings * 2) / 2);
+    setPlanning(false);
+    setOfferedDraft(null);
+    setEditingMeal(null);
+    setRestoredDraft({
+      date: choice.date, category: choice.category, mode: "plate", lines: items,
+      plateName: `${recipe.name} (adaptée)`, servings, parts,
+      adjust: Math.round((choice.share - parts / servings) * 100), keepLeftover: false, query: "",
+    });
+    setSharedMealNotice(`Ingrédients de « ${recipe.name} » pour ce repas : change ce qui diffère aujourd'hui (Pâturage au lieu du skyr, 115 g au lieu de 150…). La recette du carnet ne change pas.`);
+    setMealDate(choice.date);
+    setMealRecipe(null);
+    setComposerKey((value) => value + 1);
+    setModal("meal");
+  };
   useEffect(() => {
     if (modal !== "meal") setSharedMealNotice(undefined);
     if (modal !== "meal" && modal !== "portion") { setMealPhoto(null); setMealRecipe(null); setEditingMeal(null); }
@@ -976,7 +998,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               <>
                 <p className="eyebrow">Ajouter à mes repas</p>
                 <h2>{mealRecipe.name}</h2>
-                <RecipePortionPicker recipe={mealRecipe} category={defaultCategory()} onSave={saveRecipePortion} />
+                <RecipePortionPicker recipe={mealRecipe} category={defaultCategory()} onSave={saveRecipePortion} onAdapt={(choice) => adaptRecipeMeal(mealRecipe, choice)} />
               </>
             )}
             {modal === "meal" && (

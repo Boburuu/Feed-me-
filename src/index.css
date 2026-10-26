@@ -852,3 +852,9 @@ h2 { font-size: 20px; font-weight: 800; }
 .pantry-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .pantry-actions .plan-confirm { margin: 0; }
 .danger-text { color: var(--coral) !important; }
+.pantry-mode { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pantry-mode button { padding-inline: 4px; }
+.pantry-fields.single { grid-template-columns: minmax(0, 1fr); }
+.pantry-editor > .plan-confirm, .pantry-editor > .danger-text { justify-self: start; margin: 0; }
+.product-photo .text-button { display: inline-flex; align-items: center; gap: 6px; }
+.product-photo .sub-label { color: var(--muted); font-size: 12px; }

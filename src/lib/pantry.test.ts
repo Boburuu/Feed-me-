@@ -31,3 +31,22 @@ describe("mes ingrédients", () => {
     expect(pantryResult(withPieceSize(kept, { label: "tranche", count: 4, packageGrams: 160 })).detail).toBe("Mes ingrédients · paquet de 160 g");
   });
 });
+
+import { gramsOnly, pantryMode, withPackage } from "./pantry";
+
+describe("mozzarella râpée en sachet de 150 g", () => {
+  const mozza = toPantry({ name: "Mozzarella râpée · Pâturages", source: "off", ref: "1", kcal100: 314, protein100: 20, quantity: 100, unit: "g", portionGrams: 100, portionLabel: "1 portion (1 serving)" }, 2, "2026-10-25");
+  it("au sachet : entier ou en fractions", () => {
+    const sachet = withPackage(mozza, 150);
+    expect(pantryMode(sachet)).toBe("package");
+    const used = toMealItem(pantryResult(sachet));
+    expect(used).toMatchObject({ unit: "portion", quantity: 1, portionGrams: 150, packageGrams: 150 });
+    expect(Math.round(itemCalories({ ...used, quantity: 0.5 }))).toBe(236);
+  });
+  it("en grammes : plus de portion bizarre (1 serving)", () => {
+    const grams = gramsOnly(mozza);
+    expect(pantryMode(grams)).toBe("grams");
+    expect(toMealItem(pantryResult(grams))).toMatchObject({ unit: "g", quantity: 100 });
+    expect(grams.portionLabel).toBeUndefined();
+  });
+});
