@@ -858,3 +858,18 @@ h2 { font-size: 20px; font-weight: 800; }
 .pantry-editor > .plan-confirm, .pantry-editor > .danger-text { justify-self: start; margin: 0; }
 .product-photo .text-button { display: inline-flex; align-items: center; gap: 6px; }
 .product-photo .sub-label { color: var(--muted); font-size: 12px; }
+
+/* Ajouter une recette à mes repas : ingrédients changés pour ce repas. */
+.adapt-ingredients { display: grid; gap: 8px; }
+.adapt-toggle { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--white); text-align: left; cursor: pointer; }
+.adapt-toggle span { display: grid; gap: 2px; }
+.adapt-toggle small { color: var(--muted); font-size: 12px; }
+.adapt-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+.adapt-list { display: grid; gap: 8px; }
+.adapt-row { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+.adapt-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.adapt-line strong { min-width: 0; font-size: 14px; }
+.adapt-kcal { flex: none; color: var(--green-text); font-weight: 800; font-size: 13px; }
+.adapt-qty { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.adapt-qty input { width: 72px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--cream); font: inherit; font-weight: 800; text-align: center; }
+.adapt-actions { display: inline-flex; align-items: center; gap: 8px; }

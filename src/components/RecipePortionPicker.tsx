@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import FoodPicker from "./FoodPicker";
 import Icon from "./Icon";
+import { carbsOf, fatOf, itemCalories, itemGrams, itemProtein, toMealItem, type FoodResult } from "../lib/foods";
 import { estimateRecipeWeight } from "../lib/recipeWeight";
-import { mealCategories, todayKey, type Meal, type MealCategory, type Recipe } from "../lib/storage";
+import { mealCategories, todayKey, type Meal, type MealCategory, type MealItem, type Recipe } from "../lib/storage";
 
 type Mode = "parts" | "pieces" | "grams";
 
@@ -10,8 +12,6 @@ type RecipePortionPickerProps = {
   category: MealCategory;
   /** Le repas, et ce qu'on retient pour la prochaine fois (nombre de morceaux, poids du plat). */
   onSave: (meal: Omit<Meal, "id">, remember: Pick<Recipe, "pieces" | "totalGrams">) => void;
-  /** Changer des ingrédients ou des quantités pour ce repas seulement (la recette ne change pas). */
-  onAdapt?: (choice: { share: number; date: string; category: Meal["category"] }) => void;
 };
 
 const modes: { id: Mode; label: string; hint: string }[] = [
@@ -27,7 +27,7 @@ const toNumber = (text: string) => Number(text.replace(",", ".")) || 0;
  * « Ajouter à mes repas » depuis une recette : la quantité mangée en parts, en morceaux
  * ou en grammes, convertie en fraction du plat entier.
  */
-export default function RecipePortionPicker({ recipe, category: initialCategory, onSave, onAdapt }: RecipePortionPickerProps) {
+export default function RecipePortionPicker({ recipe, category: initialCategory, onSave }: RecipePortionPickerProps) {
   const today = todayKey();
   const portions = recipe.portions || 1;
   const [mode, setMode] = useState<Mode>(recipe.pieces ? "pieces" : "parts");
@@ -55,6 +55,29 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
     return () => { alive = false; };
   }, [recipe]);
 
+  // --- Ingrédients changés pour ce repas (la recette du carnet ne change pas) ---------------
+  const recipeFoods = recipe.ingredients.flatMap((group) => group.items).filter((item) => item.food).map((item) => ({ ...item.food! }));
+  const handWritten = recipe.ingredients.flatMap((group) => group.items).filter((item) => !item.food).length;
+  const [showIngredients, setShowIngredients] = useState(false);
+  /** null : la recette telle quelle ; sinon les ingrédients de ce repas (plat entier). */
+  const [changed, setChanged] = useState<MealItem[] | null>(null);
+  const [replacing, setReplacing] = useState<number | "new" | null>(null);
+  const ingredients = changed ?? recipeFoods;
+  const setIngredient = (index: number, item: MealItem | null) => {
+    const next = [...ingredients];
+    if (item) next[index] = item; else next.splice(index, 1);
+    setChanged(next);
+  };
+  /** Remplacer un ingrédient : le nouveau garde la même quantité (en grammes quand on la connaît). */
+  const replaceWith = (index: number | "new", result: FoodResult) => {
+    const fresh = toMealItem(result);
+    if (index === "new") { setChanged([...ingredients, fresh]); setReplacing(null); return; }
+    const grams = itemGrams(ingredients[index]);
+    setIngredient(index, grams ? { ...fresh, unit: "g", quantity: Math.round(grams) } : fresh);
+    setReplacing(null);
+  };
+  const unitText = (item: MealItem) => (item.unit === "g" ? (item.liquid ? "ml" : "g") : (item.portionLabel ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, ""));
+
   // Part du plat entier mangée (1 = tout le plat).
   const fraction = mode === "parts"
     ? parts / portions
@@ -62,7 +85,10 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
       ? (toNumber(pieces) ? eatenPieces / toNumber(pieces) : 0)
       : (toNumber(totalGrams) ? toNumber(eatenGrams) / toNumber(totalGrams) : 0);
   const share = Math.max(0, fraction);
-  const whole = { kcal: recipe.calories * portions, protein: recipe.protein * portions, carbs: recipe.carbs === undefined ? null : recipe.carbs * portions, fat: recipe.fat === undefined ? null : recipe.fat * portions };
+  // Plat entier : la recette, ou la somme des ingrédients changés pour ce repas.
+  const whole = changed
+    ? { kcal: changed.reduce((sum, item) => sum + itemCalories(item), 0), protein: changed.reduce((sum, item) => sum + itemProtein(item), 0), carbs: carbsOf(changed).carbs, fat: fatOf(changed).fat }
+    : { kcal: recipe.calories * portions, protein: recipe.protein * portions, carbs: recipe.carbs === undefined ? null : recipe.carbs * portions, fat: recipe.fat === undefined ? null : recipe.fat * portions };
   const kcal = Math.round(whole.kcal * share);
   const carbs = whole.carbs === null ? null : Math.round(whole.carbs * share);
   const fat = whole.fat === null ? null : Math.round(whole.fat * share);
@@ -77,6 +103,24 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
 
   const save = () => {
     if (!valid) return;
+    // Ingrédients changés : le repas devient une assiette maison (le plat de ce jour-là, et ta part).
+    if (changed) {
+      onSave({
+        date,
+        ...(planned ? { status: "planned" as const } : {}),
+        category,
+        name: `${recipe.name} (adaptée, ${describe()})`,
+        calories: kcal,
+        protein: protein || undefined,
+        ...(carbs !== null ? { carbs } : {}),
+        ...(fat !== null ? { fat } : {}),
+        source: "manual",
+        drinksCounted: true,
+        items: changed,
+        plate: { servings: portions, share },
+      }, { pieces: recipe.pieces, totalGrams: recipe.totalGrams });
+      return;
+    }
     onSave({
       date,
       ...(planned ? { status: "planned" as const } : {}),
@@ -193,10 +237,50 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
 
       {!recipe.calories && <p className="food-hint">Calories de la recette pas encore calculées : modifiez la recette pour les ajouter.</p>}
 
-      {onAdapt && recipe.ingredients.some((group) => group.items.some((item) => item.food)) && (
-        <button type="button" className="add-part adapt-recipe-button" onClick={() => onAdapt({ share: valid ? share : 1 / portions, date, category })}>
-          <Icon name="edit" size={16} /> Changer des ingrédients ou des quantités pour ce repas
-        </button>
+      {recipeFoods.length > 0 && (
+        <section className="adapt-ingredients">
+          <button type="button" className="adapt-toggle" aria-expanded={showIngredients} onClick={() => setShowIngredients((value) => !value)}>
+            <span><strong>Ingrédients{changed ? " · changés pour ce repas" : ""}</strong><small>{changed ? "La recette du carnet ne change pas." : "Pas de skyr aujourd'hui ? Moins de St Môret ? Change-les ici."}</small></span>
+            <Icon name="chevron" size={16} />
+          </button>
+          {showIngredients && (
+            <div className="adapt-list">
+              <small className="portion-hint">Quantités pour le plat entier ({portions} pers.).</small>
+              {ingredients.map((item, index) => (
+                <div className="adapt-row" key={`${item.name}-${index}`}>
+                  <div className="adapt-line">
+                    <strong>{item.name}</strong>
+                    <span className="adapt-kcal">{Math.round(itemCalories(item))} kcal</span>
+                  </div>
+                  <div className="adapt-line">
+                    <span className="adapt-qty">
+                      <input value={item.quantity} onChange={(e) => setIngredient(index, { ...item, quantity: Math.max(0, toNumber(e.target.value)) })} inputMode="decimal" aria-label={`Quantité de ${item.name}`} />
+                      <span>{unitText(item)}</span>
+                    </span>
+                    <span className="adapt-actions">
+                      <button type="button" className="text-button" onClick={() => setReplacing(replacing === index ? null : index)}>Remplacer</button>
+                      <button type="button" className="icon-button" onClick={() => setIngredient(index, null)} aria-label={`Retirer ${item.name}`}><Icon name="close" size={14} /></button>
+                    </span>
+                  </div>
+                  {replacing === index && (
+                    <FoodPicker onPick={(result) => replaceWith(index, result)}>
+                      <button type="button" className="text-button" onClick={() => setReplacing(null)}>Annuler</button>
+                    </FoodPicker>
+                  )}
+                </div>
+              ))}
+              {replacing === "new" ? (
+                <FoodPicker onPick={(result) => replaceWith("new", result)}>
+                  <button type="button" className="text-button" onClick={() => setReplacing(null)}>Annuler</button>
+                </FoodPicker>
+              ) : (
+                <button type="button" className="add-part" onClick={() => setReplacing("new")}><Icon name="plus" size={15} /> Ajouter un ingrédient</button>
+              )}
+              {handWritten > 0 && <small className="portion-hint">{handWritten} ingrédient{handWritten > 1 ? "s" : ""} écrit{handWritten > 1 ? "s" : ""} à la main (sel, poivre…) ne compte{handWritten > 1 ? "nt" : ""} pas.</small>}
+              {changed && <button type="button" className="text-button" onClick={() => { setChanged(null); setReplacing(null); }}>Remettre les ingrédients de la recette</button>}
+            </div>
+          )}
+        </section>
       )}
       <button type="button" className="submit-button" onClick={save} disabled={!valid}>
         <Icon name="check" /> {valid ? `${planned ? "Prévoir ce repas" : "Ajouter à mes repas"} · ${kcal} kcal` : "Ajouter à mes repas"}
