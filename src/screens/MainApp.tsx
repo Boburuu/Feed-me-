@@ -37,7 +37,8 @@ import { restoreImages } from "../lib/images";
 import { readPhoneSteps, readSteps } from "../lib/steps";
 import { recipeResult, toMealItem } from "../lib/foods";
 import { drinkCategories, hydrationOf } from "../lib/hydration";
-import { eatenMeals, isPlanned } from "../lib/planning";
+import { confirmEaten, eatenMeals, isPlanned } from "../lib/planning";
+import EatenWhen, { dayLabel } from "../components/EatenWhen";
 import { formatWater, WATER_MAX, waterAmounts, waterGoal } from "../lib/water";
 import { computePlan, observedMaintenance } from "../lib/nutrition";
 import { bodyErrors, draftFrom, goalErrors, parseDraft } from "../lib/planDraft";
@@ -249,7 +250,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const showProtein = plan.program === "seche" || plan.program === "masse";
   // Repas mangés aujourd'hui ; les repas prévus attendent un « J'ai mangé ».
   const todayMeals = eatenMeals(data.meals).filter((meal) => meal.date === today);
-  const plannedToday = data.meals.filter((meal) => meal.date === today && isPlanned(meal));
+  // Prévus aujourd'hui, et prévus les jours passés jamais validés (repas préparés à l'avance).
+  const plannedToday = data.meals.filter((meal) => meal.date <= today && isPlanned(meal)).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+  const [askingEaten, setAskingEaten] = useState<number | null>(null);
   const consumed = todayMeals.reduce((sum, meal) => sum + meal.calories, 0);
   const proteinToday = todayMeals.reduce((sum, meal) => sum + (meal.protein ?? 0), 0);
   const carbsToday = todayMeals.reduce((sum, meal) => sum + (meal.carbs ?? 0), 0);
@@ -375,9 +378,10 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   };
 
   /** Repas prévu confirmé « mangé tel quel » : il compte à partir de maintenant. */
-  const confirmPlanned = (meal: Meal) => {
-    update((current) => ({ ...current, meals: current.meals.map((item) => (item.id === meal.id ? { ...item, status: undefined, drinksCounted: true } : item)) }));
-    flash(`Mangé · ${meal.calories} kcal`);
+  const confirmPlanned = (meal: Meal, date = meal.date) => {
+    update((current) => ({ ...current, meals: confirmEaten(current.meals, meal.id, date) }));
+    setAskingEaten(null);
+    flash(`Mangé ${date === today ? "aujourd'hui" : `le ${dayLabel(date)}`} · ${meal.calories} kcal`);
   };
 
   const discardLeftover = (id: number) => {
@@ -717,22 +721,25 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             </div>
             <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={takeMealPhoto} />
             <input ref={galleryInput} className="hidden-input" type="file" accept="image/*" onChange={takeMealPhoto} />
-            {/* Prévus aujourd'hui : rien n'est compté avant « Mangé ». */}
+            {/* Prévus aujourd'hui ou oubliés les jours passés : rien n'est compté avant « Mangé ». */}
             {plannedToday.length > 0 && (
               <div className="planned-today">
-                <p className="food-section">À confirmer · prévu aujourd'hui</p>
+                <p className="food-section">À confirmer · repas prévus</p>
                 {plannedToday.map((meal) => (
                   <div className="plan-meal planned" key={meal.id}>
                     <span className="plan-meal-text">
-                      <small>{mealCategories.find((item) => item.id === meal.category)?.label} · Prévu</small>
+                      <small>{mealCategories.find((item) => item.id === meal.category)?.label} · {meal.date === today ? "Prévu aujourd'hui" : `Prévu ${dayLabel(meal.date)}, pas encore validé`}</small>
                       <strong>{meal.name}</strong>
                     </span>
                     <em>{meal.calories} kcal</em>
                     <div className="plan-meal-actions">
-                      <button type="button" className="plan-confirm" onClick={() => confirmPlanned(meal)}><Icon name="check" size={14} /> Mangé tel quel</button>
+                      {meal.date === today
+                        ? <button type="button" className="plan-confirm" onClick={() => confirmPlanned(meal)}><Icon name="check" size={14} /> Mangé tel quel</button>
+                        : <button type="button" className="plan-confirm" aria-expanded={askingEaten === meal.id} onClick={() => setAskingEaten(askingEaten === meal.id ? null : meal.id)}><Icon name="check" size={14} /> Mangé</button>}
                       <button type="button" className="icon-button" onClick={() => editMeal(meal)} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={15} /></button>
                       <button type="button" className="icon-button" onClick={() => deleteMeal(meal)} aria-label={`Annuler ${meal.name}`}><Icon name="close" size={15} /></button>
                     </div>
+                    {askingEaten === meal.id && <EatenWhen meal={meal} today={today} onConfirm={(date) => confirmPlanned(meal, date)} />}
                   </div>
                 ))}
               </div>

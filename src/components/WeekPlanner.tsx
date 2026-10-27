@@ -1,4 +1,5 @@
 import { useState } from "react";
+import EatenWhen from "./EatenWhen";
 import Icon from "./Icon";
 import { addDays, confirmEaten, copyDay, dayTotals, formatAmounts, isPlanned, planCopy, shoppingList, weekDays, weekStart } from "../lib/planning";
 import { mealCategories, todayKey, type AppData, type Meal } from "../lib/storage";
@@ -90,16 +91,7 @@ export default function WeekPlanner({ data, update, target, onPlanMeal, onEditMe
                   <button type="button" className="icon-button" onClick={() => setCopying({ kind: "meal", meal })} aria-label={`Dupliquer ${meal.name}`}><Icon name="plus" size={15} /></button>
                   <button type="button" className="icon-button" onClick={() => remove(meal)} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={15} /></button>
                 </div>
-                {asking === meal.id && (
-                  <div className="eaten-when" role="group" aria-label={`Mangé quand : ${meal.name}`}>
-                    <strong>Mangé quand ?</strong>
-                    <div className="eaten-when-choices">
-                      <button type="button" className="plan-confirm" onClick={() => confirm(meal, today)}>Aujourd'hui</button>
-                      {day < today && <button type="button" className="plan-confirm secondary" onClick={() => confirm(meal)}>Le jour prévu ({dayLabel(day)})</button>}
-                    </div>
-                    <label>Un autre jour<input type="date" max={today} onChange={(e) => confirm(meal, e.target.value)} /></label>
-                  </div>
-                )}
+                {asking === meal.id && <EatenWhen meal={meal} today={today} onConfirm={(date) => confirm(meal, date)} />}
               </div>
             ))}
             <div className="plan-day-actions">
