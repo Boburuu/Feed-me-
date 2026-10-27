@@ -1,7 +1,7 @@
 // Planification et liste de courses (cahier § 8, critères « Planning » et « Liste de courses »).
 import { describe, expect, it } from "vitest";
 import { hydrationOf } from "./hydration";
-import { copyDay, dayTotals, eatenMeals, formatAmounts, shoppingList, weekDays, weekStart } from "./planning";
+import { confirmEaten, copyDay, dayTotals, eatenMeals, formatAmounts, shoppingList, weekDays, weekStart } from "./planning";
 import type { Meal, Recipe } from "./storage";
 
 const meal = (id: number, date: string, calories: number, extra: Partial<Meal> = {}): Meal => ({ id, date, category: "dejeuner", name: `Repas ${id}`, calories, source: "manual", ...extra });
@@ -73,5 +73,19 @@ describe("liste de courses", () => {
   it("garde les ingrédients sans quantité, et ignore les repas déjà mangés", () => {
     expect(line("sel")!.amounts).toEqual([]);
     expect(list.flatMap((item) => item.amounts).some((amount) => amount.quantity === 999)).toBe(false);
+  });
+});
+
+describe("repas préparé à l'avance, mangé un autre jour", () => {
+  const meals = [meal(1, "2026-10-20", 500, { status: "planned" }), meal(2, "2026-10-20", 300)];
+  it("prévu lundi, mangé mercredi : il compte mercredi, plus lundi", () => {
+    const after = confirmEaten(meals, 1, "2026-10-22");
+    expect(dayTotals(after, "2026-10-20")).toMatchObject({ plannedKcal: 0, eatenKcal: 300 });
+    expect(dayTotals(after, "2026-10-22")).toMatchObject({ plannedKcal: 0, eatenKcal: 500 });
+  });
+  it("validé le jour prévu : il reste ce jour-là, et les autres repas ne bougent pas", () => {
+    const after = confirmEaten(meals, 1, "2026-10-20");
+    expect(dayTotals(after, "2026-10-20").eatenKcal).toBe(800);
+    expect(after[1]).toBe(meals[1]);
   });
 });

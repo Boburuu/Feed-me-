@@ -11,6 +11,11 @@ export const isPlanned = (meal: Meal) => meal.status === "planned";
 /** Repas réellement mangés : les seuls comptés dans le journal et les statistiques. */
 export const eatenMeals = (meals: Meal[]) => meals.filter((meal) => !isPlanned(meal));
 
+/** Repas prévu validé « mangé » : il compte le jour où il a vraiment été mangé (prévu lundi, mangé mercredi). */
+export function confirmEaten(meals: Meal[], id: number, date: string): Meal[] {
+  return meals.map((meal) => (meal.id === id ? { ...meal, date, status: undefined, drinksCounted: true } : meal));
+}
+
 export function addDays(key: string, days: number) {
   const date = new Date(`${key}T12:00:00`);
   date.setDate(date.getDate() + days);

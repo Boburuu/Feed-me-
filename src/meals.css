@@ -351,3 +351,11 @@
 
 .sex-selector.three-way { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .sex-selector.three-way button { padding-inline: 4px; }
+
+/* Repas prévu validé un autre jour : « Mangé quand ? ». */
+.eaten-when { display: grid; grid-column: 1 / -1; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.eaten-when-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.eaten-when .plan-confirm { margin: 0; }
+.eaten-when .plan-confirm.secondary { color: var(--ink); background: transparent; border: 1px solid var(--line); }
+.eaten-when label { display: grid; gap: 4px; color: var(--muted); font-size: 13px; }
+.eaten-when input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--cream); font: inherit; }

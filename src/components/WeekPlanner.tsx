@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Icon from "./Icon";
-import { addDays, copyDay, dayTotals, formatAmounts, isPlanned, planCopy, shoppingList, weekDays, weekStart } from "../lib/planning";
+import { addDays, confirmEaten, copyDay, dayTotals, formatAmounts, isPlanned, planCopy, shoppingList, weekDays, weekStart } from "../lib/planning";
 import { mealCategories, todayKey, type AppData, type Meal } from "../lib/storage";
 
 type WeekPlannerProps = {
@@ -24,9 +24,13 @@ export default function WeekPlanner({ data, update, target, onPlanMeal, onEditMe
   const [shopping, setShopping] = useState(false);
   const days = weekDays(start);
 
-  const confirm = (meal: Meal) => {
-    update((current) => ({ ...current, meals: current.meals.map((item) => (item.id === meal.id ? { ...item, status: undefined, drinksCounted: true } : item)) }));
-    flash(`Mangé · ${meal.calories} kcal`);
+  /** Repas prévu un autre jour : on demande quand il a été mangé avant de le compter. */
+  const [asking, setAsking] = useState<number | null>(null);
+  const confirm = (meal: Meal, date = meal.date) => {
+    if (!date || date > today) return;
+    update((current) => ({ ...current, meals: confirmEaten(current.meals, meal.id, date) }));
+    setAsking(null);
+    flash(`Mangé ${date === today ? "aujourd'hui" : `le ${dayLabel(date)}`} · ${meal.calories} kcal`);
   };
   const remove = (meal: Meal) => {
     if (!window.confirm(`Supprimer « ${meal.name} » ?`)) return;
@@ -81,11 +85,21 @@ export default function WeekPlanner({ data, update, target, onPlanMeal, onEditMe
                 </span>
                 <em>{meal.calories} kcal</em>
                 <div className="plan-meal-actions">
-                  {isPlanned(meal) && day <= today && <button type="button" className="plan-confirm" onClick={() => confirm(meal)}><Icon name="check" size={14} /> Mangé</button>}
+                  {isPlanned(meal) && <button type="button" className="plan-confirm" aria-expanded={asking === meal.id} onClick={() => (day === today ? confirm(meal) : setAsking(asking === meal.id ? null : meal.id))}><Icon name="check" size={14} /> Mangé</button>}
                   <button type="button" className="icon-button" onClick={() => onEditMeal(meal)} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={15} /></button>
                   <button type="button" className="icon-button" onClick={() => setCopying({ kind: "meal", meal })} aria-label={`Dupliquer ${meal.name}`}><Icon name="plus" size={15} /></button>
                   <button type="button" className="icon-button" onClick={() => remove(meal)} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={15} /></button>
                 </div>
+                {asking === meal.id && (
+                  <div className="eaten-when" role="group" aria-label={`Mangé quand : ${meal.name}`}>
+                    <strong>Mangé quand ?</strong>
+                    <div className="eaten-when-choices">
+                      <button type="button" className="plan-confirm" onClick={() => confirm(meal, today)}>Aujourd'hui</button>
+                      {day < today && <button type="button" className="plan-confirm secondary" onClick={() => confirm(meal)}>Le jour prévu ({dayLabel(day)})</button>}
+                    </div>
+                    <label>Un autre jour<input type="date" max={today} onChange={(e) => confirm(meal, e.target.value)} /></label>
+                  </div>
+                )}
               </div>
             ))}
             <div className="plan-day-actions">
