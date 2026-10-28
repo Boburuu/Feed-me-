@@ -1024,7 +1024,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   <button onClick={() => setModal("pantry")}><span className="meal-icon lunch"><Icon name="barcode" /></span><span><strong>Mes ingrédients</strong><small>Voir ta liste, scanner un produit sans l'ajouter à un repas</small></span><Icon name="chevron" /></button>
                   <button onClick={() => setModal("weigh")}><span className="meal-icon dinner"><Icon name="scale" /></span><span><strong>Une pesée</strong><small>Pesée rapide, le dernier poids pré-rempli</small></span><Icon name="chevron" /></button>
                   <button onClick={() => goTo("Activité")}><span className="meal-icon mint-icon"><Icon name="shoe" /></span><span><strong>Une séance de sport</strong><small>Marche, course, musculation, yoga…</small></span><Icon name="chevron" /></button>
-                  <button onClick={openShareImport}><span className="meal-icon lunch"><Icon name="link" /></span><span><strong>Un partage reçu</strong><small>Recette, assiette ou repas envoyé par un ami</small></span><Icon name="chevron" /></button>
+                  <button onClick={openShareImport}><span className="meal-icon lunch"><Icon name="link" /></span><span><strong>Un partage reçu</strong><small>Recette, repas ou ingrédients envoyés par un proche</small></span><Icon name="chevron" /></button>
                 </div>
               </>
             )}
@@ -1076,6 +1076,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   onOpenMeal={openSharedMeal}
                   onSaveAsRecipe={(meal) => { setModal(null); setPrefillRecipe(recipeFromMeal(meal)); goTo("Recettes"); }}
                   onOpenRecipe={(recipe) => focusRecipe(recipe.id)}
+                  onAddedProducts={(count) => { setModal(null); flash(`${count} ingrédient${count > 1 ? "s" : ""} ajouté${count > 1 ? "s" : ""} à Mes ingrédients`); }}
                   onClose={() => setModal(null)}
                 />
               </>

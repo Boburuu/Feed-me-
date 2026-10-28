@@ -12,6 +12,7 @@ const keys: Record<string, string> = {
   portionGrams: "pg", portionLabel: "pl", servingGrams: "sg", servingLabel: "sl", pieceGrams: "ig", pieceLabel: "il", packageGrams: "kg",
   liquid: "lq", prepared: "pp", waterMl: "wm", volumeUnit: "vu", density: "dn", cookedFactor: "cf", weighedCooked: "wc", cookedBy: "cy", hydrates: "hy",
   drinkMlPerPart: "dp", recipePortions: "rp", recipePieces: "ri", recipeGrams: "rg", recipeCount: "rc", recipeGramsEstimated: "re", matchedName: "mn",
+  products: "pd",
 };
 const back = Object.fromEntries(Object.entries(keys).map(([long, short]) => [short, long]));
 const MARK = "f";

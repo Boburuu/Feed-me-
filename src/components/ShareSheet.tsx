@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import Icon from "./Icon";
-import { LINK_COMFORT_LENGTH, shareFileName, shareLink, type SharePayload } from "../lib/share";
+import { LINK_COMFORT_LENGTH, shareFileName, shareLink, shareName, type SharePayload } from "../lib/share";
 
 type ShareSheetProps = {
   payload: SharePayload;
@@ -48,8 +48,8 @@ async function sendFile(payload: SharePayload) {
 export default function ShareSheet({ payload, onClose }: ShareSheetProps) {
   const [link, setLink] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const name = payload.kind === "recette" ? payload.recipe.name : payload.meal.name;
-  const what = payload.kind === "recette" ? "la recette" : payload.meal.plate ? "l'assiette" : "le repas";
+  const name = shareName(payload);
+  const what = payload.kind === "recette" ? "la recette" : payload.kind === "ingredients" ? (payload.products.length > 1 ? "les ingrédients" : "l'ingrédient") : payload.meal.plate ? "l'assiette" : "le repas";
 
   useEffect(() => {
     let alive = true;
@@ -71,7 +71,7 @@ export default function ShareSheet({ payload, onClose }: ShareSheetProps) {
         <strong>Partager {what}</strong>
         <button type="button" className="icon-button" onClick={onClose} aria-label="Fermer"><Icon name="close" size={15} /></button>
       </div>
-      <p className="food-hint">« {name} » : le lien contient tout {payload.kind === "recette" ? "(ingrédients, étapes, valeurs)" : "(aliments et quantités)"}, sans les photos. La personne voit un aperçu et choisit de l'ajouter ou non.</p>
+      <p className="food-hint">« {name} » : le lien contient tout {payload.kind === "recette" ? "(ingrédients, étapes, valeurs)" : payload.kind === "ingredients" ? "(valeurs, tranche ou paquet)" : "(aliments et quantités)"}, sans les photos. La personne voit un aperçu et choisit de l'ajouter ou non.</p>
       {!link && !note && <p className="food-hint"><span className="loader" /> Préparation du lien…</p>}
       {link && (
         <div className="barcode-choices">

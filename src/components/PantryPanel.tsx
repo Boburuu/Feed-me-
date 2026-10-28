@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import FoodPicker from "./FoodPicker";
 import FoodResultRow from "./FoodResultRow";
 import Icon from "./Icon";
+import ShareSheet from "./ShareSheet";
+import { ingredientsPayload, type SharePayload } from "../lib/share";
 import { correctionKey } from "../lib/corrections";
 import { useCorrections } from "../lib/correctionsContext";
 import { toMealItem } from "../lib/foods";
@@ -18,7 +20,7 @@ const pieceNames = ["tranche", "pot", "biscuit", "part", "barre", "boule"];
 const toNumber = (text: string) => Number(text.replace(",", ".")) || undefined;
 
 /** Réglages d'un ingrédient gardé : comment on l'utilise (grammes, pièce, sachet), photo, retrait. */
-function PantryEditor({ item, onClose, flash }: { item: PantryItem; onClose: () => void; flash: (message: string) => void }) {
+function PantryEditor({ item, onClose, onShare, flash }: { item: PantryItem; onClose: () => void; onShare: () => void; flash: (message: string) => void }) {
   const corrections = useCorrections()!;
   const [mode, setMode] = useState<Mode>(pantryMode(item));
   const [label, setLabel] = useState((item.pieceLabel ?? "").replace(/^1\s+/, "") || "tranche");
@@ -98,6 +100,7 @@ function PantryEditor({ item, onClose, flash }: { item: PantryItem; onClose: () 
       <input ref={camera} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={(e) => { addPhoto(e.target.files?.[0]); e.target.value = ""; }} />
       <input ref={gallery} className="hidden-input" type="file" accept="image/*" onChange={(e) => { addPhoto(e.target.files?.[0]); e.target.value = ""; }} />
 
+      <button type="button" className="text-button" onClick={onShare}><Icon name="share" size={15} /> Partager cet ingrédient</button>
       <button type="button" className="text-button danger-text" onClick={() => { corrections.removePantry(item.pantryId); flash(`« ${item.name} » retiré de mes ingrédients`); onClose(); }}>Retirer de mes ingrédients</button>
     </div>
   );
@@ -108,6 +111,7 @@ export default function PantryPanel({ flash }: PantryPanelProps) {
   const corrections = useCorrections();
   const [adding, setAdding] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [sharing, setSharing] = useState<SharePayload | null>(null);
   if (!corrections) return null;
   const { pantry } = corrections;
 
@@ -132,12 +136,14 @@ export default function PantryPanel({ flash }: PantryPanelProps) {
         </button>
       )}
       <p className="theme-description">Les produits que tu achètes souvent, avec leur photo et comment les compter (tranche, paquet, grammes). Rien n'est ajouté à tes repas : tu les retrouves en un geste dans « Ajouter un repas » et dans les recettes.</p>
+      {sharing && <ShareSheet payload={sharing} onClose={() => setSharing(null)} />}
+      {pantry.length > 1 && !sharing && <button type="button" className="text-button" onClick={() => setSharing(ingredientsPayload(pantry))}><Icon name="share" size={15} /> Partager toute ma liste ({pantry.length})</button>}
       {pantry.length === 0 && !adding && <p className="food-hint">Ta liste est vide : scanne ton premier produit.</p>}
       <div className="food-results">
         {pantry.map((item) => (
           <div key={item.pantryId} className="pantry-row">
             <FoodResultRow result={pantryResult(item)} onPick={() => setOpenId(openId === item.pantryId ? null : item.pantryId)} />
-            {openId === item.pantryId && <PantryEditor item={item} onClose={() => setOpenId(null)} flash={flash} />}
+            {openId === item.pantryId && <PantryEditor item={item} onClose={() => setOpenId(null)} onShare={() => { setSharing(ingredientsPayload([item])); setOpenId(null); }} flash={flash} />}
           </div>
         ))}
       </div>

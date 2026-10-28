@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
 import { itemCalories } from "../lib/foods";
+import { correctionKey } from "../lib/corrections";
+import { useCorrections } from "../lib/correctionsContext";
+import { toPantry } from "../lib/pantry";
 import { freeName, readShare, recipeConflict, ShareError, type SharedMeal, type SharedRecipe, type SharePayload } from "../lib/share";
 import type { MealItem, Recipe } from "../lib/storage";
 
@@ -14,6 +17,8 @@ type ShareImportProps = {
   /** Garder le repas reçu comme recette : le formulaire s'ouvre pré-rempli, tout reste modifiable. */
   onSaveAsRecipe: (meal: SharedMeal & { items: MealItem[] }) => void;
   onOpenRecipe: (recipe: Recipe) => void;
+  /** Ingrédients reçus ajoutés à « Mes ingrédients ». */
+  onAddedProducts: (count: number) => void;
   onClose: () => void;
 };
 
@@ -21,7 +26,7 @@ const mealLabels = { "petit-dejeuner": "Petit-déjeuner", dejeuner: "Déjeuner",
 const day = (iso: string) => { const date = new Date(iso); return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" }); };
 
 /** Recevoir un partage : coller le lien ou ouvrir le fichier, voir l'aperçu, puis choisir. */
-export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenMeal, onSaveAsRecipe, onOpenRecipe, onClose }: ShareImportProps) {
+export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenMeal, onSaveAsRecipe, onOpenRecipe, onAddedProducts, onClose }: ShareImportProps) {
   const [text, setText] = useState(initialText ?? "");
   const [shared, setShared] = useState<SharePayload | null>(null);
   const [error, setError] = useState("");
@@ -45,6 +50,18 @@ export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenM
   useEffect(() => { if (initialText) void read(initialText); }, [initialText]);
 
   const conflict = shared?.kind === "recette" ? recipeConflict(recipes, shared.recipe) : null;
+
+  // Ingrédients reçus : tous cochés, sauf ceux déjà dans la liste.
+  const corrections = useCorrections();
+  const owned = new Set((corrections?.pantry ?? []).map(correctionKey));
+  const [unticked, setUnticked] = useState<Set<number>>(new Set());
+  const products = shared?.kind === "ingredients" ? shared.products : [];
+  const chosen = products.filter((item, index) => !owned.has(correctionKey(item)) && !unticked.has(index));
+  const addProducts = () => {
+    const start = Date.now();
+    chosen.forEach((item, index) => corrections?.savePantry(toPantry(item, start + index)));
+    onAddedProducts(chosen.length);
+  };
 
   return (
     <div className="share-import">
@@ -132,6 +149,31 @@ export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenM
             </button>
           </div>
           <button type="button" className="text-button" onClick={onClose}>Ne pas l'ajouter</button>
+        </>
+      )}
+
+      {shared?.kind === "ingredients" && (
+        <>
+          <article className="share-preview">
+            <p className="eyebrow">{products.length > 1 ? `${products.length} ingrédients partagés` : "Ingrédient partagé"}{day(shared.sharedAt) ? ` le ${day(shared.sharedAt)}` : ""}</p>
+            <div className="share-products">
+              {products.map((item, index) => {
+                const has = owned.has(correctionKey(item));
+                const how = item.pieceGrams ? `${item.pieceLabel ?? "1 pièce"} = ${Math.round(item.pieceGrams)} g` : item.packageGrams ? `paquet de ${Math.round(item.packageGrams)} g` : "en grammes";
+                return (
+                  <label className={`share-product${has ? " owned" : ""}`} key={index}>
+                    <input type="checkbox" checked={!has && !unticked.has(index)} disabled={has} onChange={() => setUnticked((current) => { const next = new Set(current); if (next.has(index)) next.delete(index); else next.add(index); return next; })} />
+                    <span><strong>{item.name}</strong><small>{Math.round(item.kcal100)} kcal/100 {item.liquid ? "ml" : "g"} · {how}{has ? " · déjà dans ta liste" : ""}</small></span>
+                  </label>
+                );
+              })}
+            </div>
+          </article>
+          <p className="food-hint">Ils vont dans « Mes ingrédients » (bouton + › Mes ingrédients), avec leurs valeurs et leur tranche ou paquet. Rien n'est ajouté à tes repas.</p>
+          <div className="barcode-actions">
+            <button type="button" className="text-button" onClick={onClose}>Ne pas les ajouter</button>
+            <button type="button" className="plan-confirm" disabled={!chosen.length} onClick={addProducts}><Icon name="plus" size={14} /> {chosen.length ? `Ajouter ${chosen.length} à mes ingrédients` : "Déjà tous dans ta liste"}</button>
+          </div>
         </>
       )}
     </div>

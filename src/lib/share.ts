@@ -19,7 +19,8 @@ export type SharedRecipe = Omit<Recipe, "id" | "images">;
 export type SharedMeal = Pick<Meal, "name" | "category" | "items" | "plate">;
 export type SharePayload =
   | { app: "feedme"; version: 1; kind: "recette"; sharedAt: string; recipe: SharedRecipe }
-  | { app: "feedme"; version: 1; kind: "repas"; sharedAt: string; meal: SharedMeal & { items: MealItem[] } };
+  | { app: "feedme"; version: 1; kind: "repas"; sharedAt: string; meal: SharedMeal & { items: MealItem[] } }
+  | { app: "feedme"; version: 1; kind: "ingredients"; sharedAt: string; products: MealItem[] };
 
 // --- Préparer un partage --------------------------------------------------------------
 
@@ -38,6 +39,21 @@ export function recipePayload(recipe: Recipe): SharePayload {
     recipe: { ...rest, ingredients: rest.ingredients.map((group) => ({ ...group, items: group.items.map((item) => (item.food ? { ...item, food: portableItem(item.food) } : item)) })) },
   };
 }
+
+/** Produits de « Mes ingrédients » (un seul ou toute la liste), sans les photos. */
+export function ingredientsPayload(items: MealItem[]): SharePayload {
+  return {
+    app: "feedme", version: 1, kind: "ingredients", sharedAt: new Date().toISOString(),
+    products: items.map((item) => {
+      const { pantryId: _id, addedAt: _added, ...rest } = item as MealItem & { pantryId?: number; addedAt?: string };
+      return portableItem(rest);
+    }),
+  };
+}
+
+/** Nom affiché d'un partage (fichier, aperçu). */
+export const shareName = (payload: SharePayload) =>
+  payload.kind === "recette" ? payload.recipe.name : payload.kind === "repas" ? payload.meal.name : payload.products.length === 1 ? payload.products[0].name : `${payload.products.length} ingrédients`;
 
 export function mealPayload(meal: Meal): SharePayload {
   return {
@@ -83,7 +99,7 @@ export async function shareLink(payload: SharePayload) {
 }
 
 export const shareFileName = (payload: SharePayload) =>
-  `feedme-${payload.kind}-${normalize(payload.kind === "recette" ? payload.recipe.name : payload.meal.name).replace(/ /g, "-").slice(0, 40) || "partage"}.json`;
+  `feedme-${payload.kind}-${normalize(shareName(payload)).replace(/ /g, "-").slice(0, 40) || "partage"}.json`;
 
 // --- Lecture et vérification -------------------------------------------------------------
 
@@ -189,6 +205,11 @@ export function checkPayload(value: unknown): SharePayload {
   const sharedAt = text(payload.sharedAt, 40) ?? new Date().toISOString();
   if (payload.kind === "recette") return { app: "feedme", version: 1, kind: "recette", sharedAt, recipe: checkRecipe(payload.recipe) };
   if (payload.kind === "repas") return { app: "feedme", version: 1, kind: "repas", sharedAt, meal: checkMeal(payload.meal) };
+  if (payload.kind === "ingredients") {
+    const products = list(payload.products, 100).map(checkItem).filter((item): item is MealItem => !!item);
+    if (!products.length) throw new ShareError("Ingrédients illisibles : aucun produit reconnu.");
+    return { app: "feedme", version: 1, kind: "ingredients", sharedAt, products };
+  }
   throw new ShareError("Type de partage inconnu.");
 }
 

@@ -873,3 +873,11 @@ h2 { font-size: 20px; font-weight: 800; }
 .adapt-qty { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
 .adapt-qty input { width: 72px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--cream); font: inherit; font-weight: 800; text-align: center; }
 .adapt-actions { display: inline-flex; align-items: center; gap: 8px; }
+
+/* Ingrédients reçus : une case par produit (déjà dans la liste : grisé). */
+.share-products { display: grid; gap: 8px; }
+.share-product { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.share-product input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--green); }
+.share-product span { display: grid; gap: 2px; min-width: 0; }
+.share-product small { color: var(--muted); font-size: 12px; }
+.share-product.owned { opacity: 0.6; }
