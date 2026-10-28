@@ -118,11 +118,17 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const [lines, setLines] = useState<Line[]>(() => (draft ? draft.lines : editing ? itemsOf(editing) : initialItems ?? []).map((item, index) => ({ ...item, key: index + 1 })));
   // Recettes du carnet, les plus récentes d'abord.
   // Recettes du carnet : les plus souvent notées d'abord, puis les plus récentes.
-  const myRecipes = useMemo(() => {
-    const uses = new Map<string, number>();
-    meals.forEach((meal) => meal.items?.forEach((item) => { if (item.source === "recette" && item.ref) uses.set(item.ref, (uses.get(item.ref) ?? 0) + 1); }));
-    return [...recipes].sort((a, b) => (uses.get(String(b.id)) ?? 0) - (uses.get(String(a.id)) ?? 0) || b.id - a.id);
+  // Recettes mangées ces 30 derniers jours, la plus récente en premier ; les autres sur demande.
+  const { recentRecipes, myRecipes } = useMemo(() => {
+    const last = new Map<string, string>();
+    const since = (() => { const date = new Date(); date.setDate(date.getDate() - 30); return todayKey(date); })();
+    meals.forEach((meal) => meal.items?.forEach((item) => {
+      if (item.source === "recette" && item.ref && meal.status !== "planned" && meal.date > (last.get(item.ref) ?? "")) last.set(item.ref, meal.date);
+    }));
+    const all = [...recipes].sort((a, b) => (last.get(String(b.id)) ?? "").localeCompare(last.get(String(a.id)) ?? "") || b.id - a.id);
+    return { recentRecipes: all.filter((recipe) => (last.get(String(recipe.id)) ?? "") >= since), myRecipes: all };
   }, [recipes, meals]);
+  const [allRecipes, setAllRecipes] = useState(false);
   const [common, setCommon] = useState<FoodResult[]>([]);
   const [ciqual, setCiqual] = useState<FoodResult[]>([]);
   const [brands, setBrands] = useState<FoodResult[]>([]);
@@ -698,7 +704,12 @@ export default function MealComposer({ date: initialDate, category: initialCateg
           )}
           {pickTab === "Recettes" && (
             <div className="food-results">
-              {myRecipes.length ? myRecipes.map((recipe, index) => resultRow(recipeResult(recipe), index)) : <p className="food-hint">Pas encore de recette : crée-en une dans l'onglet Recettes.</p>}
+              {!myRecipes.length && <p className="food-hint">Pas encore de recette : crée-en une dans l'onglet Recettes.</p>}
+              {myRecipes.length > 0 && !allRecipes && recentRecipes.length > 0 && <p className="food-section">Mangées ces 30 derniers jours</p>}
+              {(allRecipes || !recentRecipes.length ? myRecipes : recentRecipes).map((recipe, index) => resultRow(recipeResult(recipe), index))}
+              {recentRecipes.length > 0 && myRecipes.length > recentRecipes.length && (
+                <button type="button" className="text-button" onClick={() => setAllRecipes((value) => !value)}>{allRecipes ? "Seulement les récentes" : `Voir toutes mes recettes (${myRecipes.length})`}</button>
+              )}
             </div>
           )}
           {pickTab === "Fast-food" && (

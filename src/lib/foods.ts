@@ -656,7 +656,26 @@ export const isRawEggProduct = (name: string) => {
   return /^(\d+ |x\d+ )?(gros |moyens |petits )?oeufs?\b/.test(simple) || /\boeufs? (frais|de poules?|bio|plein air|label rouge|de ferme|extra frais)\b/.test(simple);
 };
 
+/**
+ * Sachet de thé ou d'infusion, café soluble, cacao en poudre (valeurs du produit sec) : la dose
+ * mise dans la tasse, pas « 100 g » de sachets. Repères courants : un sachet pèse environ 2 g,
+ * une cuillère à café de poudre environ 5 g (comme les cuillères des lignes d'aliment).
+ */
+export function preparedDose(result: Pick<FoodResult, "name" | "liquid" | "prepared">): { label: string; grams: number } | null {
+  if (result.liquid) return null;
+  const name = normalize(result.name);
+  if (/\b(ice tea|the glace|biscuits?|gateau|cake)\b/.test(name)) return null;
+  if (/\b(the|thes|tisanes?|infusions?|verveine|camomille|rooibos|mate)\b/.test(name)) return { label: "1 sachet", grams: 2 };
+  if (/\b(cafe soluble|cafe instantane|chicoree|nescafe|ricore|cacao en poudre|chocolat en poudre|poudre chocolatee)\b/.test(name)) return { label: "1 c. à café", grams: 5 };
+  return null;
+}
+
 export function toMealItem(result: FoodResult): MealItem {
+  // Sachet ou poudre pour une boisson chaude, sans portion connue : compté à la dose.
+  if (!result.portionGrams && !result.pieceGrams && !result.perPortionOnly && result.source !== "recette") {
+    const dose = preparedDose(result);
+    if (dose) result = { ...result, prepared: true, pieceGrams: dose.grams, pieceLabel: dose.label };
+  }
   // Œufs vendus en boîte : 1 œuf ≈ 55 g, quand l'emballage ne donne pas de poids à la pièce.
   if (!result.pieceGrams && !result.portionGrams && !result.perPortionOnly && result.source !== "recette" && isRawEggProduct(result.name)) {
     result = { ...result, pieceGrams: 55, pieceLabel: "1 œuf" };

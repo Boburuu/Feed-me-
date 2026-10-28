@@ -55,7 +55,9 @@ type Draft = {
   images: DraftImage[];
 };
 
-let nextKey = 1;
+// Repart d'un nombre jamais utilisé : un brouillon rouvert garde ses numéros de ligne, deux
+// lignes ne doivent jamais partager le même (sinon changer l'une change l'autre).
+let nextKey = Date.now();
 const emptyItem = (): DraftItem => ({ key: nextKey++, quantity: "", unit: "", name: "" });
 const toDraftItem = (item: Ingredient): DraftItem => ({ key: nextKey++, quantity: item.quantity === null ? "" : formatQuantity(item.quantity), unit: item.unit, name: item.name, food: item.food });
 const toIngredient = (item: DraftItem): Ingredient =>
@@ -92,7 +94,7 @@ const isBlank = (draft: Draft) =>
   draft.steps.every((group) => group.steps.every((step) => !step.text.trim() && !step.title.trim()));
 
 export default function RecipeForm({ initial, onSave, onCancel, flash, draft: saved, onDraft, onDiscardDraft }: RecipeFormProps) {
-  const [draft, setDraft] = useState<Draft>(() => (saved ? { ...saved.form, images: [] } : draftFrom(initial)));
+  const [draft, setDraft] = useState<Draft>(() => (saved ? { ...saved.form, ingredients: saved.form.ingredients.map((group) => ({ ...group, items: group.items.map((item) => ({ ...item, key: nextKey++ })) })), images: [] } : draftFrom(initial)));
   const [rawText, setRawText] = useState<string | null>(saved?.rawText ?? null);
   const corrections = useCorrections();
 
@@ -108,6 +110,7 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
   const [shots, setShots] = useState<string[]>([]);
   const screenshotInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
   /** Partie d'ingrédients où l'on ajoute des aliments (recherche, photo, code-barres). */
   const [picking, setPicking] = useState(0);
   const set = (change: Partial<Draft>) => setDraft((current) => ({ ...current, ...change }));
@@ -459,11 +462,16 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
                 </div>
               );
               const write = <button type="button" className="add-part" onClick={() => setGroup(groupIndex, { items: [...group.items, emptyItem()] })}><Icon name="edit" size={15} /> Écrire un ingrédient à la main</button>;
+              // Les ingrédients déjà ajoutés restent en haut, au-dessus de la recherche (et pas sous la liste).
               return picking === groupIndex ? (
-                <FoodPicker onPick={(food) => pickFood(groupIndex, food)}>
+                <>
+                  {group.items.length > 0 && <p className="food-section">Dans la recette · {group.items.length} ingrédient{group.items.length > 1 ? "s" : ""}</p>}
                   {lines}
-                  {write}
-                </FoodPicker>
+                  <p className="food-section">Ajouter un ingrédient</p>
+                  <FoodPicker onPick={(food) => pickFood(groupIndex, food)}>
+                    {write}
+                  </FoodPicker>
+                </>
               ) : (
                 <>
                   {lines}
@@ -513,10 +521,14 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
               <button type="button" onClick={() => set({ images: draft.images.filter((_, i) => i !== index) })} aria-label={`Retirer l'image ${index + 1}`}><Icon name="close" size={13} /></button>
             </span>
           ))}
+          <button type="button" className="shot-add" onClick={() => cameraInput.current?.click()}>
+            <Icon name="camera" size={20} /><small>Photo</small>
+          </button>
           <button type="button" className="shot-add" onClick={() => photoInput.current?.click()}>
-            <Icon name="camera" size={20} /><small>Ajouter</small>
+            <Icon name="image" size={20} /><small>Galerie</small>
           </button>
         </div>
+        <input ref={cameraInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={addPhotos} />
         <input ref={photoInput} className="hidden-input" type="file" accept="image/*" multiple onChange={addPhotos} />
       </div>
 

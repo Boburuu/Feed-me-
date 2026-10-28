@@ -29,3 +29,14 @@ describe("thé en sachet scanné", () => {
     expect(await openFoodFactsByBarcode("123")).toBeNull();
   });
 });
+
+describe("sachet sec (valeurs du produit sec)", () => {
+  const dry = { name: "Infusion saveur poire vanille", source: "off" as const, ref: "1", kcal100: 4, protein100: 0, packageGrams: 38, prepared: true, detail: "" };
+  it("compté à 1 sachet (≈ 2 g), pas 100 g de sachets", () => {
+    expect(toMealItem(dry)).toMatchObject({ unit: "portion", quantity: 1, portionLabel: "1 sachet", portionGrams: 2 });
+  });
+  it("un thé prêt à boire (en ml) ou un thé glacé ne change pas", () => {
+    expect(toMealItem({ ...dry, liquid: true })).toMatchObject({ unit: "g", quantity: 100 });
+    expect(toMealItem({ ...dry, name: "Ice tea pêche", prepared: undefined })).toMatchObject({ unit: "g", quantity: 100 });
+  });
+});
