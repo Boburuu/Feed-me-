@@ -65,7 +65,7 @@ export async function recapPdf(recap: Recap, sections: RecapSections, person: st
   const s = recap.summary;
   if (sections.summary) {
     text("Résumé de la période", 13, [20, 20, 20], true);
-    const rows: string[][] = [["Jours notés", `${s.daysLogged} sur ${s.days}${s.freeDays ? ` (+ ${s.freeDays} jour${s.freeDays > 1 ? "s" : ""} libre${s.freeDays > 1 ? "s" : ""}, hors moyennes)` : ""}`]];
+    const rows: string[][] = [["Jours notés", `${s.daysLogged} sur ${s.days}${s.freeDays ? ` (+ ${s.freeDays} cheat day${s.freeDays > 1 ? "s" : ""}, hors moyennes)` : ""}`]];
     if (sections.meals || sections.nutrients) rows.push(["Calories / jour (moyenne)", recap.target ? `${n(s.kcal)} / ${n(recap.target)} kcal (objectif)` : n(s.kcal, "kcal")]);
     if (sections.nutrients) rows.push(["Protéines / glucides / lipides (moyenne)", `${n(s.protein, "g")} / ${n(s.carbs, "g")} / ${n(s.fat, "g")}`]);
     if (sections.water) rows.push(["Hydratation / jour (moyenne)", water(s.waterMl)]);
@@ -78,15 +78,15 @@ export async function recapPdf(recap: Recap, sections: RecapSections, person: st
   for (const day of recap.days) {
     if (y > 250) { doc.addPage(); y = 18; }
     const consumed = day.meals.length && !day.free ? ` · ${n(day.totals.kcal)}${recap.target ? ` / ${n(recap.target)}` : ""} kcal` : "";
-    text(`${longDay(day.date)}${day.free ? " · journée libre" : consumed}`, 12, GREEN, true);
+    text(`${longDay(day.date)}${day.free ? " · cheat day" : consumed}`, 12, GREEN, true);
     if (sections.meals && day.meals.length) {
       const head = sections.nutrients ? ["Moment", "Repas", "kcal", "Prot.", "Gluc.", "Lip."] : ["Moment", "Repas", "kcal"];
       const body = day.meals.map((meal) => {
-        const kcal = meal.free ? (meal.estimate ? `~${meal.estimate} (libre)` : "libre") : String(meal.kcal);
+        const kcal = meal.free ? (meal.estimate ? `~${meal.estimate} (cheat day)` : "cheat day") : String(meal.kcal);
         const row = [meal.category, meal.name, kcal];
         return sections.nutrients ? [...row, meal.free ? "-" : n(meal.protein, "g"), meal.free ? "-" : n(meal.carbs, "g"), meal.free ? "-" : n(meal.fat, "g")] : row;
       });
-      const total = ["", day.free ? "Total (hors repas libre)" : recap.target ? `Total · objectif ${n(recap.target)} kcal` : "Total", recap.target && !day.free ? `${day.totals.kcal} / ${recap.target}` : String(day.totals.kcal)];
+      const total = ["", day.free ? "Total (hors cheat day)" : recap.target ? `Total · objectif ${n(recap.target)} kcal` : "Total", recap.target && !day.free ? `${day.totals.kcal} / ${recap.target}` : String(day.totals.kcal)];
       body.push(sections.nutrients ? [...total, `${day.totals.protein} g`, `${day.totals.carbs} g`, `${day.totals.fat} g`] : total);
       table(head, body, sections.nutrients ? [26, 86, 22, 16, 16, 16] : [30, 120, 32]);
     }

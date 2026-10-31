@@ -342,7 +342,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       date,
       ...(planned ? { status: "planned" as const } : {}),
       category,
-      name: freeName.trim() || "Repas libre",
+      name: freeName.trim() || "Cheat day",
       // Calories comptées : aucune ; l'estimation reste un repère affiché.
       calories: 0,
       ...(estimate ? { freeEstimate: estimate } : {}),
@@ -786,7 +786,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
             </div>
           )}
           {!lines.length && !initialItems?.length && (
-            <button type="button" className="text-button free-meal-link" onClick={() => { setFree(true); setStage(2); }}>Repas libre (chez quelqu'un, sans compter) ›</button>
+            <button type="button" className="text-button free-meal-link" onClick={() => { setFree(true); setStage(2); }}>Cheat day (resto, chez quelqu'un, sans compter) ›</button>
           )}
         </>
       )}
@@ -822,15 +822,15 @@ export default function MealComposer({ date: initialDate, category: initialCateg
       <div className={`sex-selector meal-mode${free || (!initialItems?.length && !lines.length) ? " three" : ""}`} role="radiogroup" aria-label="Type de repas">
         <button type="button" role="radio" aria-checked={!isPlate && !free} className={!isPlate && !free ? "selected" : ""} onClick={() => { setFree(false); setMode("meal"); }}>Repas</button>
         <button type="button" role="radio" aria-checked={isPlate && !free} className={isPlate && !free ? "selected" : ""} onClick={() => { setFree(false); setMode("plate"); }}>Assiette maison</button>
-        {(free || (!initialItems?.length && !lines.length)) && <button type="button" role="radio" aria-checked={free} className={free ? "selected" : ""} onClick={() => setFree(true)}>Repas libre</button>}
+        {(free || (!initialItems?.length && !lines.length)) && <button type="button" role="radio" aria-checked={free} className={free ? "selected" : ""} onClick={() => setFree(true)}>Cheat day</button>}
       </div>
       {free && (
         <section className="free-meal">
-          <p>Un repas que tu ne peux pas compter (chez quelqu'un, au restaurant, un cheat meal). <strong>Ce jour sera « libre »</strong> : il ne compte ni dans tes moyennes ni dans ton bilan, et ne casse pas ta série de jours notés.</p>
-          <label>Où, avec qui ?<input value={freeName} onChange={(e) => setFreeName(e.target.value)} placeholder="Ex. Dîner chez papa" /></label>
+          <p>Un repas que tu ne peux pas compter (chez quelqu'un, au restaurant, un cheat meal). <strong>Ce jour sera un cheat day</strong> : il ne compte ni dans tes moyennes ni dans ton bilan, et ne casse pas ta série de jours notés.</p>
+          <label>Pourquoi ? (facultatif)<input value={freeName} onChange={(e) => setFreeName(e.target.value)} placeholder="Ex. anniversaire, resto, dîner chez papa" /></label>
           <label>Estimation (facultative)<div className="free-estimate"><input value={freeKcal} onChange={(e) => setFreeKcal(e.target.value)} inputMode="numeric" placeholder="—" /><small>kcal</small></div></label>
           <small className="food-hint">L'estimation n'est qu'un repère pour toi : elle s'affiche avec « ≈ » et n'entre dans aucun calcul.</small>
-          <button type="button" className="submit-button" onClick={saveFree}><Icon name="check" /> {editing ? "Enregistrer les modifications" : "Noter ce repas libre"}</button>
+          <button type="button" className="submit-button" onClick={saveFree}><Icon name="check" /> {editing ? "Enregistrer les modifications" : "Noter ce cheat day"}</button>
         </section>
       )}
       {!free && (<>

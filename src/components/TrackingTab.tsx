@@ -44,7 +44,7 @@ const statusLabels: Record<DayStatus, string> = {
   under: "En dessous",
   partial: "Journal incomplet",
   none: "Rien de noté",
-  free: "Journée libre",
+  free: "Cheat day",
 };
 
 const keyOf = (date: Date) => todayKey(date);
@@ -207,7 +207,7 @@ export default function TrackingTab({ view, onView: setView, data, update, targe
           <span><i className="day-over" />Au-dessus</span>
           {goal === "prise" && <span><i className="day-under" />En dessous</span>}
           <span><i className="day-partial" />Incomplet</span>
-          {data.meals.some((meal) => meal.free) && <span><i className="day-free" />Libre</span>}
+          {data.meals.some((meal) => meal.free) && <span><i className="day-free" />Cheat day</span>}
           <span><i className="mark-weight" />Pesée</span>
           {data.fasts.length > 0 && <span><i className="mark-fast" />Jeûne réussi</span>}
           {data.sessions.length > 0 && <span><i className="mark-sport" />Sport</span>}
@@ -255,7 +255,7 @@ export default function TrackingTab({ view, onView: setView, data, update, targe
             <div className="meal-row editable" key={meal.id} onClick={() => onEditMeal(meal)}>
               <span className="meal-icon breakfast"><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
               <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
-              <span className="meal-calories">{meal.free ? <><strong>{freeLabel(meal)}</strong><small>{meal.freeEstimate ? "kcal" : "repas"}</small></> : <><strong>{meal.calories}</strong><small>kcal</small></>}</span>
+              <span className="meal-calories">{meal.free ? <><strong>{freeLabel(meal)}</strong><small>{meal.freeEstimate ? "kcal" : "day"}</small></> : <><strong>{meal.calories}</strong><small>kcal</small></>}</span>
               <span className="meal-actions">
                 <button className="icon-button" onClick={(event) => { event.stopPropagation(); onEditMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
                 {meal.items?.length ? <button className="icon-button" onClick={(event) => { event.stopPropagation(); onShareMeal(meal); }} aria-label={`Partager ${meal.name}`}><Icon name="share" size={16} /></button> : null}

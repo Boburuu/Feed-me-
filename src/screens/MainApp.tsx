@@ -374,7 +374,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     mealDraft.clear();
     setRestoredDraft(null);
     setModal(null);
-    flash(meal.free ? `Repas libre noté : ce jour sort de tes moyennes` : editingMeal ? `Repas modifié · ${meal.calories} kcal` : extras.leftover ? `Ma part : ${meal.calories} kcal · reste gardé` : `Repas enregistré · ${meal.calories} kcal`);
+    flash(meal.free ? `Cheat day noté : ce jour sort de tes moyennes` : editingMeal ? `Repas modifié · ${meal.calories} kcal` : extras.leftover ? `Ma part : ${meal.calories} kcal · reste gardé` : `Repas enregistré · ${meal.calories} kcal`);
   };
 
   /** Repas prévu confirmé « mangé tel quel » : il compte à partir de maintenant. */
@@ -600,7 +600,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               <span className="status-pill"><Icon name="flame" size={14} /> Objectif du jour</span>
               <p className="calorie-number">{Math.abs(remaining).toLocaleString("fr-FR")}</p>
               <p className="calorie-label">{remaining >= 0 ? "kcal restantes" : "kcal au-delà de l'objectif"}</p>
-              {todayMeals.some((meal) => meal.free) && <p className="free-day-note">Journée libre : un repas libre est noté, ce jour sort de tes moyennes.</p>}
+              {todayMeals.some((meal) => meal.free) && <p className="free-day-note">Cheat day : ce jour sort de tes moyennes et de ton bilan.</p>}
               <div className="calorie-meta">
                 <span><strong>{consumed.toLocaleString("fr-FR")}</strong> consommées</span>
                 <span><strong>{goal.toLocaleString("fr-FR")}</strong> objectif</span>
@@ -756,7 +756,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 <div className="meal-row editable" key={meal.id} onClick={() => editMeal(meal)}>
                   <span className={`meal-icon ${categoryStyle[meal.category]}`}><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
                   <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
-                  <span className="meal-calories">{meal.free ? <><strong>{freeLabel(meal)}</strong><small>{meal.freeEstimate ? "kcal" : "repas"}</small></> : <><strong>{meal.calories}</strong><small>kcal</small></>}</span>
+                  <span className="meal-calories">{meal.free ? <><strong>{freeLabel(meal)}</strong><small>{meal.freeEstimate ? "kcal" : "day"}</small></> : <><strong>{meal.calories}</strong><small>kcal</small></>}</span>
                   {/* Modifier et supprimer toujours visibles (une erreur se corrige vite) ; partager si le repas a ses aliments. */}
                   <span className="meal-actions">
                     <button className="icon-button" onClick={(event) => { event.stopPropagation(); editMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>

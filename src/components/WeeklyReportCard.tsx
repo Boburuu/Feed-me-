@@ -23,7 +23,7 @@ function Change({ now, before, unit, digits = 0 }: { now: number | null; before:
 
 const rows = (week: WeekFigures, previous: WeekFigures, waterGoal: number) => [
   { label: "Jours notés", now: fmt(week.daysLogged, "/ 7"), change: <Change now={week.daysLogged} before={previous.daysLogged} unit="j" /> },
-  ...(week.freeDays ? [{ label: "Jours libres (hors calcul)", now: String(week.freeDays), change: <small className="report-change">—</small> }] : []),
+  ...(week.freeDays ? [{ label: "Cheat days (hors calcul)", now: String(week.freeDays), change: <small className="report-change">—</small> }] : []),
   { label: "Calories / jour", now: fmt(week.kcal === null ? null : Math.round(week.kcal), "kcal"), change: <Change now={week.kcal === null ? null : Math.round(week.kcal)} before={previous.kcal === null ? null : Math.round(previous.kcal)} unit="kcal" /> },
   { label: "Protéines / jour", now: fmt(week.protein === null ? null : Math.round(week.protein), "g"), change: <Change now={week.protein === null ? null : Math.round(week.protein)} before={previous.protein === null ? null : Math.round(previous.protein)} unit="g" /> },
   { label: "Fibres / jour", now: fmt(week.fiber === null ? null : Math.round(week.fiber), "g"), change: <Change now={week.fiber === null ? null : Math.round(week.fiber)} before={previous.fiber === null ? null : Math.round(previous.fiber)} unit="g" /> },

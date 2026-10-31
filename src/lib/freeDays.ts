@@ -7,5 +7,5 @@ import type { Meal } from "./storage";
 /** Le jour contient un repas libre mangé. */
 export const isFreeDay = (meals: Meal[], day: string) => eatenMeals(meals).some((meal) => meal.date === day && meal.free);
 
-/** « ≈ 900 kcal » ou « libre » pour un repas libre. */
-export const freeLabel = (meal: Meal) => (meal.freeEstimate ? `≈ ${meal.freeEstimate}` : "libre");
+/** « ≈ 900 kcal », ou « cheat » (+ « day ») pour un cheat day sans estimation. */
+export const freeLabel = (meal: Meal) => (meal.freeEstimate ? `≈ ${meal.freeEstimate}` : "cheat");

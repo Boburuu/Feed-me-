@@ -99,7 +99,7 @@ export default function RecapDownload({ data, target, person, flash }: RecapDown
       </div>
       <p className="food-hint">
         {recap.days.length
-          ? `${recap.days.length} jour${recap.days.length > 1 ? "s" : ""} avec des données${recap.summary.freeDays ? `, dont ${recap.summary.freeDays} libre${recap.summary.freeDays > 1 ? "s" : ""}` : ""}.`
+          ? `${recap.days.length} jour${recap.days.length > 1 ? "s" : ""} avec des données${recap.summary.freeDays ? `, dont ${recap.summary.freeDays} cheat day${recap.summary.freeDays > 1 ? "s" : ""}` : ""}.`
           : "Rien de noté sur cette période."}
       </p>
       {saved && (
