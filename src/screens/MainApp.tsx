@@ -14,7 +14,9 @@ import QuickWeigh from "../components/QuickWeigh";
 import ReminderSettings from "../components/ReminderSettings";
 import { REMINDER_EVENT, syncReminders, takeReminderTarget, type ReminderTarget } from "../lib/reminders";
 import ShareImport from "../components/ShareImport";
-import { mealPayload, shareInHash, type SharedMeal, type SharedRecipe, type SharePayload } from "../lib/share";
+import { freeName, mealPayload, recipeConflict, shareInHash, type SharedMeal, type SharedPlanned, type SharedRecipe, type SharePayload, type ShoppingShareLine } from "../lib/share";
+import { addNames, cleanName, joinNames, sameName } from "../lib/tablee";
+import { TableeContext, type TableeApi } from "../lib/tableeContext";
 import ShareSheet from "../components/ShareSheet";
 import { INCOMING_EVENT, takeIncomingShare } from "../lib/incomingShare";
 import { cleanMealName, eatenItems, recipeFromMeal } from "../lib/sharedMeal";
@@ -172,7 +174,44 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const openShareImport = () => { setShareText(undefined); setModal("share"); };
   /** Envoyer un repas (à son ou sa partenaire…) : il ou elle choisit ses quantités en l'ajoutant. */
   const [outgoingShare, setOutgoingShare] = useState<SharePayload | null>(null);
-  const shareMeal = (meal: Meal) => { setOutgoingShare(mealPayload(meal)); setModal("share-out"); };
+  /** Destinataires déjà choisis (« Mangé avec » du repas partagé). */
+  const [outgoingGuests, setOutgoingGuests] = useState<string[]>([]);
+  const openShare = (payload: SharePayload, guests: string[] = []) => { setOutgoingShare(payload); setOutgoingGuests(guests); setModal("share-out"); };
+  const shareMeal = (meal: Meal) => openShare(mealPayload(meal), meal.with ?? []);
+  /** Repas prévus reçus : ajoutés au planning, « prévus » (rien ne compte avant « Mangé »). */
+  const addSharedPlanned = (meals: SharedPlanned[], companions: string[]) => {
+    const start = Date.now();
+    update((current) => ({ ...current, meals: [...current.meals, ...meals.map((meal, index): Meal => ({ ...meal, id: start + index, status: "planned", source: "manual", ...(companions.length ? { with: companions } : {}) }))] }));
+    setModal(null);
+    flash(`${meals.length} repas prévu${meals.length > 1 ? "s" : ""} ajouté${meals.length > 1 ? "s" : ""} : Suivi › Semaine`);
+  };
+  /** Articles reçus : ajoutés à la liste de courses (sans doublon). */
+  const addSharedShopping = (lines: ShoppingShareLine[]) => {
+    const texts = lines.map((line) => (line.qty ? `${line.name} · ${line.qty}` : line.name));
+    update((current) => {
+      const shopping = current.shopping ?? { checked: [], extras: [] };
+      const fresh = texts.filter((text) => !shopping.extras.some((item) => item.text === text && !item.done));
+      return { ...current, shopping: { ...shopping, extras: [...shopping.extras, ...fresh.map((text, index) => ({ id: Date.now() + index, text, done: false }))] } };
+    });
+    setModal(null);
+    flash(`${texts.length} article${texts.length > 1 ? "s" : ""} ajouté${texts.length > 1 ? "s" : ""} à ta liste de courses`);
+  };
+  /** Recettes d'un carnet reçu : déjà présentes ignorées, même nom renommé « (2) ». */
+  const addSharedRecipes = (shared: SharedRecipe[]) => {
+    update((current) => {
+      const recipes = [...current.recipes];
+      const start = Date.now();
+      shared.forEach((recipe, index) => {
+        const conflict = recipeConflict(recipes, recipe);
+        if (conflict?.kind === "same") return;
+        recipes.push({ ...recipe, name: conflict ? freeName(recipes, recipe.name) : recipe.name, id: start + index });
+      });
+      return { ...current, recipes };
+    });
+    setModal(null);
+    flash("Carnet reçu : ce que tu as coché est ajouté");
+    goTo("Recettes");
+  };
   const addSharedRecipe = (recipe: SharedRecipe) => {
     const id = Date.now();
     update((current) => ({ ...current, recipes: [...current.recipes, { ...recipe, id }] }));
@@ -186,7 +225,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     window.setTimeout(() => setFocusRecipeId(null), 300);
   };
   /** Repas reçu : ouvert comme repas (la part mangée) ou comme assiette maison (le plat entier). */
-  const openSharedMeal = (meal: SharedMeal & { items: MealItem[] }, as: "meal" | "plate" = meal.plate ? "plate" : "meal") => {
+  const openSharedMeal = (meal: SharedMeal & { items: MealItem[] }, as: "meal" | "plate" = meal.plate ? "plate" : "meal", companions: string[] = []) => {
     const plate = as === "plate" ? meal.plate ?? { servings: 1, share: 1 } : undefined;
     if (as === "meal") meal = { ...meal, items: eatenItems(meal), plate: undefined, name: cleanMealName(meal.name) };
     setPlanning(false);
@@ -197,6 +236,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
       plateName: plate ? cleanMealName(meal.name) : "", servings: plate?.servings ?? 2,
       parts: plate ? Math.max(0.5, Math.round(plate.share * plate.servings * 2) / 2) : 1,
       adjust: 0, keepLeftover: false, query: "",
+      ...(companions.length ? { with: companions } : {}),
     });
     setSharedMealNotice(as === "plate" ? "Assiette reçue en partage : règle le plat, le nombre de personnes et ta part, puis enregistre." : "Repas reçu en partage : choisis le jour, le moment et ta quantité, puis enregistre.");
     setMealDate(today);
@@ -373,7 +413,10 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     });
     mealDraft.clear();
     setRestoredDraft(null);
-    setModal(null);
+    // Repas mangé à plusieurs : on propose tout de suite d'envoyer leur part.
+    const shareNow = !editingMeal && !meal.free && !!meal.with?.length && !!meal.items?.length;
+    if (shareNow) openShare(mealPayload({ ...meal, id: 0 }), meal.with);
+    else setModal(null);
     flash(meal.free ? `Cheat day noté : ce jour sort de tes moyennes` : editingMeal ? `Repas modifié · ${meal.calories} kcal` : extras.leftover ? `Ma part : ${meal.calories} kcal · reste gardé` : `Repas enregistré · ${meal.calories} kcal`);
   };
 
@@ -591,8 +634,20 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     <>{profile.photo ? <img src={profile.photo} alt="" /> : <span>{initials(profile)}</span>}</>
   );
 
+  const tableeApi: TableeApi = {
+    myName: cleanName(profile.firstName || profile.pseudo),
+    me: [profile.firstName, profile.pseudo],
+    tablee: data.tablee ?? [],
+    addToTablee: (names) => update((current) => ({ ...current, tablee: addNames(current.tablee ?? [], names) })),
+    removeFromTablee: (name) => update((current) => ({ ...current, tablee: (current.tablee ?? []).filter((entry) => !sameName(entry, name)) })),
+    received: data.receivedShares ?? [],
+    markReceived: (id) => update((current) => ({ ...current, receivedShares: [...(current.receivedShares ?? []).filter((entry) => entry !== id), id].slice(-200) })),
+  };
+  const [tableeDraft, setTableeDraft] = useState("");
+
   return (
     <CorrectionsContext.Provider value={correctionsApi}>
+    <TableeContext.Provider value={tableeApi}>
       {showSplash && modal === null && (
         <TipSplash tip={todayTip} favorite={favoriteTips.includes(todayTip.id)} onToggleFavorite={() => toggleFavoriteTip(todayTip.id)} onClose={() => setShowSplash(false)} onOpenCorner={() => { setShowSplash(false); setModal("tips"); }} onNext={nextTip} />
       )}
@@ -768,7 +823,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               {todayMeals.map((meal) => (
                 <div className="meal-row editable" key={meal.id} onClick={() => editMeal(meal)}>
                   <span className={`meal-icon ${categoryStyle[meal.category]}`}><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
-                  <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
+                  <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.with?.length ? <small className="meal-with-line">avec {joinNames(meal.with)}</small> : null}{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
                   <span className="meal-calories">{meal.free ? <><strong>{freeLabel(meal)}</strong><small>{meal.freeEstimate ? "kcal" : "day"}</small></> : <><strong>{meal.calories}</strong><small>kcal</small></>}</span>
                   {/* Modifier et supprimer toujours visibles (une erreur se corrige vite) ; partager si le repas a ses aliments. */}
                   <span className="meal-actions">
@@ -801,6 +856,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           onDeleteWeight={deleteWeight}
           onEditMeal={editMeal}
           onShareMeal={shareMeal}
+          onShare={(payload) => openShare(payload)}
           onPlanMeal={(date) => openMealForm(date, true)}
           onRecap={() => setModal("recap")}
           flash={flash}
@@ -948,6 +1004,25 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             </div>
           </section>
 
+          <section className="section-block" id="ma-tablee">
+            <div className="section-title"><div><p className="eyebrow">Repas partagés</p><h2>Ma tablée</h2></div></div>
+            <p className="theme-description">Les gens avec qui tu manges souvent. Feed Me les propose dans « Mangé avec » et prépare le message pour leur envoyer leur part. Cette liste reste sur ce téléphone.</p>
+            {(data.tablee ?? []).length > 0 && (
+              <div className="tablee-list">
+                {(data.tablee ?? []).map((name) => (
+                  <span className="tablee-person" key={name}>
+                    <strong>{name}</strong>
+                    <button type="button" className="icon-button" onClick={() => tableeApi.removeFromTablee(name)} aria-label={`Retirer ${name} de ma tablée`}><Icon name="close" size={14} /></button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <form className="shop-add" onSubmit={(event) => { event.preventDefault(); if (!tableeDraft.trim()) return; tableeApi.addToTablee([tableeDraft]); setTableeDraft(""); }}>
+              <input value={tableeDraft} onChange={(event) => setTableeDraft(event.target.value)} placeholder="Prénom (Alex, Sam…)" aria-label="Prénom à ajouter à ma tablée" maxLength={40} />
+              <button type="submit" className="add-button" aria-label="Ajouter à ma tablée"><Icon name="plus" size={16} /></button>
+            </form>
+          </section>
+
           <section className="section-block">
             <div className="section-title"><div><p className="eyebrow">Confidentialité</p><h2>Mes données</h2></div></div>
             <p className="theme-description">Tout est enregistré uniquement sur cet appareil. Désinstaller l'application efface les données : exportez une sauvegarde régulièrement.</p>
@@ -964,7 +1039,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
         </div>
       )}
 
-      {activeTab === "Recettes" && <RecipesTab recipes={data.recipes} meals={data.meals} prefill={prefillRecipe} onPrefillUsed={() => setPrefillRecipe(null)} update={update} onAddToJournal={addRecipeToJournal} flash={flash} onReceive={openShareImport} focusRecipeId={focusRecipeId} />}
+      {activeTab === "Recettes" && <RecipesTab onShare={(payload) => openShare(payload)} recipes={data.recipes} meals={data.meals} prefill={prefillRecipe} onPrefillUsed={() => setPrefillRecipe(null)} update={update} onAddToJournal={addRecipeToJournal} flash={flash} onReceive={openShareImport} focusRecipeId={focusRecipeId} />}
 
       {notice && <div className="toast" role="status">{notice}</div>}
 
@@ -1040,7 +1115,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   <button onClick={() => setModal("pantry")}><span className="meal-icon lunch"><Icon name="barcode" /></span><span><strong>Mes ingrédients</strong><small>Voir ta liste, scanner un produit sans l'ajouter à un repas</small></span><Icon name="chevron" /></button>
                   <button onClick={() => setModal("weigh")}><span className="meal-icon dinner"><Icon name="scale" /></span><span><strong>Une pesée</strong><small>Pesée rapide, le dernier poids pré-rempli</small></span><Icon name="chevron" /></button>
                   <button onClick={() => goTo("Activité")}><span className="meal-icon mint-icon"><Icon name="shoe" /></span><span><strong>Une séance de sport</strong><small>Marche, course, musculation, yoga…</small></span><Icon name="chevron" /></button>
-                  <button onClick={openShareImport}><span className="meal-icon lunch"><Icon name="link" /></span><span><strong>Un partage reçu</strong><small>Recette, repas ou ingrédients envoyés par un proche</small></span><Icon name="chevron" /></button>
+                  <button onClick={openShareImport}><span className="meal-icon lunch"><Icon name="link" /></span><span><strong>Un partage reçu</strong><small>Repas, recette, ingrédients, semaine, courses ou carnet envoyés par un proche</small></span><Icon name="chevron" /></button>
                 </div>
               </>
             )}
@@ -1075,9 +1150,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             {modal === "share-out" && outgoingShare && (
               <>
                 <p className="eyebrow">Partage</p>
-                <h2>Envoyer ce repas</h2>
-                <p className="theme-description">La personne le verra en aperçu, puis choisira le jour, le moment et ses propres quantités avant de l'ajouter.</p>
-                <ShareSheet payload={outgoingShare} onClose={() => setModal(null)} />
+                <h2>{outgoingShare.kind === "repas" ? (outgoingShare.meal.plate && outgoingGuests.length ? `Envoyer ${outgoingGuests.length > 1 ? "leur" : "sa"} part` : "Envoyer ce repas") : "Partager"}</h2>
+                {outgoingShare.kind === "repas" && <p className="theme-description">{outgoingGuests.length > 1 ? `Repas enregistré. ${joinNames(outgoingGuests)} le verront en aperçu, puis choisiront le jour, le moment et leurs propres quantités avant de l'ajouter.` : `${outgoingGuests.length ? `Repas enregistré. ${outgoingGuests[0]}` : "La personne"} le verra en aperçu, puis choisira le jour, le moment et ses propres quantités avant de l'ajouter.`}</p>}
+                <ShareSheet payload={outgoingShare} guests={outgoingGuests} onClose={() => setModal(null)} />
               </>
             )}
             {modal === "share" && (
@@ -1093,6 +1168,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   onSaveAsRecipe={(meal) => { setModal(null); setPrefillRecipe(recipeFromMeal(meal)); goTo("Recettes"); }}
                   onOpenRecipe={(recipe) => focusRecipe(recipe.id)}
                   onAddedProducts={(count) => { setModal(null); flash(`${count} ingrédient${count > 1 ? "s" : ""} ajouté${count > 1 ? "s" : ""} à Mes ingrédients`); }}
+                  onAddPlanned={addSharedPlanned}
+                  onAddShopping={addSharedShopping}
+                  onAddRecipes={addSharedRecipes}
                   onClose={() => setModal(null)}
                 />
               </>
@@ -1113,6 +1191,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           </section>
         </div>
       )}
+    </TableeContext.Provider>
     </CorrectionsContext.Provider>
   );
 }

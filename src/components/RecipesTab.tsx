@@ -10,6 +10,8 @@ import { deleteImage } from "../lib/images";
 import { applyChoice } from "../lib/recipeChoice";
 import { allSteps, categoryLabel, categoryOf, ingredientSummary, recipeCategories } from "../lib/recipes";
 import type { AppData, Meal, Recipe, RecipeCategory } from "../lib/storage";
+import { carnetPayload, type SharePayload } from "../lib/share";
+import { useCorrections } from "../lib/correctionsContext";
 
 type RecipesTabProps = {
   recipes: Recipe[];
@@ -23,6 +25,8 @@ type RecipesTabProps = {
   flash: (message: string) => void;
   /** Recevoir un partage (lien ou fichier). */
   onReceive: () => void;
+  /** Partager tout le carnet (recettes et « Mes ingrédients »). */
+  onShare: (payload: SharePayload) => void;
   /** Recette à ouvrir tout de suite (partage déjà dans le carnet, ou tout juste ajouté). */
   focusRecipeId?: number | null;
 };
@@ -30,7 +34,8 @@ type RecipesTabProps = {
 /** Ignore la casse et les accents : « creme » trouve « Crème ». */
 const normalize = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export default function RecipesTab({ recipes, meals, prefill, onPrefillUsed, update, onAddToJournal, flash, onReceive, focusRecipeId }: RecipesTabProps) {
+export default function RecipesTab({ recipes, meals, prefill, onPrefillUsed, update, onAddToJournal, flash, onReceive, onShare, focusRecipeId }: RecipesTabProps) {
+  const pantry = useCorrections()?.pantry ?? [];
   const [filter, setFilter] = useState<RecipeCategory | "toutes">("toutes");
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"recettes" | "ingredients">("recettes");
@@ -176,6 +181,14 @@ export default function RecipesTab({ recipes, meals, prefill, onPrefillUsed, upd
         <div><strong>Recevoir un partage</strong><small>Coller le lien ou ouvrir le fichier reçu</small></div>
         <Icon name="chevron" size={18} />
       </button>
+
+      {recipes.length + pantry.length > 0 && (
+        <button className="create-recipe receive-share" onClick={() => onShare(carnetPayload(recipes, pantry))}>
+          <span><Icon name="share" /></span>
+          <div><strong>Partager tout mon carnet</strong><small>{recipes.length} recette{recipes.length > 1 ? "s" : ""} et {pantry.length} ingrédient{pantry.length > 1 ? "s" : ""} : la personne coche ce qu'elle garde</small></div>
+          <Icon name="chevron" size={18} />
+        </button>
+      )}
 
       <div className="recipe-search">
         <Icon name="book" size={17} />

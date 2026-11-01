@@ -1,4 +1,5 @@
-// Partage d'une recette, d'une assiette ou d'un repas (cahier § 7) : en lien ou en fichier JSON.
+// Partage d'une recette, d'une assiette, d'un repas, d'ingrédients, des repas prévus, de la liste
+// de courses ou de tout le carnet (cahier § 7) : en lien ou en fichier JSON.
 //
 // Le lien est autonome : tout le contenu est dans le lien lui-même (compressé), aucun
 // serveur ne le garde. À l'arrivée, rien n'est ajouté sans confirmation : la recette passe
@@ -14,13 +15,27 @@ const HASH_KEY = "partage=";
 /** Au-delà, le lien ne passe plus dans un message Discord (2000 caractères). */
 export const LINK_COMFORT_LENGTH = 1900;
 const MAX_BYTES = 300_000;
+/** Retire les clés « undefined » : l'objet ne garde que ce qui a été vérifié. */
+const clean = <T extends Record<string, unknown>>(value: T) => Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
 
 export type SharedRecipe = Omit<Recipe, "id" | "images">;
 export type SharedMeal = Pick<Meal, "name" | "category" | "items" | "plate">;
-export type SharePayload =
-  | { app: "feedme"; version: 1; kind: "recette"; sharedAt: string; recipe: SharedRecipe }
-  | { app: "feedme"; version: 1; kind: "repas"; sharedAt: string; meal: SharedMeal & { items: MealItem[] } }
-  | { app: "feedme"; version: 1; kind: "ingredients"; sharedAt: string; products: MealItem[] };
+/** Repas prévu partagé : il arrive « prévu » chez l'autre, rien ne compte avant « Mangé ». */
+export type SharedPlanned = Pick<Meal, "name" | "category" | "date" | "calories" | "protein" | "carbs" | "fat" | "plate"> & { items?: MealItem[] };
+export type ShoppingShareLine = { name: string; qty: string };
+/**
+ * De qui et pour qui (prénoms seulement) : chez la personne qui reçoit, « Mangé avec » se
+ * remplit tout seul. L'identifiant repère un lien déjà ouvert.
+ */
+export type ShareMeta = { from?: string; guests?: string[]; id?: string };
+export type SharePayload = { app: "feedme"; version: 1; sharedAt: string } & ShareMeta & (
+  | { kind: "recette"; recipe: SharedRecipe }
+  | { kind: "repas"; meal: SharedMeal & { items: MealItem[] } }
+  | { kind: "ingredients"; products: MealItem[] }
+  | { kind: "semaine"; meals: SharedPlanned[] }
+  | { kind: "courses"; lines: ShoppingShareLine[] }
+  | { kind: "carnet"; recipes: SharedRecipe[]; products: MealItem[] }
+);
 
 // --- Préparer un partage --------------------------------------------------------------
 
@@ -32,28 +47,69 @@ function portableItem(item: MealItem): MealItem {
   return local ? { ...rest, ref: undefined } : rest;
 }
 
-export function recipePayload(recipe: Recipe): SharePayload {
+/** Recette sans son identifiant ni ses photos (propres au téléphone). */
+function portableRecipe(recipe: Recipe): SharedRecipe {
   const { id: _id, images: _images, ...rest } = recipe;
-  return {
-    app: "feedme", version: 1, kind: "recette", sharedAt: new Date().toISOString(),
-    recipe: { ...rest, ingredients: rest.ingredients.map((group) => ({ ...group, items: group.items.map((item) => (item.food ? { ...item, food: portableItem(item.food) } : item)) })) },
-  };
+  return { ...rest, ingredients: rest.ingredients.map((group) => ({ ...group, items: group.items.map((item) => (item.food ? { ...item, food: portableItem(item.food) } : item)) })) };
+}
+
+/** Produit de « Mes ingrédients » sans son rang dans la liste. */
+function portableProduct(item: MealItem) {
+  const { pantryId: _id, addedAt: _added, ...rest } = item as MealItem & { pantryId?: number; addedAt?: string };
+  return portableItem(rest);
+}
+
+const now = () => new Date().toISOString();
+
+export function recipePayload(recipe: Recipe): SharePayload {
+  return { app: "feedme", version: 1, kind: "recette", sharedAt: now(), recipe: portableRecipe(recipe) };
 }
 
 /** Produits de « Mes ingrédients » (un seul ou toute la liste), sans les photos. */
 export function ingredientsPayload(items: MealItem[]): SharePayload {
+  return { app: "feedme", version: 1, kind: "ingredients", sharedAt: now(), products: items.map(portableProduct) };
+}
+
+/** Repas prévus (une semaine…) : chez l'autre, ils arrivent « prévus ». */
+export function weekPayload(meals: Meal[]): SharePayload {
   return {
-    app: "feedme", version: 1, kind: "ingredients", sharedAt: new Date().toISOString(),
-    products: items.map((item) => {
-      const { pantryId: _id, addedAt: _added, ...rest } = item as MealItem & { pantryId?: number; addedAt?: string };
-      return portableItem(rest);
-    }),
+    app: "feedme", version: 1, kind: "semaine", sharedAt: now(),
+    meals: meals.map((meal) => clean({
+      name: meal.name, category: meal.category, date: meal.date, calories: meal.calories,
+      protein: meal.protein, carbs: meal.carbs, fat: meal.fat, plate: meal.plate,
+      items: meal.items?.length ? meal.items.map(portableItem) : undefined,
+    }) as SharedPlanned),
   };
 }
 
+/** Liste de courses : article et quantité déjà mise en forme (« 450 g », « 2 tranches »). */
+export function shoppingPayload(lines: ShoppingShareLine[]): SharePayload {
+  return { app: "feedme", version: 1, kind: "courses", sharedAt: now(), lines };
+}
+
+/** Tout le carnet : recettes (sans photos) et « Mes ingrédients ». */
+export function carnetPayload(recipes: Recipe[], products: MealItem[]): SharePayload {
+  return { app: "feedme", version: 1, kind: "carnet", sharedAt: now(), recipes: recipes.map(portableRecipe), products: products.map(portableProduct) };
+}
+
+/** De qui et pour qui, ajoutés au moment d'envoyer. */
+export function withMeta(payload: SharePayload, meta: ShareMeta): SharePayload {
+  return clean({ ...payload, from: meta.from || undefined, guests: meta.guests?.length ? meta.guests : undefined, id: meta.id }) as SharePayload;
+}
+
+const plural = (count: number, word: string) => `${count} ${word}${count > 1 ? "s" : ""}`;
+
 /** Nom affiché d'un partage (fichier, aperçu). */
-export const shareName = (payload: SharePayload) =>
-  payload.kind === "recette" ? payload.recipe.name : payload.kind === "repas" ? payload.meal.name : payload.products.length === 1 ? payload.products[0].name : `${payload.products.length} ingrédients`;
+export function shareName(payload: SharePayload) {
+  switch (payload.kind) {
+    case "recette": return payload.recipe.name;
+    case "repas": return payload.meal.name;
+    case "ingredients": return payload.products.length === 1 ? payload.products[0].name : `${payload.products.length} ingrédients`;
+    case "semaine": return plural(payload.meals.length, "repas prévu");
+    case "courses": return `Liste de courses (${plural(payload.lines.length, "article")})`;
+    case "carnet": return `Carnet${payload.from ? ` de ${payload.from}` : ""} (${plural(payload.recipes.length, "recette")}, ${plural(payload.products.length, "ingrédient")})`;
+  }
+}
 
 export function mealPayload(meal: Meal): SharePayload {
   return {
@@ -113,8 +169,6 @@ const mealCategories: MealCategory[] = ["petit-dejeuner", "dejeuner", "diner", "
 const recipeCategories: RecipeCategory[] = ["petit-dejeuner", "apero", "entree", "plat", "dessert", "gouter", "boisson"];
 const object = (value: unknown): Record<string, unknown> | null => (value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null);
 const list = (value: unknown, max: number) => (Array.isArray(value) ? value.slice(0, max) : []);
-/** Retire les clés « undefined » : l'objet ne garde que ce qui a été vérifié. */
-const clean = <T extends Record<string, unknown>>(value: T) => Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
 
 function checkItem(value: unknown): MealItem | null {
   const item = object(value);
@@ -197,20 +251,74 @@ function checkMeal(value: unknown): CheckedMeal {
   }) as CheckedMeal;
 }
 
+const dateKey = (value: unknown) => (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined);
+
+function checkPlanned(value: unknown): SharedPlanned | null {
+  const meal = object(value);
+  const name = text(meal?.name, 200)?.trim();
+  const date = dateKey(meal?.date);
+  if (!meal || !name || !date) return null;
+  const items = list(meal.items, 200).map(checkItem).filter((item): item is MealItem => !!item);
+  const plate = object(meal.plate);
+  const servings = number(plate?.servings, 1, 100);
+  const share = number(plate?.share, 0.01, 1);
+  return clean({
+    name, date,
+    category: mealCategories.find((entry) => entry === meal.category) ?? "dejeuner",
+    calories: number(meal.calories, 0, 20_000) ?? 0,
+    protein: number(meal.protein, 0, 2000), carbs: number(meal.carbs, 0, 2000), fat: number(meal.fat, 0, 2000),
+    items: items.length ? items : undefined,
+    plate: servings && share ? { servings, share } : undefined,
+  }) as SharedPlanned;
+}
+
+/** Recettes d'un carnet : celles qui sont illisibles sont laissées de côté. */
+function checkRecipes(value: unknown) {
+  return list(value, 300).flatMap((raw) => { try { return [checkRecipe(raw)]; } catch { return []; } });
+}
+
+/** De qui, pour qui : prénoms courts, identifiant fait de lettres et de chiffres. */
+function checkMeta(payload: Record<string, unknown>): ShareMeta {
+  const from = text(payload.from, 40)?.trim();
+  const guests = list(payload.guests, 20).map((name) => text(name, 40)?.trim()).filter((name): name is string => !!name);
+  const id = text(payload.id, 40);
+  return clean({ from: from || undefined, guests: guests.length ? guests : undefined, id: id && /^[a-z0-9]+$/i.test(id) ? id : undefined });
+}
+
 /** Contenu vérifié d'un partage (objet JSON déjà lu). */
 export function checkPayload(value: unknown): SharePayload {
   const payload = object(value);
   if (!payload || payload.app !== "feedme") throw new ShareError("Ce n'est pas un partage Feed Me.");
   if (payload.version !== 1) throw new ShareError("Partage fait avec une version plus récente de Feed Me : mets l'appli à jour.");
-  const sharedAt = text(payload.sharedAt, 40) ?? new Date().toISOString();
-  if (payload.kind === "recette") return { app: "feedme", version: 1, kind: "recette", sharedAt, recipe: checkRecipe(payload.recipe) };
-  if (payload.kind === "repas") return { app: "feedme", version: 1, kind: "repas", sharedAt, meal: checkMeal(payload.meal) };
+  const base = { app: "feedme" as const, version: 1 as const, sharedAt: text(payload.sharedAt, 40) ?? new Date().toISOString(), ...checkMeta(payload) };
+  if (payload.kind === "recette") return { ...base, kind: "recette", recipe: checkRecipe(payload.recipe) };
+  if (payload.kind === "repas") return { ...base, kind: "repas", meal: checkMeal(payload.meal) };
   if (payload.kind === "ingredients") {
     const products = list(payload.products, 100).map(checkItem).filter((item): item is MealItem => !!item);
     if (!products.length) throw new ShareError("Ingrédients illisibles : aucun produit reconnu.");
-    return { app: "feedme", version: 1, kind: "ingredients", sharedAt, products };
+    return { ...base, kind: "ingredients", products };
   }
-  throw new ShareError("Type de partage inconnu.");
+  if (payload.kind === "semaine") {
+    const meals = list(payload.meals, 100).map(checkPlanned).filter((meal): meal is SharedPlanned => !!meal);
+    if (!meals.length) throw new ShareError("Repas prévus illisibles : aucun repas reconnu.");
+    return { ...base, kind: "semaine", meals };
+  }
+  if (payload.kind === "courses") {
+    const lines = list(payload.lines, 300).flatMap((raw) => {
+      const line = object(raw);
+      const name = text(line?.name, 200)?.trim();
+      return name ? [{ name, qty: text(line!.qty, 80)?.trim() ?? "" }] : [];
+    });
+    if (!lines.length) throw new ShareError("Liste de courses vide ou illisible.");
+    return { ...base, kind: "courses", lines };
+  }
+  if (payload.kind === "carnet") {
+    const recipes = checkRecipes(payload.recipes);
+    const products = list(payload.products, 300).map(checkItem).filter((item): item is MealItem => !!item);
+    if (!recipes.length && !products.length) throw new ShareError("Carnet vide ou illisible.");
+    return { ...base, kind: "carnet", recipes, products };
+  }
+  throw new ShareError("Type de partage inconnu : mets Feed Me à jour pour l'ouvrir.");
 }
 
 /** Lien, morceau de lien ou texte JSON collé → partage vérifié. */

@@ -3,6 +3,7 @@ import EatenWhen from "./EatenWhen";
 import Icon from "./Icon";
 import { addDays, confirmEaten, copyDay, dayTotals, formatAmounts, isPlanned, planCopy, shoppingList, weekDays, weekStart } from "../lib/planning";
 import { mealCategories, todayKey, type AppData, type Meal } from "../lib/storage";
+import { shoppingPayload, weekPayload, type SharePayload } from "../lib/share";
 
 type WeekPlannerProps = {
   data: AppData;
@@ -11,6 +12,8 @@ type WeekPlannerProps = {
   /** Prévoir un repas ce jour-là (fenêtre d'ajout, case « prévu » cochée). */
   onPlanMeal: (date: string) => void;
   onEditMeal: (meal: Meal) => void;
+  /** Partager les repas prévus de la semaine ou la liste de courses. */
+  onShare: (payload: SharePayload) => void;
   flash: (message: string) => void;
 };
 
@@ -18,7 +21,7 @@ const dayLabel = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString
 const n = (value: number) => value.toLocaleString("fr-FR");
 
 /** Planning de la semaine (prévu / mangé) et liste de courses des repas prévus. */
-export default function WeekPlanner({ data, update, target, onPlanMeal, onEditMeal, flash }: WeekPlannerProps) {
+export default function WeekPlanner({ data, update, target, onPlanMeal, onEditMeal, onShare, flash }: WeekPlannerProps) {
   const today = todayKey();
   const [start, setStart] = useState(() => weekStart(today));
   const [copying, setCopying] = useState<{ kind: "meal"; meal: Meal } | { kind: "day"; day: string } | null>(null);
@@ -46,7 +49,9 @@ export default function WeekPlanner({ data, update, target, onPlanMeal, onEditMe
     setCopying(null);
   };
 
-  if (shopping) return <ShoppingList data={data} update={update} onClose={() => setShopping(false)} />;
+  if (shopping) return <ShoppingList data={data} update={update} onShare={onShare} onClose={() => setShopping(false)} />;
+  // Repas prévus de la semaine affichée, à partager (chez l'autre, ils arrivent « prévus »).
+  const weekPlanned = data.meals.filter((meal) => isPlanned(meal) && days.includes(meal.date));
 
   return (
     <section className="week-planner">
@@ -56,6 +61,7 @@ export default function WeekPlanner({ data, update, target, onPlanMeal, onEditMe
         <button type="button" className="icon-button" onClick={() => setStart(addDays(start, 7))} aria-label="Semaine suivante"><Icon name="chevron" /></button>
       </div>
       <button type="button" className="add-line" onClick={() => setShopping(true)}><Icon name="check" size={15} /> Liste de courses des repas prévus</button>
+      {weekPlanned.length > 0 && <button type="button" className="add-line" onClick={() => onShare(weekPayload(weekPlanned))}><Icon name="share" size={15} /> Partager les repas prévus ({weekPlanned.length})</button>}
 
       {copying && (
         <div className="copy-bar">
@@ -106,7 +112,7 @@ export default function WeekPlanner({ data, update, target, onPlanMeal, onEditMe
 }
 
 /** Liste de courses : ingrédients regroupés des repas prévus, cases à cocher, lignes ajoutées. */
-function ShoppingList({ data, update, onClose }: { data: AppData; update: WeekPlannerProps["update"]; onClose: () => void }) {
+function ShoppingList({ data, update, onShare, onClose }: { data: AppData; update: WeekPlannerProps["update"]; onShare: WeekPlannerProps["onShare"]; onClose: () => void }) {
   const today = todayKey();
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(addDays(today, 6));
@@ -153,6 +159,12 @@ function ShoppingList({ data, update, onClose }: { data: AppData; update: WeekPl
         <input value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="Ajouter un article (éponges, pain…)" aria-label="Article à ajouter" />
         <button type="submit" className="add-button"><Icon name="plus" size={16} /></button>
       </form>
+      {(lines.some((line) => !checked.has(line.key)) || extras.some((item) => !item.done)) && (
+        <button type="button" className="add-line" onClick={() => onShare(shoppingPayload([
+          ...lines.filter((line) => !checked.has(line.key)).map((line) => ({ name: line.name, qty: formatAmounts(line.amounts) })),
+          ...extras.filter((item) => !item.done).map((item) => ({ name: item.text, qty: "" })),
+        ]))}><Icon name="share" size={15} /> Partager la liste (articles pas encore cochés)</button>
+      )}
       {(checked.size > 0 || extras.some((item) => item.done)) && (
         <button type="button" className="text-button" onClick={() => setShopping((shopping) => ({ checked: [], extras: shopping.extras.filter((item) => !item.done) }))}>Vider les articles cochés</button>
       )}

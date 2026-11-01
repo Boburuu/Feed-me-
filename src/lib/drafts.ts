@@ -51,6 +51,8 @@ export type MealDraft = {
   query: string;
   /** Repas prévu, pas encore mangé. */
   planned?: boolean;
+  /** « Mangé avec » (prénoms de la tablée). */
+  with?: string[];
 };
 
 // Un brouillon par moment de repas : le dîner commencé ne remplace pas le petit-déjeuner

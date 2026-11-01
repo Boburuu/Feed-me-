@@ -60,6 +60,8 @@ export type Meal = {
   free?: boolean;
   /** Estimation facultative d'un repas libre, affichée « ≈ » mais comptée nulle part. */
   freeEstimate?: number;
+  /** « Mangé avec » : prénoms de la tablée (vide ou absent : seul·e). */
+  with?: string[];
 };
 
 /** Part restante d'une assiette maison, proposée aux repas suivants (4 jours au frigo). */
@@ -292,6 +294,10 @@ export type AppData = {
   productCorrections?: Record<string, import("./corrections").ProductCorrection>;
   /** Les exemples de recettes de boissons ont déjà été proposés (pour ne pas les rajouter). */
   drinkRecipesOffered?: boolean;
+  /** « Ma tablée » : prénoms des gens avec qui on mange souvent (gardés sur ce téléphone seulement). */
+  tablee?: string[];
+  /** Partages déjà ouverts et ajoutés (identifiant du lien), pour prévenir des doublons. */
+  receivedShares?: string[];
 };
 
 export const themes: { id: ThemeName; name: string; mode: string }[] = [

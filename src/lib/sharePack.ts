@@ -13,6 +13,8 @@ const keys: Record<string, string> = {
   liquid: "lq", prepared: "pp", waterMl: "wm", volumeUnit: "vu", density: "dn", cookedFactor: "cf", weighedCooked: "wc", cookedBy: "cy", hydrates: "hy",
   drinkMlPerPart: "dp", recipePortions: "rp", recipePieces: "ri", recipeGrams: "rg", recipeCount: "rc", recipeGramsEstimated: "re", matchedName: "mn",
   products: "pd",
+  // Repas prévus, liste de courses, carnet, et « de qui / pour qui ».
+  meals: "ms", date: "dt", lines: "ln", qty: "qy", recipes: "rs", from: "fm", guests: "gs",
 };
 const back = Object.fromEntries(Object.entries(keys).map(([long, short]) => [short, long]));
 const MARK = "f";

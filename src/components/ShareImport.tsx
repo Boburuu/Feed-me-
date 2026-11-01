@@ -4,8 +4,10 @@ import { itemCalories } from "../lib/foods";
 import { correctionKey } from "../lib/corrections";
 import { useCorrections } from "../lib/correctionsContext";
 import { toPantry } from "../lib/pantry";
-import { freeName, readShare, recipeConflict, ShareError, type SharedMeal, type SharedRecipe, type SharePayload } from "../lib/share";
+import { freeName, readShare, recipeConflict, ShareError, type SharedMeal, type SharedPlanned, type SharedRecipe, type SharePayload, type ShoppingShareLine } from "../lib/share";
 import type { MealItem, Recipe } from "../lib/storage";
+import { companionsFor, joinNames, sameName } from "../lib/tablee";
+import { useTablee } from "../lib/tableeContext";
 
 type ShareImportProps = {
   recipes: Recipe[];
@@ -13,7 +15,13 @@ type ShareImportProps = {
   initialText?: string;
   onAddRecipe: (recipe: SharedRecipe) => void;
   /** Le repas s'ouvre pré-rempli dans « Ajouter un repas » : rien n'est noté sans « Enregistrer ». */
-  onOpenMeal: (meal: SharedMeal & { items: MealItem[] }, as: "meal" | "plate") => void;
+  onOpenMeal: (meal: SharedMeal & { items: MealItem[] }, as: "meal" | "plate", companions: string[]) => void;
+  /** Repas prévus reçus, ajoutés au planning (« prévus »). */
+  onAddPlanned: (meals: SharedPlanned[], companions: string[]) => void;
+  /** Articles reçus, ajoutés à la liste de courses. */
+  onAddShopping: (lines: ShoppingShareLine[]) => void;
+  /** Recettes d'un carnet reçu, ajoutées au carnet (les noms déjà pris sont renommés). */
+  onAddRecipes: (recipes: SharedRecipe[]) => void;
   /** Garder le repas reçu comme recette : le formulaire s'ouvre pré-rempli, tout reste modifiable. */
   onSaveAsRecipe: (meal: SharedMeal & { items: MealItem[] }) => void;
   onOpenRecipe: (recipe: Recipe) => void;
@@ -25,8 +33,10 @@ type ShareImportProps = {
 const mealLabels = { "petit-dejeuner": "Petit-déjeuner", dejeuner: "Déjeuner", diner: "Dîner", collation: "Collation" } as const;
 const day = (iso: string) => { const date = new Date(iso); return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" }); };
 
+const weekDay = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+
 /** Recevoir un partage : coller le lien ou ouvrir le fichier, voir l'aperçu, puis choisir. */
-export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenMeal, onSaveAsRecipe, onOpenRecipe, onAddedProducts, onClose }: ShareImportProps) {
+export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenMeal, onSaveAsRecipe, onOpenRecipe, onAddedProducts, onAddPlanned, onAddShopping, onAddRecipes, onClose }: ShareImportProps) {
   const [text, setText] = useState(initialText ?? "");
   const [shared, setShared] = useState<SharePayload | null>(null);
   const [error, setError] = useState("");
@@ -51,17 +61,53 @@ export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenM
 
   const conflict = shared?.kind === "recette" ? recipeConflict(recipes, shared.recipe) : null;
 
+  // De qui, avec qui : « Mangé avec » rempli tout seul, et la tablée complétée sur demande.
+  const tablee = useTablee();
+  const companions = shared ? companionsFor(shared.from, shared.guests, tablee?.me ?? []) : [];
+  const unknown = companions.filter((name) => !(tablee?.tablee ?? []).some((entry) => sameName(entry, name)));
+  const [tableeDone, setTableeDone] = useState(false);
+  const alreadyOpened = !!shared?.id && (tablee?.received ?? []).includes(shared.id);
+  /** Quelque chose a été ajouté : le lien est noté comme déjà ouvert. */
+  const received = () => { if (shared?.id) tablee?.markReceived(shared.id); };
+  // Cases décochées dans les listes (repas prévus, courses, carnet).
+  const [off, setOff] = useState<Set<string>>(new Set());
+  const flip = (key: string) => setOff((current) => { const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next; });
+
   // Ingrédients reçus : tous cochés, sauf ceux déjà dans la liste.
   const corrections = useCorrections();
   const owned = new Set((corrections?.pantry ?? []).map(correctionKey));
   const [unticked, setUnticked] = useState<Set<number>>(new Set());
   const products = shared?.kind === "ingredients" ? shared.products : [];
   const chosen = products.filter((item, index) => !owned.has(correctionKey(item)) && !unticked.has(index));
-  const addProducts = () => {
+  const saveProducts = (items: MealItem[]) => {
     const start = Date.now();
-    chosen.forEach((item, index) => corrections?.savePantry(toPantry(item, start + index)));
+    items.forEach((item, index) => corrections?.savePantry(toPantry(item, start + index)));
+  };
+  const addProducts = () => {
+    saveProducts(chosen);
+    received();
     onAddedProducts(chosen.length);
   };
+
+  // Carnet : recettes déjà présentes (même contenu) et produits déjà dans la liste, grisés.
+  const carnetRecipes = shared?.kind === "carnet" ? shared.recipes.map((recipe, index) => ({ recipe, key: `r${index}`, same: recipeConflict(recipes, recipe)?.kind === "same" })) : [];
+  const carnetProducts = shared?.kind === "carnet" ? shared.products.map((item, index) => ({ item, key: `p${index}`, has: owned.has(correctionKey(item)) })) : [];
+  const pickedRecipes = carnetRecipes.filter((entry) => !entry.same && !off.has(entry.key));
+  const pickedProducts = carnetProducts.filter((entry) => !entry.has && !off.has(entry.key));
+  const addCarnet = () => {
+    if (pickedRecipes.length) onAddRecipes(pickedRecipes.map((entry) => entry.recipe));
+    saveProducts(pickedProducts.map((entry) => entry.item));
+    received();
+    if (!pickedRecipes.length) onAddedProducts(pickedProducts.length);
+  };
+  const plannedChosen = shared?.kind === "semaine" ? shared.meals.filter((_, index) => !off.has(`m${index}`)) : [];
+  const linesChosen = shared?.kind === "courses" ? shared.lines.filter((_, index) => !off.has(`l${index}`)) : [];
+  const tick = (key: string, label: string, detail: string, disabled = false) => (
+    <label className={`share-product${disabled ? " owned" : ""}`} key={key}>
+      <input type="checkbox" checked={!disabled && !off.has(key)} disabled={disabled} onChange={() => flip(key)} />
+      <span><strong>{label}</strong><small>{detail}</small></span>
+    </label>
+  );
 
   return (
     <div className="share-import">
@@ -80,6 +126,19 @@ export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenM
             if (file) file.text().then((content) => { setText(""); return read(content); }).catch(() => setError("Fichier illisible."));
           }} />
         </>
+      )}
+
+      {shared && (shared.from || alreadyOpened) && (
+        <div className="share-from">
+          {shared.from && <p className="food-hint">Envoyé par <strong>{shared.from}</strong>{companions.length > 1 ? ` · avec ${joinNames(companions.filter((name) => !sameName(name, shared.from!)))}` : ""}</p>}
+          {alreadyOpened && <p className="meal-line-warning" role="status">Tu as déjà ouvert ce lien et ajouté son contenu. Rien n'est ajouté en double sans ton accord : vérifie avant de recommencer.</p>}
+          {unknown.length > 0 && !tableeDone && (
+            <button type="button" className="add-part" onClick={() => { tablee?.addToTablee(unknown); setTableeDone(true); }}>
+              <Icon name="plus" size={14} /> Ajouter {joinNames(unknown)} à ma tablée
+            </button>
+          )}
+          {tableeDone && <p className="food-hint" role="status">{joinNames(unknown)} dans ta tablée : {unknown.length > 1 ? "ils seront proposés" : "proposé·e"} dans « Mangé avec ».</p>}
+        </div>
       )}
 
       {shared?.kind === "recette" && (
@@ -113,7 +172,7 @@ export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenM
               {conflict?.kind === "name" && <p className="food-hint">Tu as déjà une recette « {conflict.recipe.name} », différente : celle-ci sera ajoutée sous le nom « {freeName(recipes, shared.recipe.name)} ».</p>}
               <div className="barcode-actions">
                 <button type="button" className="text-button" onClick={onClose}>Ne pas l'ajouter</button>
-                <button type="button" className="plan-confirm" onClick={() => onAddRecipe(conflict ? { ...shared.recipe, name: freeName(recipes, shared.recipe.name) } : shared.recipe)}>
+                <button type="button" className="plan-confirm" onClick={() => { received(); onAddRecipe(conflict ? { ...shared.recipe, name: freeName(recipes, shared.recipe.name) } : shared.recipe); }}>
                   <Icon name="plus" size={14} /> Ajouter à mon carnet
                 </button>
               </div>
@@ -138,17 +197,72 @@ export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenM
           </article>
           <p className="food-hint">Comment veux-tu l'ajouter ? Rien n'est enregistré avant que tu valides : tu pourras tout changer (quantités, grammes, parts, jour, nom…).</p>
           <div className="share-choices">
-            <button type="button" className="share-choice" onClick={() => onOpenMeal(shared.meal, "meal")}>
+            <button type="button" className="share-choice" onClick={() => { received(); onOpenMeal(shared.meal, "meal", companions); }}>
               <Icon name="apple" size={18} /><span><strong>Comme repas</strong><small>{shared.meal.plate ? "La part mangée, aliment par aliment." : "Les aliments et leurs quantités."} Tu ajustes ta quantité.</small></span>
             </button>
-            <button type="button" className="share-choice" onClick={() => onOpenMeal(shared.meal, "plate")}>
+            <button type="button" className="share-choice" onClick={() => { received(); onOpenMeal(shared.meal, "plate", companions); }}>
               <Icon name="flame" size={18} /><span><strong>En assiette maison</strong><small>Le plat entier : tu choisis pour combien de personnes et ta part.</small></span>
             </button>
-            <button type="button" className="share-choice" onClick={() => onSaveAsRecipe(shared.meal)}>
+            <button type="button" className="share-choice" onClick={() => { received(); onSaveAsRecipe(shared.meal); }}>
               <Icon name="book" size={18} /><span><strong>Dans mes recettes</strong><small>Pour le refaire : nom, parts, poids, ingrédients et étapes modifiables.</small></span>
             </button>
           </div>
           <button type="button" className="text-button" onClick={onClose}>Ne pas l'ajouter</button>
+        </>
+      )}
+
+      {shared?.kind === "semaine" && (
+        <>
+          <article className="share-preview">
+            <p className="eyebrow">{shared.meals.length} repas prévu{shared.meals.length > 1 ? "s" : ""}{shared.from ? ` par ${shared.from}` : ""}</p>
+            <div className="share-products">
+              {shared.meals.map((meal, index) => tick(`m${index}`, meal.name, `${weekDay(meal.date)} · ${mealLabels[meal.category]} · ${meal.calories} kcal${meal.plate ? ` · plat pour ${meal.plate.servings}` : ""}`))}
+            </div>
+          </article>
+          <p className="food-hint">Ils arrivent dans ton planning comme « prévus » : rien ne compte avant « Mangé », et tu pourras changer ta quantité à ce moment-là.{companions.length ? ` « Mangé avec ${joinNames(companions)} » est déjà rempli.` : ""}</p>
+          <div className="barcode-actions">
+            <button type="button" className="text-button" onClick={onClose}>Ne pas les ajouter</button>
+            <button type="button" className="plan-confirm" disabled={!plannedChosen.length} onClick={() => { received(); onAddPlanned(plannedChosen, companions); }}><Icon name="plus" size={14} /> Ajouter {plannedChosen.length} au planning</button>
+          </div>
+        </>
+      )}
+
+      {shared?.kind === "courses" && (
+        <>
+          <article className="share-preview">
+            <p className="eyebrow">Liste de courses{shared.from ? ` de ${shared.from}` : ""}</p>
+            <div className="share-products">
+              {shared.lines.map((line, index) => tick(`l${index}`, line.name, line.qty || "quantité libre"))}
+            </div>
+          </article>
+          <p className="food-hint">Les articles cochés s'ajoutent à ta liste de courses (Suivi › Semaine › Liste de courses).</p>
+          <div className="barcode-actions">
+            <button type="button" className="text-button" onClick={onClose}>Ne pas les ajouter</button>
+            <button type="button" className="plan-confirm" disabled={!linesChosen.length} onClick={() => { received(); onAddShopping(linesChosen); }}><Icon name="plus" size={14} /> Ajouter {linesChosen.length} article{linesChosen.length > 1 ? "s" : ""}</button>
+          </div>
+        </>
+      )}
+
+      {shared?.kind === "carnet" && (
+        <>
+          <article className="share-preview">
+            <p className="eyebrow">{shared.from ? `Le carnet de ${shared.from}` : "Carnet partagé"}</p>
+            {carnetRecipes.length > 0 && <h3>Recettes</h3>}
+            <div className="share-products">
+              {carnetRecipes.map(({ recipe, key, same }) => tick(key, recipe.name, same ? "déjà dans ton carnet" : `${recipe.portions} pers.${recipe.calories ? ` · ${recipe.calories} kcal / pers.` : ""}`, same))}
+            </div>
+            {carnetProducts.length > 0 && <h3>Ingrédients</h3>}
+            <div className="share-products">
+              {carnetProducts.map(({ item, key, has }) => tick(key, item.name, has ? "déjà dans ta liste" : `${Math.round(item.kcal100)} kcal/100 ${item.liquid ? "ml" : "g"}`, has))}
+            </div>
+          </article>
+          <p className="food-hint">Rien n'est ajouté en double : ce que tu as déjà est grisé. Une recette différente mais du même nom est renommée « (2) ».</p>
+          <div className="barcode-actions">
+            <button type="button" className="text-button" onClick={onClose}>Ne rien ajouter</button>
+            <button type="button" className="plan-confirm" disabled={!pickedRecipes.length && !pickedProducts.length} onClick={addCarnet}>
+              <Icon name="plus" size={14} /> {pickedRecipes.length + pickedProducts.length ? `Ajouter ${pickedRecipes.length + pickedProducts.length} élément${pickedRecipes.length + pickedProducts.length > 1 ? "s" : ""}` : "Tout est déjà chez toi"}
+            </button>
+          </div>
         </>
       )}
 

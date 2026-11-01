@@ -45,6 +45,8 @@ import { applyCorrection, correctionKey } from "../lib/corrections";
 import { cookingVariants, cookKey, suggestCookingFat, withVariant } from "../lib/cooking";
 import { amountLabel, pastFoods, recentMeals, repeatItems, searchPast } from "../lib/history";
 import { useCorrections } from "../lib/correctionsContext";
+import { useTablee } from "../lib/tableeContext";
+import { sameName } from "../lib/tablee";
 import { mealCategories, todayKey, type CustomFood, type Leftover, type Meal, type MealCategory, type MealItem, type Recipe } from "../lib/storage";
 
 /** Ce qui accompagne l'enregistrement : un reste à garder, des restes consommés. */
@@ -117,6 +119,12 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
   const [date, setDate] = useState(draft?.date ?? editing?.date ?? initialDate);
   const [category, setCategory] = useState(draft?.category ?? editing?.category ?? initialCategory);
   const [query, setQuery] = useState(draft?.query ?? "");
+  // « Mangé avec » : prénoms de la tablée (rien de coché : seul·e).
+  const tablee = useTablee();
+  const [withNames, setWithNames] = useState<string[]>(() => draft?.with ?? editing?.with ?? []);
+  const companionChoices = [...(tablee?.tablee ?? []), ...withNames.filter((name) => !(tablee?.tablee ?? []).some((entry) => sameName(entry, name)))];
+  const toggleWith = (name: string) => setWithNames((current) => (current.some((entry) => sameName(entry, name)) ? current.filter((entry) => !sameName(entry, name)) : [...current, name]));
+  const withField = withNames.length ? { with: withNames } : {};
   const corrections = useCorrections();
   const [lines, setLines] = useState<Line[]>(() => (draft ? draft.lines : editing ? itemsOf(editing) : initialItems ?? []).map((item, index) => ({ ...item, key: index + 1 })));
   // Recettes du carnet, les plus récentes d'abord.
@@ -158,9 +166,9 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
   // Tant qu'un ancien brouillon attend une réponse, la fenêtre vierge ne l'écrase pas.
   useEffect(() => {
     if (offeredDraft && !lines.length && !plateName.trim()) return;
-    onDraft?.({ editingId: editing?.id, date, category, mode, lines: lines.map(({ key: _key, ...item }) => item), plateName, servings, parts, adjust, keepLeftover, query, planned: plannedChoice });
+    onDraft?.({ editingId: editing?.id, date, category, mode, lines: lines.map(({ key: _key, ...item }) => item), plateName, servings, parts, adjust, keepLeftover, query, planned: plannedChoice, ...withField });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, category, mode, lines, plateName, servings, parts, adjust, keepLeftover, query, plannedChoice]);
+  }, [date, category, mode, lines, plateName, servings, parts, adjust, keepLeftover, query, plannedChoice, withNames]);
   const searching = query.trim().length > 0;
   const [drinks, setDrinks] = useState<FoodResult[]>([]);
   const [showAllDrinks, setShowAllDrinks] = useState(false);
@@ -352,6 +360,7 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
       source: editing?.source ?? "manual",
       free: true,
       items: [],
+      ...withField,
     }, { usedLeftovers: [] });
   };
 
@@ -379,6 +388,7 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
       drinksCounted: true,
       items,
       ...(isPlate ? { plate: { servings, share } } : {}),
+      ...withField,
     }, {
       // Modification : les restes ont déjà été comptés à l'enregistrement du repas.
       usedLeftovers: editing || planned ? [] : usedLeftovers,
@@ -824,6 +834,24 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
           <input type="checkbox" checked={planned} disabled={date > today} onChange={(e) => setPlannedChoice(e.target.checked)} />
           <span>{date > today ? "Repas prévu (jour à venir) : il comptera quand vous l'aurez confirmé « mangé »" : "Prévu, pas encore mangé (ne compte pas tant qu'il n'est pas confirmé)"}</span>
         </label>
+      )}
+
+      {companionChoices.length > 0 && (
+        <div className="meal-with">
+          <span>Mangé avec</span>
+          <div className="container-chips" role="group" aria-label="Mangé avec">
+            <button type="button" aria-pressed={!withNames.length} className={!withNames.length ? "selected" : ""} onClick={() => setWithNames([])}>Seul·e</button>
+            {companionChoices.length > 1 && (() => {
+              const all = companionChoices.every((name) => withNames.some((entry) => sameName(entry, name)));
+              return <button type="button" aria-pressed={all} className={all ? "selected" : ""} onClick={() => setWithNames(all ? [] : [...companionChoices])}>Toute ma tablée</button>;
+            })()}
+            {companionChoices.map((name) => {
+              const on = withNames.some((entry) => sameName(entry, name));
+              return <button type="button" key={name} aria-pressed={on} className={on ? "selected" : ""} onClick={() => toggleWith(name)}>{name}</button>;
+            })}
+          </div>
+          {withNames.length > 0 && !free && <small>Après l'enregistrement, Feed Me te propose d'envoyer {withNames.length > 1 ? "leur part" : "sa part"} par message.</small>}
+        </div>
       )}
 
       <div className={`sex-selector meal-mode${free || (!initialItems?.length && !lines.length) ? " three" : ""}`} role="radiogroup" aria-label="Type de repas">

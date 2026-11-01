@@ -1,3 +1,5 @@
+import type { SharePayload } from "../lib/share";
+import { joinNames } from "../lib/tablee";
 import { useMemo, useState } from "react";
 import Icon from "./Icon";
 import WeekPlanner from "./WeekPlanner";
@@ -32,6 +34,8 @@ type TrackingTabProps = {
   onEditMeal: (meal: Meal) => void;
   /** Envoyer un repas à quelqu'un (il ou elle choisit ses quantités). */
   onShareMeal: (meal: Meal) => void;
+  /** Partager les repas prévus ou la liste de courses. */
+  onShare: (payload: SharePayload) => void;
   onPlanMeal: (date: string) => void;
   /** Ouvre « Télécharger un récap » (PDF). */
   onRecap: () => void;
@@ -57,7 +61,7 @@ const WATER_STEP = 200;
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const hours = (ms: number) => `${Math.floor(ms / 3_600_000)} h ${String(Math.floor((ms % 3_600_000) / 60_000)).padStart(2, "0")}`;
 
-export default function TrackingTab({ view, onView: setView, data, update, target, goal, waterGoal, proteinGoal, onAddMeal, onCheatDay, onSaveWeight, onDeleteWeight, onEditMeal, onShareMeal, onPlanMeal, onRecap, flash }: TrackingTabProps) {
+export default function TrackingTab({ view, onView: setView, data, update, target, goal, waterGoal, proteinGoal, onAddMeal, onCheatDay, onSaveWeight, onDeleteWeight, onEditMeal, onShareMeal, onShare, onPlanMeal, onRecap, flash }: TrackingTabProps) {
   const reportTargets = useMemo(() => ({ kcal: target, protein: proteinGoal, waterMl: waterGoal, stepGoal: data.stepGoal, goal }), [target, proteinGoal, waterGoal, data.stepGoal, goal]);
   const today = todayKey();
   const [selected, setSelected] = useState(today);
@@ -147,7 +151,7 @@ export default function TrackingTab({ view, onView: setView, data, update, targe
       {/* Le point principal du bilan, en haut de chaque onglet. */}
       {view !== "bilan" && <ReportSummary data={data} targets={reportTargets} today={today} onOpen={() => { setView("bilan"); window.scrollTo(0, 0); }} />}
 
-      {view === "semaine" && <WeekPlanner data={data} update={update} target={target} onPlanMeal={onPlanMeal} onEditMeal={onEditMeal} flash={flash} />}
+      {view === "semaine" && <WeekPlanner data={data} update={update} target={target} onPlanMeal={onPlanMeal} onEditMeal={onEditMeal} onShare={onShare} flash={flash} />}
       {view === "bilan" && <WeeklyReportCard data={data} targets={reportTargets} today={today} />}
       {view === "poids" && <WeightTracker weights={data.weights} maintenance={goal === "maintien"} onAdd={onSaveWeight} onDelete={onDeleteWeight} />}
       {view === "jour" && (<>
@@ -256,7 +260,7 @@ export default function TrackingTab({ view, onView: setView, data, update, targe
           {mealCategories.flatMap((category) => dayMeals.filter((meal) => meal.category === category.id)).map((meal) => (
             <div className="meal-row editable" key={meal.id} onClick={() => onEditMeal(meal)}>
               <span className="meal-icon breakfast"><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
-              <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
+              <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.with?.length ? <small className="meal-with-line">avec {joinNames(meal.with)}</small> : null}{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
               <span className="meal-calories">{meal.free ? <><strong>{freeLabel(meal)}</strong><small>{meal.freeEstimate ? "kcal" : "day"}</small></> : <><strong>{meal.calories}</strong><small>kcal</small></>}</span>
               <span className="meal-actions">
                 <button className="icon-button" onClick={(event) => { event.stopPropagation(); onEditMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
