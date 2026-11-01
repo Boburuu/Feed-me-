@@ -51,6 +51,8 @@ import { mealCategories, todayKey, type CustomFood, type Leftover, type Meal, ty
 export type MealExtras = { leftover?: Omit<Leftover, "id">; usedLeftovers: { id: number; parts: number }[] };
 
 type MealComposerProps = {
+  /** Ouvert depuis « + › Un cheat day » : directement le cheat day, sans choisir d'aliments. */
+  cheatDay?: boolean;
   date: string;
   category: MealCategory;
   recipes: Recipe[];
@@ -107,7 +109,7 @@ const sourceName = { ciqual: "Ciqual", off: "Open Food Facts", recette: "Ma rece
 const unitName = (label?: string) => (label ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, "").slice(0, 14);
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 
-export default function MealComposer({ date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, editing, draft, onDraft, onDiscardDraft, offeredDraft, onResumeDraft, planned: plannedAtStart, leftovers, onDiscardLeftover, draftNotice }: MealComposerProps) {
+export default function MealComposer({ cheatDay, date: initialDate, category: initialCategory, recipes, customFoods, meals, onSave, onCreateFood, initialPhoto, initialItems, editing, draft, onDraft, onDiscardDraft, offeredDraft, onResumeDraft, planned: plannedAtStart, leftovers, onDiscardLeftover, draftNotice }: MealComposerProps) {
   const [sharing, setSharing] = useState(false);
   const sharePayload = useMemo(() => (sharing && editing ? mealPayload(editing) : null), [sharing, editing]);
   const today = todayKey();
@@ -333,7 +335,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
   const freshLeftovers = leftovers.filter((item) => item.partsLeft > 0);
 
   // Repas libre (cheat meal, chez quelqu'un) : pas d'aliments, le jour sort des statistiques.
-  const [free, setFree] = useState(!!editing?.free);
+  const [free, setFree] = useState(!!editing?.free || !!cheatDay);
   const [freeName, setFreeName] = useState(editing?.free ? editing.name : "");
   const [freeKcal, setFreeKcal] = useState(editing?.freeEstimate ? String(editing.freeEstimate) : "");
   const saveFree = () => {
@@ -464,7 +466,7 @@ export default function MealComposer({ date: initialDate, category: initialCateg
 
   // --- Étape 1 : cocher ce qu'on a mangé ---------------------------------------------------------
   // Modification, brouillon, repas reçu ou recette : on arrive directement sur les quantités.
-  const [stage, setStage] = useState<1 | 2>(() => (editing || draft?.lines.length || initialItems?.length ? 2 : 1));
+  const [stage, setStage] = useState<1 | 2>(() => (cheatDay || editing || draft?.lines.length || initialItems?.length ? 2 : 1));
   const pantry = corrections?.pantry ?? [];
   const [addingPantry, setAddingPantry] = useState(false);
   const [pantryNote, setPantryNote] = useState("");
@@ -516,10 +518,13 @@ export default function MealComposer({ date: initialDate, category: initialCateg
         </div>
       )}
       {/* Deux étapes : 1. cocher ce qu'on a mangé, 2. régler les quantités (maquette B). */}
-      <div className="composer-steps" aria-label={`Étape ${stage} sur 2`}>
-        <i className="on" /><i className={stage === 2 ? "on" : ""} />
-        <span>{stage === 1 ? "1. Je coche ce que j'ai mangé" : "2. Je règle les quantités"}</span>
-      </div>
+      {/* Cheat day : pas d'aliments à cocher ni de quantités, pas d'étapes. */}
+      {!(free && stage === 2) && (
+        <div className="composer-steps" aria-label={`Étape ${stage} sur 2`}>
+          <i className="on" /><i className={stage === 2 ? "on" : ""} />
+          <span>{stage === 1 ? "1. Je coche ce que j'ai mangé" : "2. Je règle les quantités"}</span>
+        </div>
+      )}
 
       {stage === 1 && (<>
       {!creating && (

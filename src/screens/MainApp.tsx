@@ -394,7 +394,20 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const [planning, setPlanning] = useState(false);
   /** Repas commencé puis laissé de côté : on demande s'il faut le reprendre. */
   const [offeredDraft, setOfferedDraft] = useState<MealDraft | null>(null);
+  /** « + › Un cheat day » : le formulaire s'ouvre directement sur le cheat day. */
+  const [cheatStart, setCheatStart] = useState(false);
+  useEffect(() => { if (modal !== "meal") setCheatStart(false); }, [modal]);
+  const openCheatDay = () => {
+    setPlanning(false);
+    setRestoredDraft(null);
+    setOfferedDraft(null);
+    setMealDate(today);
+    setCheatStart(true);
+    setComposerKey((value) => value + 1);
+    setModal("meal");
+  };
   const openMealForm = (date = today, planned = false) => {
+    setCheatStart(false);
     setPlanning(planned);
     // Brouillon du moment de repas en cours (dîner le soir…), sinon le plus récent.
     const drafts = mealDraft.all().filter((entry) => !entry.editingId && hasContent(entry));
@@ -990,9 +1003,10 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             {modal === "meal" && (
               <>
                 <p className="eyebrow">Journal alimentaire</p>
-                <h2>{editingMeal ? "Modifier le repas" : "Ajouter un repas"}</h2>
+                <h2>{editingMeal ? "Modifier le repas" : cheatStart ? "Noter un cheat day" : "Ajouter un repas"}</h2>
                 <MealComposer
                   key={`${editingMeal?.id ?? "nouveau"}-${composerKey}`}
+                  cheatDay={cheatStart && !editingMeal}
                   editing={editingMeal ?? undefined}
                   draft={restoredDraft ?? undefined}
                   draftNotice={sharedMealNotice}
@@ -1021,6 +1035,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 <h2>Que souhaitez-vous ajouter ?</h2>
                 <div className="choice-list">
                   <button onClick={() => openMealForm()}><span className="meal-icon breakfast"><Icon name="apple" /></span><span><strong>Un repas</strong><small>Suivre les calories consommées</small></span><Icon name="chevron" /></button>
+                  <button onClick={openCheatDay}><span className="meal-icon lunch"><Icon name="flame" /></span><span><strong>Un cheat day</strong><small>Resto, chez quelqu'un… sans détailler : ce jour ne compte pas</small></span><Icon name="chevron" /></button>
                   <button onClick={() => setModal("pantry")}><span className="meal-icon lunch"><Icon name="barcode" /></span><span><strong>Mes ingrédients</strong><small>Voir ta liste, scanner un produit sans l'ajouter à un repas</small></span><Icon name="chevron" /></button>
                   <button onClick={() => setModal("weigh")}><span className="meal-icon dinner"><Icon name="scale" /></span><span><strong>Une pesée</strong><small>Pesée rapide, le dernier poids pré-rempli</small></span><Icon name="chevron" /></button>
                   <button onClick={() => goTo("Activité")}><span className="meal-icon mint-icon"><Icon name="shoe" /></span><span><strong>Une séance de sport</strong><small>Marche, course, musculation, yoga…</small></span><Icon name="chevron" /></button>
