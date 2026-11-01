@@ -25,6 +25,8 @@ type TrackingTabProps = {
   /** Protéines visées par jour (plan), pour le bilan de la semaine. */
   proteinGoal: number;
   onAddMeal: (date: string) => void;
+  /** Noter un cheat day ce jour-là (sans détailler les aliments). */
+  onCheatDay: (date: string) => void;
   onSaveWeight: (date: string, kg: number) => void;
   onDeleteWeight: (id: number) => void;
   onEditMeal: (meal: Meal) => void;
@@ -55,7 +57,7 @@ const WATER_STEP = 200;
 const n = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const hours = (ms: number) => `${Math.floor(ms / 3_600_000)} h ${String(Math.floor((ms % 3_600_000) / 60_000)).padStart(2, "0")}`;
 
-export default function TrackingTab({ view, onView: setView, data, update, target, goal, waterGoal, proteinGoal, onAddMeal, onSaveWeight, onDeleteWeight, onEditMeal, onShareMeal, onPlanMeal, onRecap, flash }: TrackingTabProps) {
+export default function TrackingTab({ view, onView: setView, data, update, target, goal, waterGoal, proteinGoal, onAddMeal, onCheatDay, onSaveWeight, onDeleteWeight, onEditMeal, onShareMeal, onPlanMeal, onRecap, flash }: TrackingTabProps) {
   const reportTargets = useMemo(() => ({ kcal: target, protein: proteinGoal, waterMl: waterGoal, stepGoal: data.stepGoal, goal }), [target, proteinGoal, waterGoal, data.stepGoal, goal]);
   const today = todayKey();
   const [selected, setSelected] = useState(today);
@@ -265,6 +267,7 @@ export default function TrackingTab({ view, onView: setView, data, update, targe
           ))}
         </div>
         <button className="ghost-button day-add" onClick={() => onAddMeal(selected)}><Icon name="plus" size={17} /> Ajouter un repas {selected === today ? "aujourd'hui" : "à ce jour"}</button>
+        {selected <= today && <button className="ghost-button day-add" onClick={() => onCheatDay(selected)}><Icon name="flame" size={17} /> Cheat day {selected === today ? "aujourd'hui" : "ce jour-là"}</button>}
       </section>
 
       </>)}

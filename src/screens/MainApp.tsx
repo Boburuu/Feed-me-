@@ -397,11 +397,11 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   /** « + › Un cheat day » : le formulaire s'ouvre directement sur le cheat day. */
   const [cheatStart, setCheatStart] = useState(false);
   useEffect(() => { if (modal !== "meal") setCheatStart(false); }, [modal]);
-  const openCheatDay = () => {
+  const openCheatDay = (date = today) => {
     setPlanning(false);
     setRestoredDraft(null);
     setOfferedDraft(null);
-    setMealDate(today);
+    setMealDate(date);
     setCheatStart(true);
     setComposerKey((value) => value + 1);
     setModal("meal");
@@ -796,6 +796,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           waterGoal={goalWater}
           proteinGoal={result.macros.protein}
           onAddMeal={openMealForm}
+          onCheatDay={openCheatDay}
           onSaveWeight={saveWeight}
           onDeleteWeight={deleteWeight}
           onEditMeal={editMeal}
@@ -1035,7 +1036,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 <h2>Que souhaitez-vous ajouter ?</h2>
                 <div className="choice-list">
                   <button onClick={() => openMealForm()}><span className="meal-icon breakfast"><Icon name="apple" /></span><span><strong>Un repas</strong><small>Suivre les calories consommées</small></span><Icon name="chevron" /></button>
-                  <button onClick={openCheatDay}><span className="meal-icon lunch"><Icon name="flame" /></span><span><strong>Un cheat day</strong><small>Resto, chez quelqu'un… sans détailler : ce jour ne compte pas</small></span><Icon name="chevron" /></button>
+                  <button onClick={() => openCheatDay()}><span className="meal-icon lunch"><Icon name="flame" /></span><span><strong>Un cheat day</strong><small>Resto, chez quelqu'un… sans détailler : ce jour ne compte pas</small></span><Icon name="chevron" /></button>
                   <button onClick={() => setModal("pantry")}><span className="meal-icon lunch"><Icon name="barcode" /></span><span><strong>Mes ingrédients</strong><small>Voir ta liste, scanner un produit sans l'ajouter à un repas</small></span><Icon name="chevron" /></button>
                   <button onClick={() => setModal("weigh")}><span className="meal-icon dinner"><Icon name="scale" /></span><span><strong>Une pesée</strong><small>Pesée rapide, le dernier poids pré-rempli</small></span><Icon name="chevron" /></button>
                   <button onClick={() => goTo("Activité")}><span className="meal-icon mint-icon"><Icon name="shoe" /></span><span><strong>Une séance de sport</strong><small>Marche, course, musculation, yoga…</small></span><Icon name="chevron" /></button>

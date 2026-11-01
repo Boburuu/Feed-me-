@@ -113,6 +113,7 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
   const [sharing, setSharing] = useState(false);
   const sharePayload = useMemo(() => (sharing && editing ? mealPayload(editing) : null), [sharing, editing]);
   const today = todayKey();
+  const yesterday = (() => { const day = new Date(); day.setDate(day.getDate() - 1); return todayKey(day); })();
   const [date, setDate] = useState(draft?.date ?? editing?.date ?? initialDate);
   const [category, setCategory] = useState(draft?.category ?? editing?.category ?? initialCategory);
   const [query, setQuery] = useState(draft?.query ?? "");
@@ -527,6 +528,10 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
       )}
 
       {stage === 1 && (<>
+      {/* Cheat day en haut : on n'a pas à descendre sous les listes pour le trouver. */}
+      {!lines.length && !initialItems?.length && !editing && (
+        <button type="button" className="text-button free-meal-link" onClick={() => { setFree(true); setStage(2); }}>🍔 Cheat day : noter sans détailler ce que j'ai mangé ›</button>
+      )}
       {!creating && (
         <div className="food-search">
           <Icon name="apple" size={18} />
@@ -790,9 +795,6 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
               )}
             </div>
           )}
-          {!lines.length && !initialItems?.length && (
-            <button type="button" className="text-button free-meal-link" onClick={() => { setFree(true); setStage(2); }}>Cheat day (resto, chez quelqu'un, sans compter) ›</button>
-          )}
         </>
       )}
 
@@ -831,6 +833,11 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
       </div>
       {free && (
         <section className="free-meal">
+          <div className="container-chips" role="radiogroup" aria-label="Jour du cheat day">
+            {([[today, "Aujourd'hui"], [yesterday, "Hier"]] as const).map(([day, label]) => (
+              <button type="button" role="radio" aria-checked={date === day} key={day} className={date === day ? "selected" : ""} onClick={() => setDate(day)}>{label}</button>
+            ))}
+          </div>
           <p>Un repas que tu ne peux pas compter (chez quelqu'un, au restaurant, un cheat meal). <strong>Ce jour sera un cheat day</strong> : il ne compte ni dans tes moyennes ni dans ton bilan, et ne casse pas ta série de jours notés.</p>
           <label>Pourquoi ? (facultatif)<input value={freeName} onChange={(e) => setFreeName(e.target.value)} placeholder="Ex. anniversaire, resto, dîner chez papa" /></label>
           <label>Estimation (facultative)<div className="free-estimate"><input value={freeKcal} onChange={(e) => setFreeKcal(e.target.value)} inputMode="numeric" placeholder="—" /><small>kcal</small></div></label>
