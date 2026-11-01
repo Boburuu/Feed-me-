@@ -14,8 +14,8 @@ import QuickWeigh from "../components/QuickWeigh";
 import ReminderSettings from "../components/ReminderSettings";
 import { REMINDER_EVENT, syncReminders, takeReminderTarget, type ReminderTarget } from "../lib/reminders";
 import ShareImport from "../components/ShareImport";
-import { freeName, mealPayload, recipeConflict, shareInHash, type SharedMeal, type SharedPlanned, type SharedRecipe, type SharePayload, type ShoppingShareLine } from "../lib/share";
-import { addNames, cleanName, joinNames, sameName } from "../lib/tablee";
+import { ackPayload, freeName, mealPayload, recipeConflict, shareInHash, type SharedMeal, type SharedPlanned, type SharedRecipe, type SharePayload, type ShoppingShareLine } from "../lib/share";
+import { addNames, cleanName, joinNames, newShareId, sameName } from "../lib/tablee";
 import { TableeContext, type TableeApi } from "../lib/tableeContext";
 import ShareSheet from "../components/ShareSheet";
 import { INCOMING_EVENT, takeIncomingShare } from "../lib/incomingShare";
@@ -176,8 +176,24 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const [outgoingShare, setOutgoingShare] = useState<SharePayload | null>(null);
   /** Destinataires déjà choisis (« Mangé avec » du repas partagé). */
   const [outgoingGuests, setOutgoingGuests] = useState<string[]>([]);
-  const openShare = (payload: SharePayload, guests: string[] = []) => { setOutgoingShare(payload); setOutgoingGuests(guests); setModal("share-out"); };
-  const shareMeal = (meal: Meal) => openShare(mealPayload(meal), meal.with ?? []);
+  const [outgoingId, setOutgoingId] = useState<string | undefined>(undefined);
+  const openShare = (payload: SharePayload, guests: string[] = [], id?: string) => { setOutgoingShare(payload); setOutgoingGuests(guests); setOutgoingId(id); setModal("share-out"); };
+  /** Repas partagé : son lien garde le même identifiant, pour y rattacher les retours. */
+  const shareMeal = (meal: Meal) => {
+    const id = meal.shareId ?? newShareId();
+    if (!meal.shareId) update((current) => ({ ...current, meals: current.meals.map((item) => (item.id === meal.id ? { ...item, shareId: id } : item)) }));
+    openShare(mealPayload(meal), meal.with ?? [], id);
+  };
+  /** Plat reçu par lien : après l'avoir noté, on propose de prévenir la personne qui a cuisiné. */
+  const [pendingAck, setPendingAck] = useState<{ id: string; from: string; name: string } | null>(null);
+  /** Retour reçu : noté sur le repas d'origine (« Alex : 1 part · 412 kcal »). */
+  const addAck = (share: string, by: string, part: string) => {
+    const meal = data.meals.find((item) => item.shareId === share);
+    setModal(null);
+    if (!meal) { flash("Repas introuvable sur ce téléphone : il a peut-être été supprimé."); return; }
+    update((current) => ({ ...current, meals: current.meals.map((item) => (item.shareId === share ? { ...item, acks: { ...item.acks, [by]: part } } : item)) }));
+    flash(`Noté : ${by} a pris ${part}`);
+  };
   /** Repas prévus reçus : ajoutés au planning, « prévus » (rien ne compte avant « Mangé »). */
   const addSharedPlanned = (meals: SharedPlanned[], companions: string[]) => {
     const start = Date.now();
@@ -225,7 +241,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     window.setTimeout(() => setFocusRecipeId(null), 300);
   };
   /** Repas reçu : ouvert comme repas (la part mangée) ou comme assiette maison (le plat entier). */
-  const openSharedMeal = (meal: SharedMeal & { items: MealItem[] }, as: "meal" | "plate" = meal.plate ? "plate" : "meal", companions: string[] = []) => {
+  const openSharedMeal = (meal: SharedMeal & { items: MealItem[] }, as: "meal" | "plate" = meal.plate ? "plate" : "meal", companions: string[] = [], source?: { id: string; from: string }) => {
+    setPendingAck(source ? { ...source, name: cleanMealName(meal.name) } : null);
     const plate = as === "plate" ? meal.plate ?? { servings: 1, share: 1 } : undefined;
     if (as === "meal") meal = { ...meal, items: eatenItems(meal), plate: undefined, name: cleanMealName(meal.name) };
     setPlanning(false);
@@ -389,7 +406,12 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const leftoverLimit = (() => { const date = new Date(); date.setDate(date.getDate() - 3); return todayKey(date); })();
   const freshLeftovers = data.leftovers.filter((item) => item.date >= leftoverLimit && item.partsLeft > 0);
 
-  const saveMeal = (meal: Omit<Meal, "id">, extras: MealExtras) => {
+  const saveMeal = (saved: Omit<Meal, "id">, extras: MealExtras) => {
+    // Repas mangé à plusieurs : on propose tout de suite d'envoyer leur part (lien rattaché au repas).
+    const ackNow = !editingMeal && !saved.free && !!pendingAck;
+    const shareNow = !ackNow && !editingMeal && !saved.free && !!saved.with?.length && !!saved.items?.length;
+    const shareId = shareNow ? newShareId() : undefined;
+    const meal = shareId ? { ...saved, shareId } : saved;
     update((current) => {
       const leftovers = current.leftovers
         .map((item) => {
@@ -413,9 +435,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     });
     mealDraft.clear();
     setRestoredDraft(null);
-    // Repas mangé à plusieurs : on propose tout de suite d'envoyer leur part.
-    const shareNow = !editingMeal && !meal.free && !!meal.with?.length && !!meal.items?.length;
-    if (shareNow) openShare(mealPayload({ ...meal, id: 0 }), meal.with);
+    if (ackNow && pendingAck) {
+      // Plat reçu par lien : on propose de dire à la personne qui a cuisiné ce qu'on a pris.
+      const parts = meal.plate ? Math.round(meal.plate.share * meal.plate.servings * 2) / 2 : 0;
+      const part = `${parts ? `${parts.toLocaleString("fr-FR")} part${parts > 1 ? "s" : ""} · ` : ""}${meal.calories} kcal`;
+      openShare(ackPayload({ share: pendingAck.id, name: pendingAck.name, part }), [pendingAck.from]);
+      setPendingAck(null);
+    } else if (shareNow) openShare(mealPayload({ ...meal, id: 0 }), meal.with, shareId);
     else setModal(null);
     flash(meal.free ? `Cheat day noté : ce jour sort de tes moyennes` : editingMeal ? `Repas modifié · ${meal.calories} kcal` : extras.leftover ? `Ma part : ${meal.calories} kcal · reste gardé` : `Repas enregistré · ${meal.calories} kcal`);
   };
@@ -441,6 +467,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const [cheatStart, setCheatStart] = useState(false);
   useEffect(() => { if (modal !== "meal") setCheatStart(false); }, [modal]);
   const openCheatDay = (date = today) => {
+    setPendingAck(null);
     setPlanning(false);
     setRestoredDraft(null);
     setOfferedDraft(null);
@@ -450,6 +477,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     setModal("meal");
   };
   const openMealForm = (date = today, planned = false) => {
+    setPendingAck(null);
     setCheatStart(false);
     setPlanning(planned);
     // Brouillon du moment de repas en cours (dîner le soir…), sinon le plus récent.
@@ -823,7 +851,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               {todayMeals.map((meal) => (
                 <div className="meal-row editable" key={meal.id} onClick={() => editMeal(meal)}>
                   <span className={`meal-icon ${categoryStyle[meal.category]}`}><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
-                  <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.with?.length ? <small className="meal-with-line">avec {joinNames(meal.with)}</small> : null}{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
+                  <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.with?.length ? <small className="meal-with-line">avec {joinNames(meal.with)}</small> : null}{meal.acks ? <small className="meal-with-line">{Object.entries(meal.acks).map(([name, part]) => `✓ ${name} : ${part}`).join(" · ")}</small> : null}{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
                   <span className="meal-calories">{meal.free ? <><strong>{freeLabel(meal)}</strong><small>{meal.freeEstimate ? "kcal" : "day"}</small></> : <><strong>{meal.calories}</strong><small>kcal</small></>}</span>
                   {/* Modifier et supprimer toujours visibles (une erreur se corrige vite) ; partager si le repas a ses aliments. */}
                   <span className="meal-actions">
@@ -1150,9 +1178,10 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             {modal === "share-out" && outgoingShare && (
               <>
                 <p className="eyebrow">Partage</p>
-                <h2>{outgoingShare.kind === "repas" ? (outgoingShare.meal.plate && outgoingGuests.length ? `Envoyer ${outgoingGuests.length > 1 ? "leur" : "sa"} part` : "Envoyer ce repas") : "Partager"}</h2>
+                <h2>{outgoingShare.kind === "retour" ? `Prévenir ${outgoingGuests[0] ?? "la personne qui a cuisiné"} ?` : outgoingShare.kind === "repas" ? (outgoingShare.meal.plate && outgoingGuests.length ? `Envoyer ${outgoingGuests.length > 1 ? "leur" : "sa"} part` : "Envoyer ce repas") : "Partager"}</h2>
+                {outgoingShare.kind === "retour" && <p className="theme-description">Repas enregistré. C'est facultatif : {outgoingGuests[0] ?? "la personne"} verra sur son repas que tu as pris {outgoingShare.retour.part}.</p>}
                 {outgoingShare.kind === "repas" && <p className="theme-description">{outgoingGuests.length > 1 ? `Repas enregistré. ${joinNames(outgoingGuests)} le verront en aperçu, puis choisiront le jour, le moment et leurs propres quantités avant de l'ajouter.` : `${outgoingGuests.length ? `Repas enregistré. ${outgoingGuests[0]}` : "La personne"} le verra en aperçu, puis choisira le jour, le moment et ses propres quantités avant de l'ajouter.`}</p>}
-                <ShareSheet payload={outgoingShare} guests={outgoingGuests} onClose={() => setModal(null)} />
+                <ShareSheet payload={outgoingShare} guests={outgoingGuests} id={outgoingId} onClose={() => setModal(null)} />
               </>
             )}
             {modal === "share" && (
@@ -1171,6 +1200,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   onAddPlanned={addSharedPlanned}
                   onAddShopping={addSharedShopping}
                   onAddRecipes={addSharedRecipes}
+                  onAck={addAck}
                   onClose={() => setModal(null)}
                 />
               </>

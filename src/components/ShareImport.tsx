@@ -15,7 +15,9 @@ type ShareImportProps = {
   initialText?: string;
   onAddRecipe: (recipe: SharedRecipe) => void;
   /** Le repas s'ouvre pré-rempli dans « Ajouter un repas » : rien n'est noté sans « Enregistrer ». */
-  onOpenMeal: (meal: SharedMeal & { items: MealItem[] }, as: "meal" | "plate", companions: string[]) => void;
+  onOpenMeal: (meal: SharedMeal & { items: MealItem[] }, as: "meal" | "plate", companions: string[], source?: { id: string; from: string }) => void;
+  /** Retour reçu (« Alex a pris 1 part ») : noté sur le repas d'origine. */
+  onAck: (share: string, by: string, part: string) => void;
   /** Repas prévus reçus, ajoutés au planning (« prévus »). */
   onAddPlanned: (meals: SharedPlanned[], companions: string[]) => void;
   /** Articles reçus, ajoutés à la liste de courses. */
@@ -36,7 +38,7 @@ const day = (iso: string) => { const date = new Date(iso); return Number.isNaN(d
 const weekDay = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 
 /** Recevoir un partage : coller le lien ou ouvrir le fichier, voir l'aperçu, puis choisir. */
-export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenMeal, onSaveAsRecipe, onOpenRecipe, onAddedProducts, onAddPlanned, onAddShopping, onAddRecipes, onClose }: ShareImportProps) {
+export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenMeal, onSaveAsRecipe, onOpenRecipe, onAddedProducts, onAddPlanned, onAddShopping, onAddRecipes, onAck, onClose }: ShareImportProps) {
   const [text, setText] = useState(initialText ?? "");
   const [shared, setShared] = useState<SharePayload | null>(null);
   const [error, setError] = useState("");
@@ -69,6 +71,8 @@ export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenM
   const alreadyOpened = !!shared?.id && (tablee?.received ?? []).includes(shared.id);
   /** Quelque chose a été ajouté : le lien est noté comme déjà ouvert. */
   const received = () => { if (shared?.id) tablee?.markReceived(shared.id); };
+  /** Lien d'un plat : après l'ajout, on pourra prévenir la personne qui a cuisiné. */
+  const source = shared?.id && shared.from ? { id: shared.id, from: shared.from } : undefined;
   // Cases décochées dans les listes (repas prévus, courses, carnet).
   const [off, setOff] = useState<Set<string>>(new Set());
   const flip = (key: string) => setOff((current) => { const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next; });
@@ -132,7 +136,7 @@ export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenM
         <div className="share-from">
           {shared.from && <p className="food-hint">Envoyé par <strong>{shared.from}</strong>{companions.length > 1 ? ` · avec ${joinNames(companions.filter((name) => !sameName(name, shared.from!)))}` : ""}</p>}
           {alreadyOpened && <p className="meal-line-warning" role="status">Tu as déjà ouvert ce lien et ajouté son contenu. Rien n'est ajouté en double sans ton accord : vérifie avant de recommencer.</p>}
-          {unknown.length > 0 && !tableeDone && (
+          {unknown.length > 0 && !tableeDone && shared.kind !== "retour" && (
             <button type="button" className="add-part" onClick={() => { tablee?.addToTablee(unknown); setTableeDone(true); }}>
               <Icon name="plus" size={14} /> Ajouter {joinNames(unknown)} à ma tablée
             </button>
@@ -197,10 +201,10 @@ export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenM
           </article>
           <p className="food-hint">Comment veux-tu l'ajouter ? Rien n'est enregistré avant que tu valides : tu pourras tout changer (quantités, grammes, parts, jour, nom…).</p>
           <div className="share-choices">
-            <button type="button" className="share-choice" onClick={() => { received(); onOpenMeal(shared.meal, "meal", companions); }}>
+            <button type="button" className="share-choice" onClick={() => { received(); onOpenMeal(shared.meal, "meal", companions, source); }}>
               <Icon name="apple" size={18} /><span><strong>Comme repas</strong><small>{shared.meal.plate ? "La part mangée, aliment par aliment." : "Les aliments et leurs quantités."} Tu ajustes ta quantité.</small></span>
             </button>
-            <button type="button" className="share-choice" onClick={() => { received(); onOpenMeal(shared.meal, "plate", companions); }}>
+            <button type="button" className="share-choice" onClick={() => { received(); onOpenMeal(shared.meal, "plate", companions, source); }}>
               <Icon name="flame" size={18} /><span><strong>En assiette maison</strong><small>Le plat entier : tu choisis pour combien de personnes et ta part.</small></span>
             </button>
             <button type="button" className="share-choice" onClick={() => { received(); onSaveAsRecipe(shared.meal); }}>
@@ -208,6 +212,21 @@ export default function ShareImport({ recipes, initialText, onAddRecipe, onOpenM
             </button>
           </div>
           <button type="button" className="text-button" onClick={onClose}>Ne pas l'ajouter</button>
+        </>
+      )}
+
+      {shared?.kind === "retour" && (
+        <>
+          <article className="share-preview">
+            <p className="eyebrow">Retour sur ton plat</p>
+            <h3>{shared.from} a pris {shared.retour.part}</h3>
+            <p className="share-preview-facts">« {shared.retour.name} »</p>
+          </article>
+          <p className="food-hint">Ton repas affichera ce que {shared.from} a pris. Rien ne change dans tes calories.</p>
+          <div className="barcode-actions">
+            <button type="button" className="text-button" onClick={onClose}>Fermer</button>
+            <button type="button" className="plan-confirm" onClick={() => { received(); onAck(shared.retour.share, shared.from!, shared.retour.part); }}><Icon name="check" size={14} /> Noter sur mon repas</button>
+          </div>
         </>
       )}
 

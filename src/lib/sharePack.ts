@@ -15,6 +15,7 @@ const keys: Record<string, string> = {
   products: "pd",
   // Repas prévus, liste de courses, carnet, et « de qui / pour qui ».
   meals: "ms", date: "dt", lines: "ln", qty: "qy", recipes: "rs", from: "fm", guests: "gs",
+  retour: "rt", part: "pa",
 };
 const back = Object.fromEntries(Object.entries(keys).map(([long, short]) => [short, long]));
 const MARK = "f";

@@ -10,6 +10,8 @@ type ShareSheetProps = {
   onClose: () => void;
   /** Personnes déjà choisies (« Mangé avec » du repas) : le message leur est adressé. */
   guests?: string[];
+  /** Identifiant du lien, gardé sur le repas pour y rattacher les retours. */
+  id?: string;
 };
 
 /** Envoie le message par la feuille de partage du téléphone, ou le copie. */
@@ -53,6 +55,7 @@ function whatOf(payload: SharePayload) {
     case "semaine": return "les repas prévus";
     case "courses": return "la liste de courses";
     case "carnet": return "tout mon carnet";
+    case "retour": return "ma part";
   }
 }
 
@@ -73,6 +76,7 @@ export function shareMessage(payload: SharePayload, to: string[], from: string, 
     case "semaine": body = `📅 ${name}${from ? ` par ${from}` : ""} : touche le lien pour les ajouter à ton planning Feed Me (rien ne compte avant « Mangé ») :`; break;
     case "courses": body = `🛒 ${name} : touche le lien pour l'ajouter à ta liste dans Feed Me :`; break;
     case "carnet": body = `📚 ${name} : touche le lien et choisis ce que tu gardes dans Feed Me :`; break;
+    case "retour": body = `✓ ${from ? `${from} a` : "J'ai"} pris ${payload.retour.part} de « ${payload.retour.name} ». Touche le lien pour le noter sur ton repas dans Feed Me :`; break;
   }
   return `${hello}${body}\n${link}\n(Pas encore Feed Me ? Le lien s'ouvre aussi dans le navigateur.)`;
 }
@@ -83,11 +87,11 @@ export function shareMessage(payload: SharePayload, to: string[], from: string, 
  * messages habituelle. On choisit à qui dans sa tablée : un message de groupe, ou un par
  * personne. Chez la personne qui le reçoit, rien n'est ajouté sans son accord.
  */
-export default function ShareSheet({ payload, onClose, guests }: ShareSheetProps) {
+export default function ShareSheet({ payload, onClose, guests, id: givenId }: ShareSheetProps) {
   const tablee = useTablee();
   const myName = tablee?.myName ?? "";
   const people = tablee?.tablee ?? [];
-  const [id] = useState(newShareId);
+  const [id] = useState(() => givenId ?? newShareId());
   const [selected, setSelected] = useState<string[]>(() => guests ?? []);
   const [sent, setSent] = useState<string[]>([]);
   const [adding, setAdding] = useState("");

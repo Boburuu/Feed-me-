@@ -35,7 +35,10 @@ export type SharePayload = { app: "feedme"; version: 1; sharedAt: string } & Sha
   | { kind: "semaine"; meals: SharedPlanned[] }
   | { kind: "courses"; lines: ShoppingShareLine[] }
   | { kind: "carnet"; recipes: SharedRecipe[]; products: MealItem[] }
+  | { kind: "retour"; retour: AckInfo }
 );
+/** Retour à la personne qui a cuisiné : qui (from), quel lien, quel plat, quelle part. */
+export type AckInfo = { share: string; name: string; part: string };
 
 // --- Préparer un partage --------------------------------------------------------------
 
@@ -92,6 +95,11 @@ export function carnetPayload(recipes: Recipe[], products: MealItem[]): SharePay
   return { app: "feedme", version: 1, kind: "carnet", sharedAt: now(), recipes: recipes.map(portableRecipe), products: products.map(portableProduct) };
 }
 
+/** « J'ai pris 1 part » : renvoyé à la personne qui a cuisiné, rattaché à son lien. */
+export function ackPayload(retour: AckInfo): SharePayload {
+  return { app: "feedme", version: 1, kind: "retour", sharedAt: now(), retour };
+}
+
 /** De qui et pour qui, ajoutés au moment d'envoyer. */
 export function withMeta(payload: SharePayload, meta: ShareMeta): SharePayload {
   return clean({ ...payload, from: meta.from || undefined, guests: meta.guests?.length ? meta.guests : undefined, id: meta.id }) as SharePayload;
@@ -107,6 +115,7 @@ export function shareName(payload: SharePayload) {
     case "ingredients": return payload.products.length === 1 ? payload.products[0].name : `${payload.products.length} ingrédients`;
     case "semaine": return plural(payload.meals.length, "repas prévu");
     case "courses": return `Liste de courses (${plural(payload.lines.length, "article")})`;
+    case "retour": return `${payload.from ?? "Quelqu'un"} a pris ${payload.retour.part}`;
     case "carnet": return `Carnet${payload.from ? ` de ${payload.from}` : ""} (${plural(payload.recipes.length, "recette")}, ${plural(payload.products.length, "ingrédient")})`;
   }
 }
@@ -317,6 +326,14 @@ export function checkPayload(value: unknown): SharePayload {
     const products = list(payload.products, 300).map(checkItem).filter((item): item is MealItem => !!item);
     if (!recipes.length && !products.length) throw new ShareError("Carnet vide ou illisible.");
     return { ...base, kind: "carnet", recipes, products };
+  }
+  if (payload.kind === "retour") {
+    const retour = object(payload.retour);
+    const share = text(retour?.share, 40);
+    const name = text(retour?.name, 200)?.trim();
+    const part = text(retour?.part, 80)?.trim();
+    if (!share || !/^[a-z0-9]+$/i.test(share) || !name || !part || !base.from) throw new ShareError("Retour illisible.");
+    return { ...base, kind: "retour", retour: { share, name, part } };
   }
   throw new ShareError("Type de partage inconnu : mets Feed Me à jour pour l'ouvrir.");
 }

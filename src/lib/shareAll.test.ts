@@ -1,6 +1,6 @@
 // Tout partager : repas prévus, liste de courses, carnet, avec « de qui / pour qui » (Ma tablée).
 import { describe, expect, it } from "vitest";
-import { carnetPayload, mealPayload, readShare, shareLink, shoppingPayload, weekPayload, withMeta } from "./share";
+import { ackPayload, carnetPayload, mealPayload, readShare, shareLink, shoppingPayload, weekPayload, withMeta } from "./share";
 import { addNames, companionsFor, joinNames } from "./tablee";
 import { shareMessage } from "../components/ShareSheet";
 import type { Meal, Recipe } from "./storage";
@@ -92,5 +92,19 @@ describe("Ma tablée", () => {
     expect(text).toContain("vos parts vous attendent");
     expect(text).toContain("Camille a cuisiné pour 4");
     expect(text).toContain("https://exemple/#partage=x");
+  });
+});
+
+describe("retour à la personne qui a cuisiné", () => {
+  it("le lien dit qui a pris quoi, rattaché au lien du plat", async () => {
+    const payload = withMeta(ackPayload({ share: "lien42", name: "Lasagnes maison", part: "1 part · 412 kcal" }), { from: "Alex", guests: ["Camille"], id: "r1" });
+    const received = await readShare(await shareLink(payload));
+    expect(received.kind).toBe("retour");
+    if (received.kind !== "retour") return;
+    expect(received.retour).toEqual({ share: "lien42", name: "Lasagnes maison", part: "1 part · 412 kcal" });
+    expect(received.from).toBe("Alex");
+  });
+  it("un retour sans expéditeur est refusé", async () => {
+    await expect(readShare(await shareLink(ackPayload({ share: "lien42", name: "Lasagnes", part: "1 part" })))).rejects.toThrow("Retour illisible");
   });
 });

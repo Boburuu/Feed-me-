@@ -62,6 +62,10 @@ export type Meal = {
   freeEstimate?: number;
   /** « Mangé avec » : prénoms de la tablée (vide ou absent : seul·e). */
   with?: string[];
+  /** Identifiant du lien envoyé pour ce repas : les retours (« Alex a pris 1 part ») s'y rattachent. */
+  shareId?: string;
+  /** Retours reçus : ce que chacun a pris (« 1 part · 412 kcal »), par prénom. */
+  acks?: Record<string, string>;
 };
 
 /** Part restante d'une assiette maison, proposée aux repas suivants (4 jours au frigo). */

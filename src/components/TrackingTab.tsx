@@ -260,7 +260,7 @@ export default function TrackingTab({ view, onView: setView, data, update, targe
           {mealCategories.flatMap((category) => dayMeals.filter((meal) => meal.category === category.id)).map((meal) => (
             <div className="meal-row editable" key={meal.id} onClick={() => onEditMeal(meal)}>
               <span className="meal-icon breakfast"><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
-              <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.with?.length ? <small className="meal-with-line">avec {joinNames(meal.with)}</small> : null}{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
+              <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.with?.length ? <small className="meal-with-line">avec {joinNames(meal.with)}</small> : null}{meal.acks ? <small className="meal-with-line">{Object.entries(meal.acks).map(([name, part]) => `✓ ${name} : ${part}`).join(" · ")}</small> : null}{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
               <span className="meal-calories">{meal.free ? <><strong>{freeLabel(meal)}</strong><small>{meal.freeEstimate ? "kcal" : "day"}</small></> : <><strong>{meal.calories}</strong><small>kcal</small></>}</span>
               <span className="meal-actions">
                 <button className="icon-button" onClick={(event) => { event.stopPropagation(); onEditMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
