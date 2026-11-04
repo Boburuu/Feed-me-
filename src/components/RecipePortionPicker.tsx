@@ -106,11 +106,17 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
   const missing = rows.filter((row) => !row.food).length;
   const unitText = (item: MealItem) => (item.unit === "g" ? (item.liquid ? "ml" : "g") : (item.portionLabel ?? "portion").replace(/^1\s+/, "").replace(/\s*\(.*$/, ""));
 
+  // On ne mange pas plus que le plat entier. Le nombre de morceaux peut changer pendant la frappe
+  // (« 1 » avant « 12 ») : le choix est gardé et seulement borné à l'affichage.
+  const pieceCount = Math.floor(toNumber(pieces));
+  const eatenParts = Math.min(parts, portions);
+  const eatenCount = pieceCount > 0 ? Math.min(eatenPieces, pieceCount) : eatenPieces;
+  const tooMuchGrams = mode === "grams" && toNumber(totalGrams) > 0 && toNumber(eatenGrams) > toNumber(totalGrams);
   // Part du plat entier mangée (1 = tout le plat).
   const fraction = mode === "parts"
-    ? parts / portions
+    ? eatenParts / portions
     : mode === "pieces"
-      ? (toNumber(pieces) ? eatenPieces / toNumber(pieces) : 0)
+      ? (pieceCount > 0 ? eatenCount / pieceCount : 0)
       : (toNumber(totalGrams) ? toNumber(eatenGrams) / toNumber(totalGrams) : 0);
   const share = Math.max(0, fraction);
   // Plat entier : la recette, ou la somme des ingrédients changés pour ce repas.
@@ -121,11 +127,11 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
   const carbs = whole.carbs === null ? null : Math.round(whole.carbs * share);
   const fat = whole.fat === null ? null : Math.round(whole.fat * share);
   const protein = Math.round(whole.protein * share);
-  const valid = share > 0 && share <= 3;
+  const valid = share > 0 && share <= 1;
 
   const describe = () => {
-    if (mode === "parts") return `${n(parts)} part${parts > 1 ? "s" : ""} sur ${portions}`;
-    if (mode === "pieces") return `${eatenPieces} morceau${eatenPieces > 1 ? "x" : ""} sur ${toNumber(pieces)}`;
+    if (mode === "parts") return `${n(eatenParts)} part${eatenParts > 1 ? "s" : ""} sur ${portions}`;
+    if (mode === "pieces") return `${eatenCount} morceau${eatenCount > 1 ? "x" : ""} sur ${pieceCount}`;
     return `${n(toNumber(eatenGrams))} g sur ${n(toNumber(totalGrams))} g`;
   };
 
@@ -181,11 +187,11 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
     });
   };
 
-  const stepper = (value: number, set: (value: number) => void, step: number, min: number, label: string) => (
+  const stepper = (value: number, set: (value: number) => void, step: number, min: number, max: number, label: string) => (
     <div className="stepper">
       <button type="button" onClick={() => set(Math.max(min, Math.round((value - step) * 100) / 100))} disabled={value <= min} aria-label={`${label} : moins`}><Icon name="minus" size={15} /></button>
       <strong>{n(value)}</strong>
-      <button type="button" onClick={() => set(Math.round((value + step) * 100) / 100)} aria-label={`${label} : plus`}><Icon name="plus" size={15} /></button>
+      <button type="button" onClick={() => set(Math.min(max, Math.round((value + step) * 100) / 100))} disabled={value >= max} aria-label={`${label} : plus`}><Icon name="plus" size={15} /></button>
     </div>
   );
 
@@ -218,7 +224,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
         {mode === "parts" && (
           <div className="share-row">
             <span>J'en ai mangé</span>
-            {stepper(parts, setParts, 0.5, 0.5, "Parts")}
+            {stepper(eatenParts, setParts, 0.5, 0.5, portions, "Parts")}
             <span>sur {portions}</span>
           </div>
         )}
@@ -232,8 +238,8 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
             </div>
             <div className="share-row">
               <span>J'en ai mangé</span>
-              {stepper(eatenPieces, setEatenPieces, 1, 1, "Morceaux")}
-              <span>morceau{eatenPieces > 1 ? "x" : ""}</span>
+              {stepper(eatenCount, setEatenPieces, 1, 1, pieceCount > 0 ? pieceCount : 1, "Morceaux")}
+              <span>morceau{eatenCount > 1 ? "x" : ""}</span>
             </div>
           </>
         )}
@@ -257,7 +263,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
         <div className="plate-mine">
           <span>
             Ma part
-            <small>{valid ? `${Math.round(share * 100)} % du plat${carbs !== null ? ` · ${carbs} g de glucides` : ""}${protein ? ` · ${protein} g de protéines` : ""}${fat !== null ? ` · ${fat} g de lipides` : ""}${recipe.volumeMl ? ` · 💧 ${Math.round(recipe.volumeMl * share)} ml` : ""}` : "Indiquez la quantité mangée"}</small>
+            <small>{tooMuchGrams ? "C'est plus que le plat entier : vérifie les deux poids." : valid ? `${Math.round(share * 100)} % du plat${carbs !== null ? ` · ${carbs} g de glucides` : ""}${protein ? ` · ${protein} g de protéines` : ""}${fat !== null ? ` · ${fat} g de lipides` : ""}${recipe.volumeMl ? ` · 💧 ${Math.round(recipe.volumeMl * share)} ml` : ""}` : "Indiquez la quantité mangée"}</small>
           </span>
           <strong>{valid ? kcal : "—"} kcal</strong>
         </div>

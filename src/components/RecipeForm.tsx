@@ -418,12 +418,12 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
         <datalist id="unit-options">{commonUnits.map((unit) => <option key={unit} value={unit} />)}</datalist>
         {draft.ingredients.map((group, groupIndex) => (
           <div className="part-card" key={groupIndex}>
-            <div className="part-head">
+            {(draft.ingredients.length > 1 || group.title) && <div className="part-head">
               <input className="part-title" value={group.title} onChange={(e) => setGroup(groupIndex, { title: e.target.value })} placeholder={draft.ingredients.length > 1 ? "Nom de la partie (ex. Garniture)" : "Partie (ex. Pâte) — facultatif"} aria-label="Nom de la partie" />
               {draft.ingredients.length > 1 && (
                 <button type="button" className="icon-button" onClick={() => { set({ ingredients: draft.ingredients.filter((_, i) => i !== groupIndex) }); setPicking(0); }} aria-label="Supprimer cette partie"><Icon name="trash" size={16} /></button>
               )}
-            </div>
+            </div>}
             {(() => {
               // Les lignes de la partie : réglables comme dans un repas, ou écrites à la main.
               const lines = (group.items.length > 0 || picking !== groupIndex) && (
@@ -465,10 +465,13 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
               // Les ingrédients déjà ajoutés restent en haut, au-dessus de la recherche (et pas sous la liste).
               return picking === groupIndex ? (
                 <>
-                  {group.items.length > 0 && <p className="food-section">Dans la recette · {group.items.length} ingrédient{group.items.length > 1 ? "s" : ""}</p>}
-                  {lines}
-                  <p className="food-section">Ajouter un ingrédient</p>
-                  <FoodPicker onPick={(food) => pickFood(groupIndex, food)}>
+                  <FoodPicker
+                    onPick={(food) => pickFood(groupIndex, food)}
+                    added={group.items.length > 0 && <>
+                      <p className="food-section">Dans la recette · {group.items.length} ingrédient{group.items.length > 1 ? "s" : ""}</p>
+                      {lines}
+                    </>}
+                  >
                     {write}
                   </FoodPicker>
                 </>

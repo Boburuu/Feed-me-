@@ -12,6 +12,7 @@ import '@fontsource/manrope/latin-800.css'
 import App from './App'
 import { listenForSharedLinks } from './lib/incomingShare'
 import { listenForReminderTaps } from './lib/reminders'
+import { watchKeyboard } from './lib/keyboard'
 import './index.css'
 import './screens.css'
 import './goals.css'
@@ -19,6 +20,7 @@ import './cooking.css'
 import './themes.css'
 import './meals.css'
 
+watchKeyboard()
 // Lien de partage ouvert avec l'appli Android : gardé jusqu'au déverrouillage.
 void listenForSharedLinks().catch(() => undefined)
 // Notification touchée (pesée, bilan, repas prévu) : l'écran voulu s'ouvre après le code.

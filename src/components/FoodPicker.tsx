@@ -9,6 +9,8 @@ import { useCorrections } from "../lib/correctionsContext";
 import { pantryResult } from "../lib/pantry";
 
 type FoodPickerProps = {
+  /** Ce qui est déjà choisi : affiché sous la recherche, masqué pendant qu'on cherche. */
+  added?: React.ReactNode;
   onPick: (food: FoodResult) => void;
   /** Affiché sous la recherche quand on ne cherche pas (les aliments déjà choisis). */
   children?: React.ReactNode;
@@ -18,8 +20,15 @@ type FoodPickerProps = {
  * Trouver un aliment avec ses valeurs nutritionnelles : recherche (Ciqual, puis
  * Open Food Facts), photo du produit ou scan du code-barres.
  */
-export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) {
+export default function FoodPicker({ onPick: pick, added, children }: FoodPickerProps) {
   const [query, setQuery] = useState("");
+  const searching = !!query.trim();
+  const searchBox = useRef<HTMLDivElement>(null);
+  const toTop = () => searchBox.current?.scrollIntoView({ block: "start" });
+  // Dès qu'on tape : le champ remonte en haut, les résultats juste dessous (au-dessus du clavier).
+  useEffect(() => {
+    if (searching) window.requestAnimationFrame(toTop);
+  }, [searching]); // eslint-disable-line react-hooks/exhaustive-deps
   const [results, setResults] = useState<FoodResult[]>([]);
   const [brands, setBrands] = useState<FoodResult[] | null>(null);
   const [brandState, setBrandState] = useState<"idle" | "loading" | "error">("idle");
@@ -73,7 +82,7 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
 
   return (
     <div className="food-picker">
-      <div className="food-search">
+      <div className="food-search" ref={searchBox}>
         <Icon name="apple" size={18} />
         <input
           type="text"
@@ -81,9 +90,11 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
           autoComplete="off"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ingrédient : farine, œufs…"
+          placeholder="Chercher un ingrédient : farine, œufs…"
           aria-label="Rechercher un ingrédient"
+          onFocus={() => window.setTimeout(toTop, 350)}
         />
+        {query && <button type="button" className="food-search-clear" onClick={() => setQuery("")} aria-label="Effacer la recherche"><Icon name="close" size={15} /></button>}
       </div>
 
       {native && !query.trim() && !photo && (
@@ -124,6 +135,8 @@ export default function FoodPicker({ onPick: pick, children }: FoodPickerProps) 
           {photoFoods.map((food, index) => <FoodResultRow key={`photo-${index}`} result={food} onPick={onPick} />)}
         </section>
       )}
+
+      {!query.trim() && added}
 
       {/* Mes ingrédients en un geste, quand on ne cherche rien. */}
       {!query.trim() && !photo && !barcodeOpen && !fastFoodOpen && pantry.length > 0 && (

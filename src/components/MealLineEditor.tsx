@@ -117,19 +117,22 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
   const [totalDraft, setTotalDraft] = useState("");
   /** Nombre de parts du plat entier, modifiable sur la ligne (« 1 part sur 20 »). */
   const [denominatorDraft, setDenominatorDraft] = useState<string | null>(null);
+  /** Recette : on ne mange pas plus que le plat entier. */
+  const capParts = (quantity: number) => (servings && line.unit !== "g" ? Math.min(quantity, servings) : quantity);
   const commitDenominator = () => {
     const value = Math.round(Number((denominatorDraft ?? "").replace(",", ".")));
     setDenominatorDraft(null);
     if (!servings || !(value >= 1) || value > 500) return;
     // Le nombre de parts mangées reste le même (1 part), sur un plat partagé autrement.
-    const eaten = Math.max(1, Math.round((counted ? line.quantity * perPart : line.quantity) * 2) / 2);
+    const eaten = Math.min(value, Math.max(1, Math.round((counted ? line.quantity * perPart : line.quantity) * 2) / 2));
     if (value === servings) onChange({ recipeCount: undefined, quantity: eaten });
     else onChange({ recipeCount: "pieces", recipePieces: value, quantity: (eaten * servings) / value });
   };
   const [portionDraft, setPortionDraft] = useState("");
   /** Poids d'une portion donné à la main : l'aliment se compte ensuite aussi en grammes (retenu pour la prochaine fois). */
-  const setPortionWeight = (event: React.FormEvent) => {
-    event.preventDefault();
+  // Pas de <form> ici : cette ligne s'affiche aussi dans le formulaire d'une recette.
+  const onEnter = (action: () => void) => (event: React.KeyboardEvent) => { if (event.key === "Enter") { event.preventDefault(); action(); } };
+  const setPortionWeight = () => {
     const value = Math.round(Number(portionDraft.replace(",", ".")));
     if (!(value > 0) || value > 3000) return;
     onChange(withPortionWeight(line, value));
@@ -148,12 +151,12 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
     if (counted) {
       const shown = line.quantity * perPart;
       const size = wantedCount === "grams" ? 10 : shown > 1 || (direction > 0 && shown >= 1) ? 1 : 0.5;
-      onChange({ quantity: Math.max(size, Math.round((shown + direction * size) * 100) / 100) / perPart });
+      onChange({ quantity: capParts(Math.max(size, Math.round((shown + direction * size) * 100) / 100) / perPart) });
       return;
     }
     // Les pièces se comptent une à une (« 10 tranches ») ; en dessous de 1, par moitié.
     const size = line.unit === "g" ? (line.liquid ? 50 : 10) : isPackage || servings ? (servings && line.quantity >= 1 ? 0.5 : 0.25) : line.liquid || (direction > 0 ? line.quantity >= 1 : line.quantity > 1) ? 1 : 0.5;
-    onChange({ quantity: Math.max(size, Math.round((line.quantity + direction * size) * 100) / 100) });
+    onChange({ quantity: capParts(Math.max(size, Math.round((line.quantity + direction * size) * 100) / 100)) });
   };
 
   // Unités proposées pour un aliment solide : sa portion habituelle, la boîte, les grammes.
@@ -185,6 +188,12 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
     options.push({ key: "g", label: "g", selected: line.unit === "g", pick: () => useUnit("g") });
   }
 
+  const setRecipeTotal = () => {
+    const value = Number(totalDraft.replace(",", "."));
+    // Premier découpage en morceaux : 1 morceau (et non le plat entier).
+    if (value > 0) { onChange(wantedCount === "pieces" ? { recipePieces: Math.round(value), ...(line.recipePieces ? {} : { quantity: servings! / Math.round(value) }) } : { recipeGrams: Math.round(value), recipeGramsEstimated: undefined }); setTotalDraft(""); }
+  };
+
   return (
     <div className="meal-line">
       <div className="meal-line-top">
@@ -201,7 +210,7 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
             inputMode="decimal"
             min="0"
             value={counted ? Math.round(line.quantity * perPart * 100) / 100 : Math.round((line.quantity / volumeFactor) * 100) / 100}
-            onChange={(e) => onChange({ quantity: counted ? Math.max(0, Number(e.target.value)) / perPart : Math.max(0, Number(e.target.value)) * volumeFactor })}
+            onChange={(e) => onChange({ quantity: capParts(counted ? Math.max(0, Number(e.target.value)) / perPart : Math.max(0, Number(e.target.value)) * volumeFactor) })}
             aria-label={`Quantité de ${line.name}`}
           />
           <button type="button" onClick={() => step(1)} aria-label="Plus"><Icon name="plus" size={15} /></button>
@@ -236,13 +245,13 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
 
       {/* Connu seulement par portion (cookie Subway, aliment perso) : avec son poids, on peut compter en grammes. */}
       {needsPortionWeight(line) && (
-        <form className="recipe-total" onSubmit={setPortionWeight}>
+        <div className="recipe-total">
           <span>Compter en grammes : {line.portionLabel ?? "1 portion"} pèse</span>
-          <input value={portionDraft} onChange={(e) => setPortionDraft(e.target.value)} inputMode="decimal" placeholder="—" aria-label="Poids d'une portion en grammes" />
+          <input value={portionDraft} onChange={(e) => setPortionDraft(e.target.value)} onKeyDown={onEnter(setPortionWeight)} inputMode="decimal" placeholder="—" aria-label="Poids d'une portion en grammes" />
           <span>g</span>
-          <button type="submit" className="text-button" disabled={!(Number(portionDraft.replace(",", ".")) > 0)}>OK</button>
+          <button type="button" className="text-button" onClick={setPortionWeight} disabled={!(Number(portionDraft.replace(",", ".")) > 0)}>OK</button>
           <small>Le poids est gardé pour la prochaine fois. Les calories de la portion ne changent pas.</small>
-        </form>
+        </div>
       )}
 
       {onAdapt && servings && (
@@ -257,19 +266,14 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
         </div>
       )}
       {servings && wantedCount !== "parts" && (
-        <form className="recipe-total" onSubmit={(event) => {
-          event.preventDefault();
-          const value = Number(totalDraft.replace(",", "."));
-          // Premier découpage en morceaux : 1 morceau (et non le plat entier).
-          if (value > 0) { onChange(wantedCount === "pieces" ? { recipePieces: Math.round(value), ...(line.recipePieces ? {} : { quantity: servings! / Math.round(value) }) } : { recipeGrams: Math.round(value), recipeGramsEstimated: undefined }); setTotalDraft(""); }
-        }}>
+        <div className="recipe-total">
           <span>{wantedCount === "pieces" ? "Le plat entier est coupé en" : line.recipeGramsEstimated ? `Le plat entier pèse ≈ ${n(line.recipeGrams!)} g (somme des ingrédients). Pesé :` : "Le plat entier pèse"}</span>
-          <input value={totalDraft} onChange={(e) => setTotalDraft(e.target.value)} inputMode="decimal" placeholder={countTotal ? n(countTotal) : "—"} aria-label={wantedCount === "pieces" ? "Nombre de morceaux du plat entier" : "Poids du plat entier en grammes"} />
+          <input value={totalDraft} onChange={(e) => setTotalDraft(e.target.value)} onKeyDown={onEnter(setRecipeTotal)} inputMode="decimal" placeholder={countTotal ? n(countTotal) : "—"} aria-label={wantedCount === "pieces" ? "Nombre de morceaux du plat entier" : "Poids du plat entier en grammes"} />
           <span>{wantedCount === "pieces" ? "morceaux" : "g (ou ml)"}</span>
-          <button type="submit" className="text-button" disabled={!(Number(totalDraft.replace(",", ".")) > 0)}>{countTotal ? "Changer" : "OK"}</button>
+          <button type="button" className="text-button" onClick={setRecipeTotal} disabled={!(Number(totalDraft.replace(",", ".")) > 0)}>{countTotal ? "Changer" : "OK"}</button>
           {!countTotal && <small>Indique-le une fois : il est gardé dans la recette.</small>}
           {wantedCount === "grams" && line.recipeGramsEstimated && <small>Plat cuit (l'eau s'évapore) : pèse-le et corrige ce poids. Boisson : 1 ml ≈ 1 g.</small>}
-        </form>
+        </div>
       )}
 
       {/* Recette pour plusieurs : parts mangées, jusqu'au plat entier. */}

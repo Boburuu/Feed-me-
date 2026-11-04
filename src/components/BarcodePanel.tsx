@@ -51,6 +51,13 @@ export default function BarcodePanel({ onFound, onClose, onSearchByName, onCreat
     }
   };
 
+  /** Pas de <form> ici : ce panneau s'affiche aussi dans le formulaire d'une recette. */
+  const searchTyped = () => {
+    const code = cleanProductCode(typed);
+    if (code) void lookup(code);
+    else setState({ step: "manual", error: "Code invalide : il faut les 8 ou 13 chiffres écrits sous les barres. Vérifiez qu'il n'en manque pas." });
+  };
+
   const toCrop = (file: File, message = "Code-barres introuvable sur la photo. Entourez-le avec le doigt, puis « Lire cette zone ».") => {
     setCrop(DEFAULT_CROP);
     setState({ step: "crop", file, src: URL.createObjectURL(file), message });
@@ -176,11 +183,11 @@ export default function BarcodePanel({ onFound, onClose, onSearchByName, onCreat
       )}
 
       {state.step === "manual" && (
-        <form className="barcode-manual" onSubmit={(e) => { e.preventDefault(); const code = cleanProductCode(typed); if (code) void lookup(code); else setState({ step: "manual", error: "Code invalide : il faut les 8 ou 13 chiffres écrits sous les barres. Vérifiez qu'il n'en manque pas." }); }}>
+        <div className="barcode-manual">
           {state.error && <p className="food-hint">{state.error}</p>}
-          <input value={typed} onChange={(e) => setTyped(e.target.value)} inputMode="numeric" placeholder="Chiffres sous les barres" aria-label="Chiffres du code-barres" autoFocus />
-          <button type="submit" className="plan-confirm"><Icon name="check" size={14} /> Chercher</button>
-        </form>
+          <input value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchTyped(); } }} inputMode="numeric" enterKeyHint="search" placeholder="Chiffres sous les barres" aria-label="Chiffres du code-barres" autoFocus />
+          <button type="button" className="plan-confirm" onClick={searchTyped}><Icon name="check" size={14} /> Chercher</button>
+        </div>
       )}
 
       {state.step === "missing" && (
