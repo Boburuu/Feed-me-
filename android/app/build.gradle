@@ -3,7 +3,7 @@ apply plugin: 'com.android.application'
 // Signature de la version finale. La clé n'est jamais dans le dépôt :
 // - sur GitHub, elle vient des secrets du dépôt (variables FEEDME_KEYSTORE_*) ;
 // - sur le PC, du fichier ~/.feedme-signing/keystore.properties.
-// Sans clé, seule la version de test (debug) se compile.
+// Sans clé, seule une version de test avec une clé jetable se compile : elle ne peut pas remplacer l'app installée.
 def signing = new Properties()
 def signingFile = new File(System.getProperty("user.home"), ".feedme-signing/keystore.properties")
 if (System.getenv("FEEDME_KEYSTORE_FILE")) {
@@ -15,6 +15,15 @@ if (System.getenv("FEEDME_KEYSTORE_FILE")) {
     signingFile.withInputStream { signing.load(it) }
 }
 
+// Toujours croissant, sur le PC comme sur GitHub : une version installe par-dessus la précédente.
+def gitVersionCode() {
+    try {
+        return "git rev-list --count HEAD".execute(null, rootDir).text.trim() as Integer
+    } catch (ignored) {
+        return 1
+    }
+}
+
 android {
     namespace = "app.feedme.duo"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -23,7 +32,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Une mise à jour doit avoir un numéro plus grand : GitHub le fournit à chaque version.
-        versionCode((System.getenv("FEEDME_VERSION_CODE") ?: "1") as Integer)
+        versionCode gitVersionCode()
         versionName(System.getenv("FEEDME_VERSION_NAME") ?: "1.0")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // Téléphones Android récents uniquement (arm64) : les bibliothèques natives des autres
@@ -48,6 +57,10 @@ android {
         }
     }
     buildTypes {
+        // Même clé pour la version de test et la version du lien : l'une remplace l'autre sans effacer les données.
+        debug {
+            if (signing.storeFile) signingConfig signingConfigs.release
+        }
         release {
             if (signing.storeFile) signingConfig signingConfigs.release
             minifyEnabled false

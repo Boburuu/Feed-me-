@@ -53,8 +53,6 @@ jobs:
           FEEDME_KEYSTORE_PASSWORD: ${{ secrets.FEEDME_KEYSTORE_PASSWORD }}
           FEEDME_KEY_ALIAS: feedme
           FEEDME_KEY_PASSWORD: ${{ secrets.FEEDME_KEYSTORE_PASSWORD }}
-          # Chaque version doit avoir un numéro plus grand que la précédente pour s'installer par-dessus.
-          FEEDME_VERSION_CODE: ${{ github.run_number }}
           FEEDME_VERSION_NAME: ${{ github.ref_type == 'tag' && github.ref_name || format('test-{0}', github.run_number) }}
         run: |
           chmod +x gradlew
