@@ -971,7 +971,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 { page: "brouillons", icon: "edit", tone: "blue", title: "Repas en cours", sub: "Reprendre un repas commencé" },
                 { action: () => setModal("recap"), icon: "file", tone: "orange", title: "Bilan PDF", sub: "Télécharger un récap" },
                 { page: "donnees", icon: "shield", tone: "slate", title: "Sauvegarde et données", sub: "Sauvegarde, code et mes données" },
-                ...(canCheckUpdate() ? [{ action: () => void searchUpdate(), icon: "redo" as IconName, tone: "green", title: "Rechercher une mise à jour", sub: updateChecking ? "Recherche en cours…" : `Version installée : ${__APP_VERSION__.tag || "inconnue"}` }] : []),
+                { action: () => { if (canCheckUpdate()) void searchUpdate(); else flash("Sur le site, tu as déjà la dernière version à chaque ouverture"); }, icon: "redo", tone: "green", title: "Rechercher une mise à jour", sub: updateChecking ? "Recherche en cours…" : `${canCheckUpdate() ? "Version installée" : "Version du site"} : ${__APP_VERSION__.tag || "inconnue"}` },
               ],
             ];
             const query = settingsQuery.trim().toLocaleLowerCase("fr-FR").normalize("NFD").replace(/[̀-ͯ]/g, "");
