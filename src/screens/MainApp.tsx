@@ -44,7 +44,7 @@ import { drinkCategories, hydrationOf } from "../lib/hydration";
 import { confirmEaten, eatenMeals, isPlanned } from "../lib/planning";
 import EatenWhen, { dayLabel } from "../components/EatenWhen";
 import { sessionTypes } from "../lib/activity";
-import { findUpdate, UPDATE_URL } from "../lib/appUpdate";
+import { canCheckUpdate, checkUpdate, UPDATE_URL } from "../lib/appUpdate";
 import { HOME_MEAL_ORDER, mealGlyph, mealImageId } from "../lib/mealVisual";
 import UpdatePrompt from "../components/UpdatePrompt";
 import { formatWater, WATER_MAX, waterAmounts, waterGoal } from "../lib/water";
@@ -85,7 +85,6 @@ function defaultCategory(date = new Date()): MealCategory {
 }
 
 const RING_LENGTH = 2 * Math.PI * 43;
-const UPDATE_CHECK_MS = 6 * 3_600_000;
 
 export default function MainApp({ data, update, onLock, onReset, onImport }: MainAppProps) {
   const { profile, theme } = data;
@@ -315,19 +314,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   /** Nouvelle version publiée, cherchée une fois à l'ouverture. */
   const [updateTag, setUpdateTag] = useState<string | null>(null);
   const [updatePrompt, setUpdatePrompt] = useState(false);
+  const [updateChecking, setUpdateChecking] = useState(false);
+  // Une seule vérification à l'ouverture ; ensuite, à la demande depuis les paramètres.
   useEffect(() => {
+    if (!canCheckUpdate()) return;
     let alive = true;
-    let lastCheck = 0;
-    const check = () => {
-      if (Date.now() - lastCheck < UPDATE_CHECK_MS) return;
-      lastCheck = Date.now();
-      findUpdate().then((tag) => { if (alive && tag) { setUpdateTag(tag); setUpdatePrompt(true); } }).catch(() => undefined);
-    };
-    check();
-    // L'app reste souvent ouverte en arrière-plan : on regarde aussi à son retour.
-    const onVisible = () => { if (!document.hidden) check(); };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => { alive = false; document.removeEventListener("visibilitychange", onVisible); };
+    checkUpdate().then((check) => { if (alive && check.status === "new") { setUpdateTag(check.tag); setUpdatePrompt(true); } }).catch(() => undefined);
+    return () => { alive = false; };
   }, []);
   const todayMeals = eatenMeals(data.meals).filter((meal) => meal.date === homeDay);
   // Prévus aujourd'hui, et prévus les jours passés jamais validés (repas préparés à l'avance).
@@ -389,6 +382,16 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const flash = (message: string) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 2600);
+  };
+
+  const searchUpdate = async () => {
+    if (updateChecking) return;
+    setUpdateChecking(true);
+    const check = await checkUpdate();
+    setUpdateChecking(false);
+    if (check.status === "new") { setUpdateTag(check.tag); setUpdatePrompt(true); }
+    else if (check.status === "latest") { setUpdateTag(null); flash("Tu as déjà la dernière version"); }
+    else flash("Recherche impossible : vérifie ta connexion");
   };
 
   /**
@@ -968,6 +971,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 { page: "brouillons", icon: "edit", tone: "blue", title: "Repas en cours", sub: "Reprendre un repas commencé" },
                 { action: () => setModal("recap"), icon: "file", tone: "orange", title: "Bilan PDF", sub: "Télécharger un récap" },
                 { page: "donnees", icon: "shield", tone: "slate", title: "Sauvegarde et données", sub: "Sauvegarde, code et mes données" },
+                ...(canCheckUpdate() ? [{ action: () => void searchUpdate(), icon: "redo" as IconName, tone: "green", title: "Rechercher une mise à jour", sub: updateChecking ? "Recherche en cours…" : `Version installée : ${__APP_VERSION__.tag || "inconnue"}` }] : []),
               ],
             ];
             const query = settingsQuery.trim().toLocaleLowerCase("fr-FR").normalize("NFD").replace(/[̀-ͯ]/g, "");

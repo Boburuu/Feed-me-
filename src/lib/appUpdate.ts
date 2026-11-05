@@ -16,18 +16,19 @@ export function isNewerVersion(latest: string, current: string) {
   return false;
 }
 
-/**
- * Demande à GitHub le numéro de la dernière version publiée, rien de plus : aucune donnée n'est
- * envoyée. La version web se met à jour toute seule. Sans réseau, on ne dit rien.
- */
-export async function findUpdate(current = __APP_VERSION__.tag): Promise<string | null> {
-  if (!Capacitor.isNativePlatform()) return null;
+export type UpdateCheck = { status: "new"; tag: string } | { status: "latest" } | { status: "error" };
+
+/** La version web se met à jour toute seule : seule l'app installée a besoin de chercher. */
+export const canCheckUpdate = () => Capacitor.isNativePlatform();
+
+/** Demande à GitHub le numéro de la dernière version publiée, rien de plus : aucune donnée n'est envoyée. */
+export async function checkUpdate(current = __APP_VERSION__.tag): Promise<UpdateCheck> {
   try {
     const response = await fetch(LATEST_RELEASE_URL, { headers: { Accept: "application/vnd.github+json" }, signal: AbortSignal.timeout(8000) });
-    if (!response.ok) return null;
+    if (!response.ok) return { status: "error" };
     const { tag_name: latest } = (await response.json()) as { tag_name?: string };
-    return latest && isNewerVersion(latest, current) ? latest : null;
+    return latest && isNewerVersion(latest, current) ? { status: "new", tag: latest } : { status: "latest" };
   } catch {
-    return null;
+    return { status: "error" };
   }
 }
