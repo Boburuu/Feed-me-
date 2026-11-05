@@ -415,3 +415,8 @@ html[data-theme="glace-claire"], html[data-theme="glace-claire"] body { backgrou
 .phone .custom-food .awake-toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .phone .custom-food .awake-toggle input { flex: none; width: 22px; height: 22px; }
 .sv-actions .ghost-button { padding-inline: 8px; font-size: 14px; }
+.phone .composer-bar .recipe-bar-actions button.secondary { color: var(--ink); background: var(--s2); box-shadow: none; }
+.phone .composer-bar small { display: block; overflow: visible; opacity: 1; white-space: normal; -webkit-line-clamp: unset; }
+.phone .composer-bar { grid-template-columns: minmax(0, 1fr); }
+.phone .composer-bar .recipe-bar-actions { justify-content: flex-end; }
+.phone .composer-bar .recipe-bar-actions button { min-height: 44px; }
