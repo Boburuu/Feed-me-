@@ -15,6 +15,7 @@ export default function UpdatePrompt({ version, onClose }: UpdatePromptProps) {
         <h2 id="update-title">Nouvelle version disponible</h2>
         <p className="update-version">Feed Me {version}</p>
         <p>Elle s'installe par-dessus celle que tu as déjà : tes repas, tes recettes et tes réglages restent.</p>
+        <p className="update-warning">Chrome peut afficher « fichier potentiellement dangereux » : c'est normal pour une app installée hors du Play Store. Tu peux accepter pour ce fichier, téléchargé depuis ce bouton.</p>
       </div>
       <div className="update-actions">
         <a className="submit-button" href={UPDATE_URL} target="_blank" rel="noreferrer" onClick={onClose}><Icon name="download" /> Mettre à jour</a>
