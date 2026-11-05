@@ -37,17 +37,14 @@ const rows = (week: WeekFigures, previous: WeekFigures, waterGoal: number) => [
 export function ReportSummary({ data, targets, today, onOpen }: WeeklyReportCardProps & { onOpen: () => void }) {
   const report = useMemo(() => weeklyReport(data, targets, reportWeekStart(today)), [data, targets, today]);
   return (
-    <section className="report-summary">
-      {report.insufficient ? (
-        <p className="report-empty">Bilan : {report.week.daysLogged} jour{report.week.daysLogged > 1 ? "s" : ""} noté{report.week.daysLogged > 1 ? "s" : ""} cette semaine, il en faut 4 pour un bilan juste.</p>
-      ) : (
-        <>
-          {report.good[0] && <div className="report-block good"><p className="report-title">Ce qui va bien</p><p>{report.good[0]}</p></div>}
-          {report.improve[0] && <div className="report-block improve"><p className="report-title">À améliorer</p><p>{report.improve[0].text}<small>👉 {report.improve[0].action}</small></p></div>}
-        </>
-      )}
-      <button type="button" className="text-button" onClick={onOpen}>Tout le bilan ›</button>
-    </section>
+    <button type="button" className="sv-alert" onClick={onOpen}>
+      <span className="q-i"><Icon name={report.insufficient ? "chart" : report.improve[0] ? "bulb" : "check"} size={18} /></span>
+      <span className="m-t">
+        <b>{report.insufficient ? `Bilan : ${report.week.daysLogged} jour${report.week.daysLogged > 1 ? "s" : ""} noté${report.week.daysLogged > 1 ? "s" : ""} cette semaine` : report.improve[0]?.text ?? report.good[0] ?? "Ta semaine"}</b>
+        <small>Voir tout le bilan</small>
+      </span>
+      <Icon name="chevron" size={16} />
+    </button>
   );
 }
 

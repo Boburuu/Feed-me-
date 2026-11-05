@@ -7,12 +7,16 @@ type ActivityTabProps = {
   data: AppData;
   update: (change: (data: AppData) => AppData) => void;
   flash: (message: string) => void;
+  /** Ouvre le réglage des pas. */
+  onOpenSteps: () => void;
 };
+
+const RING_LENGTH = 2 * Math.PI * 43;
 
 const parse = (key: string) => new Date(`${key}T12:00:00`);
 const addDays = (key: string, days: number) => { const date = parse(key); date.setDate(date.getDate() + days); return todayKey(date); };
 
-export default function ActivityTab({ data, update, flash }: ActivityTabProps) {
+export default function ActivityTab({ data, update, flash, onOpenSteps }: ActivityTabProps) {
   const today = todayKey();
   const [type, setType] = useState<SessionType>("marche");
   const [minutes, setMinutes] = useState("30");
@@ -28,6 +32,7 @@ export default function ActivityTab({ data, update, flash }: ActivityTabProps) {
   const weekMax = Math.max(60, ...week.map(minutesOf));
   const sorted = [...data.sessions].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
   const tasksDone = data.tasks.filter((task) => task.done).length;
+  const stepsToday = data.steps[today]?.count ?? 0;
 
   const addSession = (event: React.FormEvent) => {
     event.preventDefault();
@@ -64,43 +69,56 @@ export default function ActivityTab({ data, update, flash }: ActivityTabProps) {
 
   return (
     <div className="content page-content">
-      <section className="page-heading">
-        <span className="large-icon mint-icon"><Icon name="shoe" size={25} /></span>
-        <p className="eyebrow">Bouger</p>
-        <h2>Activité & défis</h2>
-        <p>Notez vos séances : l'OMS recommande au moins 150 minutes d'activité modérée par semaine.</p>
+      <section className="hc">
+        <div className="hc-g ac-hero">
+          <span className="kr">
+            <svg viewBox="0 0 100 100" aria-hidden="true">
+              <defs><linearGradient id="kr-gradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="var(--ring-a)" /><stop offset="1" stopColor="var(--ring-b)" /></linearGradient></defs>
+              <circle className="kr-t" cx="50" cy="50" r="43" />
+              <circle className="kr-p" cx="50" cy="50" r="43" transform="rotate(-90 50 50)" strokeDasharray={`${Math.min(1, weekTotal / WEEKLY_GOAL) * RING_LENGTH} ${RING_LENGTH}`} />
+            </svg>
+            <span className="kr-c"><strong style={{ "--len": String(weekTotal).length } as React.CSSProperties}>{weekTotal}</strong><small>min sur {WEEKLY_GOAL}</small></span>
+          </span>
+          <span className="sv-bars ac-bars" role="img" aria-label="Minutes d'activité de la semaine">
+            {week.map((day, index) => (
+              <span key={day} className={day === today ? "on" : ""}>
+                <i style={{ height: `${Math.max(6, (minutesOf(day) / weekMax) * 100)}%` }} className={minutesOf(day) ? "st-ok" : "st-none"} />
+                <small>{["L", "M", "M", "J", "V", "S", "D"][index]}</small>
+              </span>
+            ))}
+          </span>
+        </div>
+        <small className="hc-n">{weekTotal >= WEEKLY_GOAL ? "Repère OMS atteint, bravo !" : `Encore ${WEEKLY_GOAL - weekTotal} min pour le repère OMS`} · une minute intense compte double</small>
       </section>
 
-      <section className="weekly-card">
-        <div>
-          <span>Cette semaine</span>
-          <strong>{weekTotal} min</strong>
-          <small>{weekTotal >= WEEKLY_GOAL ? "Repère OMS atteint, bravo !" : `Encore ${WEEKLY_GOAL - weekTotal} min pour le repère OMS`} · intense = ×2</small>
-        </div>
-        <div className="week-bars">
-          {week.map((day, index) => (
-            <span key={day}>
-              <i style={{ height: `${Math.max(4, (minutesOf(day) / weekMax) * 100)}%` }} className={`${day === today ? "today" : ""} ${minutesOf(day) ? "bar-ok" : ""}`} />
-              <small>{["L", "M", "M", "J", "V", "S", "D"][index]}</small>
-            </span>
-          ))}
-        </div>
-      </section>
-      <span className="goal-bar activity-goal"><span style={{ width: `${Math.min(100, (weekTotal / WEEKLY_GOAL) * 100)}%` }} /></span>
+      <button type="button" className="q ac-steps" onClick={onOpenSteps}>
+        <span className="q-i"><Icon name="shoe" size={18} /></span>
+        <span className="m-t"><b>{stepsToday ? stepsToday.toLocaleString("fr-FR") : "—"} pas aujourd'hui</b><small>sur {data.stepGoal.toLocaleString("fr-FR")}</small></span>
+        <span className="gg"><i style={{ width: `${Math.min(100, (stepsToday / data.stepGoal) * 100)}%` }} /></span>
+      </button>
 
-      <section className="section-block">
-        <div className="section-title"><div><p className="eyebrow">Nouvelle séance</p><h2>J'ai bougé</h2></div></div>
+      <section className="sv-card ac-form">
+        <h2>J'ai bougé</h2>
         <form className="session-form" onSubmit={addSession}>
           <div className="session-types" role="radiogroup" aria-label="Type d'activité">
             {sessionTypes.map((item) => (
               <button type="button" role="radio" aria-checked={type === item.id} key={item.id} className={type === item.id ? "selected" : ""} onClick={() => setType(item.id)}>
-                <Icon name={item.icon} size={18} /><small>{item.label}</small>
+                <Icon name={item.icon} size={20} /><small>{item.label}</small>
               </button>
             ))}
           </div>
-          <div className="session-fields">
-            <label><span>Durée</span><div><input type="number" inputMode="numeric" min="1" max="600" value={minutes} onChange={(e) => setMinutes(e.target.value)} /><small>min</small></div></label>
-            <label><span>Jour</span><input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} /></label>
+          <div className="ac-row">
+            <span className="plan-label">Durée</span>
+            <div className="ac-stepper">
+              <button type="button" onClick={() => setMinutes(String(Math.max(1, (Number(minutes) || 0) - 5)))} aria-label="5 minutes de moins"><Icon name="minus" size={18} /></button>
+              <label><input type="number" inputMode="numeric" min="1" max="600" value={minutes} onChange={(e) => setMinutes(e.target.value)} aria-label="Durée en minutes" /><small>min</small></label>
+              <button type="button" onClick={() => setMinutes(String(Math.min(600, (Number(minutes) || 0) + 5)))} aria-label="5 minutes de plus"><Icon name="plus" size={18} /></button>
+            </div>
+          </div>
+          <div className="ac-days">
+            <button type="button" className={date === today ? "selected" : ""} aria-pressed={date === today} onClick={() => setDate(today)}>Aujourd'hui</button>
+            <button type="button" className={date === addDays(today, -1) ? "selected" : ""} aria-pressed={date === addDays(today, -1)} onClick={() => setDate(addDays(today, -1))}>Hier</button>
+            <label className={date !== today && date !== addDays(today, -1) ? "selected" : ""}><span>Autre jour</span><input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} /></label>
           </div>
           <div className="sex-selector" role="radiogroup" aria-label="Intensité">
             <button type="button" role="radio" aria-checked={!intense} className={!intense ? "selected" : ""} onClick={() => setIntense(false)}>Modérée · on peut parler</button>

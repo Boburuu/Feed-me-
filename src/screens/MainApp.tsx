@@ -32,7 +32,7 @@ import { backfillCarbs, backfillExtras } from "../lib/carbsBackfill";
 import { correctPastMeals, mealsWithProduct } from "../lib/corrections";
 import { CorrectionsContext, type CorrectionsApi } from "../lib/correctionsContext";
 import { DRAFT_HOURS, hasContent, lastTab, mealDraft, setDraftHours, type MealDraft } from "../lib/drafts";
-import { programFor } from "../lib/goals";
+import { goals, programFor } from "../lib/goals";
 import { tipAt, tips, tipThemes } from "../lib/tips";
 import TipSplash from "../components/TipSplash";
 import TipsCorner from "../components/TipsCorner";
@@ -44,9 +44,11 @@ import { drinkCategories, hydrationOf } from "../lib/hydration";
 import { confirmEaten, eatenMeals, isPlanned } from "../lib/planning";
 import EatenWhen, { dayLabel } from "../components/EatenWhen";
 import { sessionTypes } from "../lib/activity";
-import { dismissUpdate, findUpdate, UPDATE_URL, updateDismissed } from "../lib/appUpdate";
+import { findUpdate, UPDATE_URL } from "../lib/appUpdate";
+import { HOME_MEAL_ORDER, mealGlyph, mealImageId } from "../lib/mealVisual";
+import UpdatePrompt from "../components/UpdatePrompt";
 import { formatWater, WATER_MAX, waterAmounts, waterGoal } from "../lib/water";
-import { computePlan, observedMaintenance } from "../lib/nutrition";
+import { bmi, computePlan, observedMaintenance } from "../lib/nutrition";
 import { bodyErrors, draftFrom, goalErrors, parseDraft } from "../lib/planDraft";
 import {
   initials,
@@ -83,8 +85,7 @@ function defaultCategory(date = new Date()): MealCategory {
 }
 
 const RING_LENGTH = 2 * Math.PI * 43;
-const HOME_MEAL_ORDER: MealCategory[] = ["petit-dejeuner", "dejeuner", "collation", "diner"];
-const mealGlyph: Record<MealCategory, IconName> = { "petit-dejeuner": "coffee", dejeuner: "bowl", collation: "cookie", diner: "moon" };
+const UPDATE_CHECK_MS = 6 * 3_600_000;
 
 export default function MainApp({ data, update, onLock, onReset, onImport }: MainAppProps) {
   const { profile, theme } = data;
@@ -289,6 +290,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const [notice, setNotice] = useState("");
   const [planDraft, setPlanDraft] = useState(() => draftFrom(profile, data.plan));
   const [planErrors, setPlanErrors] = useState<string[]>([]);
+  /** Section ouverte de la page Mon objectif. */
+  const [objectiveSection, setObjectiveSection] = useState("goal");
   /** Jour auquel le formulaire de repas ajoute l'entrée (aujourd'hui, ou un jour choisi dans le suivi). */
   const [mealDate, setMealDate] = useState(startDraft?.date ?? today);
   const photoInput = useRef<HTMLInputElement>(null);
@@ -311,11 +314,20 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const [homeDay, setHomeDay] = useState(today);
   /** Nouvelle version publiée, cherchée une fois à l'ouverture. */
   const [updateTag, setUpdateTag] = useState<string | null>(null);
-  const [updateHidden, setUpdateHidden] = useState(false);
+  const [updatePrompt, setUpdatePrompt] = useState(false);
   useEffect(() => {
     let alive = true;
-    findUpdate().then((tag) => { if (alive && tag) { setUpdateTag(tag); setUpdateHidden(updateDismissed(tag)); } }).catch(() => undefined);
-    return () => { alive = false; };
+    let lastCheck = 0;
+    const check = () => {
+      if (Date.now() - lastCheck < UPDATE_CHECK_MS) return;
+      lastCheck = Date.now();
+      findUpdate().then((tag) => { if (alive && tag) { setUpdateTag(tag); setUpdatePrompt(true); } }).catch(() => undefined);
+    };
+    check();
+    // L'app reste souvent ouverte en arrière-plan : on regarde aussi à son retour.
+    const onVisible = () => { if (!document.hidden) check(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { alive = false; document.removeEventListener("visibilitychange", onVisible); };
   }, []);
   const todayMeals = eatenMeals(data.meals).filter((meal) => meal.date === homeDay);
   // Prévus aujourd'hui, et prévus les jours passés jamais validés (repas préparés à l'avance).
@@ -326,11 +338,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const carbsToday = todayMeals.reduce((sum, meal) => sum + (meal.carbs ?? 0), 0);
   const fatToday = todayMeals.reduce((sum, meal) => sum + (meal.fat ?? 0), 0);
   const sessionsToday = data.sessions.filter((session) => session.date === homeDay);
-  /** Photo de la recette d'un repas, si elle en a une. */
-  const mealImage = (meal: Meal) => {
-    const ref = meal.items?.find((item) => item.source === "recette")?.ref;
-    return ref ? data.recipes.find((recipe) => String(recipe.id) === ref)?.images?.[0] : undefined;
-  };
+  const mealImage = (meal: Meal) => mealImageId(meal, data.recipes);
   const observed = observedMaintenance(eatenMeals(data.meals), data.weights, today);
 
   // Aperçu en direct pendant la saisie ; la valeur enregistrée sinon.
@@ -705,6 +713,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   return (
     <CorrectionsContext.Provider value={correctionsApi}>
     <TableeContext.Provider value={tableeApi}>
+      {updatePrompt && updateTag && <UpdatePrompt version={updateTag} onClose={() => setUpdatePrompt(false)} />}
       {showSplash && modal === null && (
         <TipSplash tip={todayTip} favorite={favoriteTips.includes(todayTip.id)} onToggleFavorite={() => toggleFavoriteTip(todayTip.id)} onClose={() => setShowSplash(false)} onOpenCorner={() => { setShowSplash(false); setModal("tips"); }} onNext={nextTip} />
       )}
@@ -713,25 +722,18 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
       <header className="topbar">
         <div>
           <p className="eyebrow">{dateLabel}<span className="version-tag" title={versionLabel()}>{shortVersion()}</span></p>
-          <h1>Bonjour, {displayName}</h1>
+          <h1>{activeTab === "Suivi" || activeTab === "Activité" || activeTab === "Recettes" ? activeTab : `Bonjour, ${displayName}`}</h1>
         </div>
+        <span className="topbar-actions">
+        {activeTab === "Suivi" && <button type="button" className="round-button soft" onClick={() => setModal("recap")} aria-label="Télécharger mon bilan en PDF"><Icon name="file" size={20} /></button>}
         <button className={activeTab === "Profil" ? "avatar active" : "avatar"} onClick={openProfile} aria-label="Ouvrir mon profil">
           {avatar}
         </button>
+        </span>
       </header>
 
       {activeTab === "Accueil" && (
         <div className="content home-content">
-          {updateTag && !updateHidden && (
-            <section className="update-card" role="status">
-              <span className="q-i"><Icon name="download" size={18} /></span>
-              <span className="m-t"><b>Nouvelle version {updateTag}</b><small>Elle s'installe par-dessus, tes données restent.</small></span>
-              <span className="update-actions">
-                <button type="button" className="text-button" onClick={() => { dismissUpdate(updateTag); setUpdateHidden(true); }}>Plus tard</button>
-                <a className="plan-confirm" href={UPDATE_URL} target="_blank" rel="noreferrer">Mettre à jour</a>
-              </span>
-            </section>
-          )}
           <DayStrip meals={data.meals} goal={goal} today={today} selected={homeDay} onSelect={setHomeDay} />
 
           <section className="hc">
@@ -923,7 +925,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
         </div>
       )}
 
-      {activeTab === "Activité" && <ActivityTab data={data} update={update} flash={flash} />}
+      {activeTab === "Activité" && <ActivityTab data={data} update={update} flash={flash} onOpenSteps={() => setModal("steps")} />}
 
       {activeTab === "Suivi" && (
         <TrackingTab
@@ -943,7 +945,6 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           onShareMeal={shareMeal}
           onShare={(payload) => openShare(payload)}
           onPlanMeal={(date) => openMealForm(date, true)}
-          onRecap={() => setModal("recap")}
           flash={flash}
         />
       )}
@@ -1043,38 +1044,50 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           </section>
           )}
 
-          {settingsPage === "objectif" && (
-          <section className="section-block" id="mon-objectif">
-            <div className="section-title"><div><p className="eyebrow">Objectif</p><h2>Mon objectif et mes besoins</h2></div></div>
-            <form className="calculator-card" onSubmit={savePlan} noValidate>
-              <PlanEditor value={planDraft} onChange={(draft) => { setPlanDraft(draft); setPlanErrors([]); }} sections={["goal", "body"]} />
-              {planErrors.map((error) => <p key={error} className="form-error" role="alert">{error}</p>)}
-              <button className="submit-button" type="submit"><Icon name="check" /> Enregistrer mon objectif</button>
-            </form>
-
-            <PlanResults result={previewResult} body={preview.body} goal={preview.plan.goal} targetWeight={preview.plan.targetWeight} />
-
-            <section className="observed-card">
-              <span className="metric-icon"><Icon name="chart" /></span>
-              <div>
-                <p className="eyebrow">Besoin réel mesuré</p>
-                {observed.ready ? (
+          {settingsPage === "objectif" && (() => {
+            const section = (id: string, title: string, summary: string, content: React.ReactNode) => (
+              <section className={objectiveSection === id ? "acc open" : "acc"} key={id}>
+                <button type="button" className="acc-h" aria-expanded={objectiveSection === id} onClick={() => setObjectiveSection(objectiveSection === id ? "" : id)}>
+                  <span className="m-t"><b>{title}</b><small>{summary}</small></span>
+                  <Icon name="chevron" size={16} />
+                </button>
+                {objectiveSection === id && <div className="acc-b">{content}</div>}
+              </section>
+            );
+            const chosenGoal = goals.find((item) => item.id === planDraft.goal);
+            return (
+              <form className="objective-page" id="mon-objectif" onSubmit={savePlan} noValidate>
+                <h2 className="set-title">Mon objectif</h2>
+                <section className="ob-res" aria-live="polite">
+                  <div><strong>{previewResult.target.toLocaleString("fr-FR")}</strong><small>kcal par jour</small></div>
+                  <div className="sv-mac">
+                    <span><b>{previewResult.macros.protein} g</b><small>protéines</small></span>
+                    <span><b>{previewResult.macros.carbs} g</b><small>glucides</small></span>
+                    <span><b>{previewResult.macros.fat} g</b><small>lipides</small></span>
+                  </div>
+                </section>
+                {section("goal", "Mon objectif", planDraft.goal === "maintien" ? chosenGoal?.label ?? "" : `${chosenGoal?.label} · ${planDraft.targetWeight.replace(".", ",")} kg · ${planDraft.pace.toLocaleString("fr-FR")} kg par semaine`, <PlanEditor value={planDraft} onChange={(draft) => { setPlanDraft(draft); setPlanErrors([]); }} sections={["goal"]} />)}
+                {section("method", "Ma méthode", programFor(planDraft.program).label, <PlanEditor value={planDraft} onChange={(draft) => { setPlanDraft(draft); setPlanErrors([]); }} sections={["method"]} />)}
+                {section("body", "Mon profil physique", `${planDraft.sex === "femme" ? "Femme" : "Homme"}, ${planDraft.age} ans, ${planDraft.height} cm, ${planDraft.weight.replace(".", ",")} kg`, <PlanEditor value={planDraft} onChange={(draft) => { setPlanDraft(draft); setPlanErrors([]); }} sections={["body"]} />)}
+                {section("detail", "Le détail du calcul", `Entretien ${previewResult.maintenance.toLocaleString("fr-FR")} kcal, IMC ${bmi(preview.body.weight, preview.body.height).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}`, <PlanResults result={previewResult} body={preview.body} goal={preview.plan.goal} targetWeight={preview.plan.targetWeight} />)}
+                {section("measured", "Besoin réel mesuré", observed.ready ? `Environ ${observed.maintenance.toLocaleString("fr-FR")} kcal` : "D'après tes repas et tes pesées", observed.ready ? (
                   <>
-                    <p>
+                    <p className="theme-description">
                       D'après vos repas et pesées des {observed.days} derniers jours ({observed.loggedDays} jours notés), votre poids évolue de {observed.weeklyChange > 0 ? "+" : "−"}{Math.abs(observed.weeklyChange).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} kg par semaine : votre besoin d'entretien réel est d'environ <strong>{observed.maintenance.toLocaleString("fr-FR")} kcal</strong>.
                     </p>
                     {plan.customMaintenance
-                      ? <button className="text-button" onClick={() => applyObserved(null)}>Revenir à la formule</button>
-                      : <button className="add-button" onClick={() => applyObserved(observed.maintenance)}><Icon name="check" size={15} /> Utiliser cette valeur</button>}
+                      ? <button type="button" className="text-button" onClick={() => applyObserved(null)}>Revenir à la formule</button>
+                      : <button type="button" className="add-button" onClick={() => applyObserved(observed.maintenance)}><Icon name="check" size={15} /> Utiliser cette valeur</button>}
                   </>
                 ) : (
-                  <p>{observed.reason} Notez vos repas et pesez-vous chaque semaine : l'app calculera votre besoin réel, plus fiable que n'importe quelle formule.</p>
-                )}
-              </div>
-            </section>
-            <p className="health-note">Ces estimations sont indicatives et ne remplacent pas l'avis d'un professionnel de santé.</p>
-          </section>
-          )}
+                  <p className="theme-description">{observed.reason} Notez vos repas et pesez-vous chaque semaine : l'app calculera votre besoin réel, plus fiable que n'importe quelle formule.</p>
+                ))}
+                {planErrors.map((error) => <p key={error} className="form-error" role="alert">{error}</p>)}
+                <button className="submit-button" type="submit"><Icon name="check" /> Enregistrer mon objectif</button>
+                <p className="health-note">Ces estimations sont indicatives et ne remplacent pas l'avis d'un professionnel de santé.</p>
+              </form>
+            );
+          })()}
 
           {settingsPage === "apparence" && (
           <section className="section-block">

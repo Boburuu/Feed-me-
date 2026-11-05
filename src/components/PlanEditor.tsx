@@ -7,7 +7,7 @@ import type { Sex } from "../lib/storage";
 type PlanEditorProps = {
   value: PlanDraft;
   onChange: (draft: PlanDraft) => void;
-  sections: ("body" | "goal")[];
+  sections: ("body" | "goal" | "method")[];
 };
 
 const kg = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
@@ -109,7 +109,12 @@ export default function PlanEditor({ value, onChange, sections }: PlanEditorProp
             </>
           )}
 
-          <p className="plan-label">Ma méthode</p>
+        </fieldset>
+      )}
+
+      {sections.includes("method") && (
+        <fieldset className="plan-group">
+          <legend>Ma méthode</legend>
           <div className="option-list" role="radiogroup" aria-label="Méthode">
             {programsForGoal(value.goal).map((program) => (
               <button type="button" role="radio" aria-checked={value.program === program.id} key={program.id} className={value.program === program.id ? "selected" : ""} onClick={() => set({ program: program.id })}>

@@ -185,7 +185,7 @@ export default function Onboarding({ onCreate, onImport }: OnboardingProps) {
           <p className="eyebrow">Étape 3</p>
           <h2>Votre objectif</h2>
           <p className="form-hint">L'accueil, les conseils et le suivi s'adaptent à votre choix. Vous pourrez le modifier à tout moment dans le profil.</p>
-          <PlanEditor value={draft} onChange={changeDraft} sections={["goal"]} />
+          <PlanEditor value={draft} onChange={changeDraft} sections={["goal", "method"]} />
           {goalValid && <PlanResults result={computePlan(body, { ...plan, customMaintenance: null })} body={body} goal={plan.goal} targetWeight={plan.targetWeight} compact />}
           {errors.map((error) => <p key={error} className="form-error" role="alert">{error}</p>)}
           <div className="form-actions">

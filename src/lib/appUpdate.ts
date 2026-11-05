@@ -3,7 +3,6 @@ import { Capacitor } from "@capacitor/core";
 /** Toujours la dernière version publiée. */
 export const UPDATE_URL = "https://github.com/Boburuu/Feed-me-/releases/latest/download/feed-me.apk";
 const LATEST_RELEASE_URL = "https://api.github.com/repos/Boburuu/Feed-me-/releases/latest";
-const DISMISSED_KEY = "feedme:maj-ignoree";
 
 const parts = (tag: string) => /^v?(\d+)\.(\d+)(?:\.(\d+))?$/.exec(tag.trim())?.slice(1).map((part) => Number(part ?? 0)) ?? null;
 
@@ -32,11 +31,3 @@ export async function findUpdate(current = __APP_VERSION__.tag): Promise<string 
     return null;
   }
 }
-
-export const updateDismissed = (tag: string) => {
-  try { return window.localStorage.getItem(DISMISSED_KEY) === tag; } catch { return false; }
-};
-
-export const dismissUpdate = (tag: string) => {
-  try { window.localStorage.setItem(DISMISSED_KEY, tag); } catch { /* Le bandeau reviendra à la prochaine ouverture. */ }
-};
