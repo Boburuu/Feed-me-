@@ -32,7 +32,15 @@ export default function App() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 
-  const theme = data?.theme ?? "sauge";
+  const chosenTheme = data?.theme ?? "glace-sombre";
+  const [phoneDark, setPhoneDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => setPhoneDark(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  const theme = chosenTheme === "auto" ? (phoneDark ? "sombre" : "clair") : chosenTheme;
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);

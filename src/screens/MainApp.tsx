@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import ActivityTab from "../components/ActivityTab";
 import ChangePin from "../components/ChangePin";
+import DayStrip from "../components/DayStrip";
+import StoredImage from "../components/StoredImage";
 import FastingCard from "../components/FastingCard";
 import MealComposer, { type MealExtras } from "../components/MealComposer";
 import GoalCard from "../components/GoalCard";
@@ -41,6 +43,7 @@ import { recipeResult, toMealItem } from "../lib/foods";
 import { drinkCategories, hydrationOf } from "../lib/hydration";
 import { confirmEaten, eatenMeals, isPlanned } from "../lib/planning";
 import EatenWhen, { dayLabel } from "../components/EatenWhen";
+import { sessionTypes } from "../lib/activity";
 import { formatWater, WATER_MAX, waterAmounts, waterGoal } from "../lib/water";
 import { computePlan, observedMaintenance } from "../lib/nutrition";
 import { bodyErrors, draftFrom, goalErrors, parseDraft } from "../lib/planDraft";
@@ -67,6 +70,7 @@ type MainAppProps = {
 };
 
 type Tab = "Accueil" | "Suivi" | "Activité" | "Recettes" | "Profil";
+type SettingsPage = "compte" | "objectif" | "apparence" | "hydratation" | "rappels" | "conseils" | "brouillons" | "tablee" | "donnees";
 type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | "share-out" | "weigh" | "tips" | "recap" | "pantry" | null;
 
 function defaultCategory(date = new Date()): MealCategory {
@@ -77,12 +81,9 @@ function defaultCategory(date = new Date()): MealCategory {
   return "diner";
 }
 
-const categoryStyle: Record<MealCategory, string> = {
-  "petit-dejeuner": "breakfast",
-  dejeuner: "lunch",
-  diner: "dinner",
-  collation: "breakfast",
-};
+const RING_LENGTH = 2 * Math.PI * 43;
+const HOME_MEAL_ORDER: MealCategory[] = ["petit-dejeuner", "dejeuner", "collation", "diner"];
+const mealGlyph: Record<MealCategory, IconName> = { "petit-dejeuner": "coffee", dejeuner: "bowl", collation: "cookie", diner: "moon" };
 
 export default function MainApp({ data, update, onLock, onReset, onImport }: MainAppProps) {
   const { profile, theme } = data;
@@ -306,13 +307,21 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const program = programFor(plan.program);
   const showProtein = plan.program === "seche" || plan.program === "masse";
   // Repas mangés aujourd'hui ; les repas prévus attendent un « J'ai mangé ».
-  const todayMeals = eatenMeals(data.meals).filter((meal) => meal.date === today);
+  const [homeDay, setHomeDay] = useState(today);
+  const todayMeals = eatenMeals(data.meals).filter((meal) => meal.date === homeDay);
   // Prévus aujourd'hui, et prévus les jours passés jamais validés (repas préparés à l'avance).
-  const plannedToday = data.meals.filter((meal) => meal.date <= today && isPlanned(meal)).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+  const plannedToday = data.meals.filter((meal) => (homeDay === today ? meal.date <= today : meal.date === homeDay) && isPlanned(meal)).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
   const [askingEaten, setAskingEaten] = useState<number | null>(null);
   const consumed = todayMeals.reduce((sum, meal) => sum + meal.calories, 0);
   const proteinToday = todayMeals.reduce((sum, meal) => sum + (meal.protein ?? 0), 0);
   const carbsToday = todayMeals.reduce((sum, meal) => sum + (meal.carbs ?? 0), 0);
+  const fatToday = todayMeals.reduce((sum, meal) => sum + (meal.fat ?? 0), 0);
+  const sessionsToday = data.sessions.filter((session) => session.date === homeDay);
+  /** Photo de la recette d'un repas, si elle en a une. */
+  const mealImage = (meal: Meal) => {
+    const ref = meal.items?.find((item) => item.source === "recette")?.ref;
+    return ref ? data.recipes.find((recipe) => String(recipe.id) === ref)?.images?.[0] : undefined;
+  };
   const observed = observedMaintenance(eatenMeals(data.meals), data.weights, today);
 
   // Aperçu en direct pendant la saisie ; la valeur enregistrée sinon.
@@ -321,9 +330,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const previewResult = draftValid ? computePlan(preview.body, { ...preview.plan, customMaintenance: plan.customMaintenance }) : result;
   const remaining = goal - consumed;
   const progress = Math.round((consumed / goal) * 100);
-  const water = data.water[today] ?? 0;
+  const water = data.water[homeDay] ?? 0;
   // Eau ajoutée ici + boissons des repas du jour (calculées, jamais recopiées).
-  const hydration = hydrationOf(data, today);
+  const hydration = hydrationOf(data, homeDay);
   const [waterDetail, setWaterDetail] = useState(false);
   /** La boisson reste dans le repas (calories), mais ne compte plus dans l'hydratation. */
   const removeDrink = (mealId: number, index: number) =>
@@ -355,10 +364,10 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     }),
   };
   const goalWater = waterGoal(profile.sex);
-  const stepsToday = data.steps[today];
+  const stepsToday = data.steps[homeDay];
   const latestWeight = [...data.weights].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
   const displayName = profile.pseudo || profile.firstName;
-  const dateLabel = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const dateLabel = new Date(activeTab === "Accueil" ? `${homeDay}T12:00:00` : Date.now()).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 
   const flash = (message: string) => {
     setNotice(message);
@@ -476,13 +485,16 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     setComposerKey((value) => value + 1);
     setModal("meal");
   };
-  const openMealForm = (date = today, planned = false) => {
+  /** Moment choisi depuis une ligne de l'accueil ; sinon celui de l'heure. */
+  const [composerCategory, setComposerCategory] = useState<MealCategory | null>(null);
+  const openMealForm = (date = today, planned = false, category: MealCategory | null = null) => {
+    setComposerCategory(category);
     setPendingAck(null);
     setCheatStart(false);
     setPlanning(planned);
     // Brouillon du moment de repas en cours (dîner le soir…), sinon le plus récent.
     const drafts = mealDraft.all().filter((entry) => !entry.editingId && hasContent(entry));
-    const draft = drafts.find((entry) => entry.category === defaultCategory()) ?? drafts[0] ?? null;
+    const draft = drafts.find((entry) => entry.category === (category ?? defaultCategory())) ?? (category ? null : drafts[0] ?? null);
     setRestoredDraft(null);
     setOfferedDraft(draft);
     setMealDate(date);
@@ -503,7 +515,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   };
   const addWater = (ml: number) => {
     if (ml > 0) setLastWater(ml);
-    update((current) => ({ ...current, water: { ...current.water, [today]: Math.max(0, Math.min(WATER_MAX, (current.water[today] ?? 0) + ml)) } }));
+    update((current) => ({ ...current, water: { ...current.water, [homeDay]: Math.max(0, Math.min(WATER_MAX, (current.water[homeDay] ?? 0) + ml)) } }));
   };
 
   /** Photo prise depuis l'accueil : la fenêtre d'ajout de repas l'analyse à l'ouverture. */
@@ -512,7 +524,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     event.target.value = "";
     if (!file) return;
     setMealPhoto(file);
-    openMealForm();
+    openMealForm(homeDay, homeDay > today);
   };
 
   const changeAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -648,14 +660,22 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   };
 
   const [trackingView, setTrackingView] = useState<TrackingView>("jour");
+  /** Page ouverte dans le profil (null : la liste des réglages). */
+  const [settingsPage, setSettingsPage] = useState<SettingsPage | null>(null);
+  const [settingsQuery, setSettingsQuery] = useState("");
+  /** Onglet quitté pour le profil : le retour y ramène. */
+  const [tabBeforeProfile, setTabBeforeProfile] = useState<Tab>("Accueil");
+  const openProfile = () => { if (activeTab !== "Profil") setTabBeforeProfile(activeTab); goTo("Profil"); };
   const goTo = (tab: Tab, section?: string) => {
     setModal(null);
+    setSettingsPage(null);
+    setSettingsQuery("");
     setActiveTab(tab);
     // Suivi : le bilan et le poids ont chacun leur onglet.
-    if (tab === "Suivi") setTrackingView(section === "bilan-semaine" ? "bilan" : section === "suivi-poids" ? "poids" : "jour");
+    if (tab === "Suivi") setTrackingView(section === "bilan-semaine" ? "bilan" : section === "suivi-poids" ? "poids" : section === "semaine" ? "semaine" : "jour");
     window.setTimeout(() => (section ? document.getElementById(section)?.scrollIntoView({ behavior: "smooth" }) : window.scrollTo(0, 0)), 50);
   };
-  const goToProfile = (section: "mon-objectif") => goTo("Profil", section);
+  const goToProfile = (section: "mon-objectif") => { goTo("Profil"); setSettingsPage(section === "mon-objectif" ? "objectif" : null); };
   const goToWeight = () => goTo("Suivi", "suivi-poids");
 
   const avatar = (
@@ -679,87 +699,68 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
       {showSplash && modal === null && (
         <TipSplash tip={todayTip} favorite={favoriteTips.includes(todayTip.id)} onToggleFavorite={() => toggleFavoriteTip(todayTip.id)} onClose={() => setShowSplash(false)} onOpenCorner={() => { setShowSplash(false); setModal("tips"); }} onNext={nextTip} />
       )}
+      <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={takeMealPhoto} />
+      <input ref={galleryInput} className="hidden-input" type="file" accept="image/*" onChange={takeMealPhoto} />
       <header className="topbar">
         <div>
           <p className="eyebrow">{dateLabel}<span className="version-tag" title={versionLabel()}>{shortVersion()}</span></p>
           <h1>Bonjour, {displayName}</h1>
         </div>
-        <button className={activeTab === "Profil" ? "avatar active" : "avatar"} onClick={() => goTo("Profil")} aria-label="Ouvrir mon profil">
+        <button className={activeTab === "Profil" ? "avatar active" : "avatar"} onClick={openProfile} aria-label="Ouvrir mon profil">
           {avatar}
         </button>
       </header>
 
       {activeTab === "Accueil" && (
-        <div className="content">
-          <section className="hero-card">
-            <div className="hero-copy">
-              <span className="status-pill"><Icon name="flame" size={14} /> Objectif du jour</span>
-              <p className="calorie-number">{Math.abs(remaining).toLocaleString("fr-FR")}</p>
-              <p className="calorie-label">{remaining >= 0 ? "kcal restantes" : "kcal au-delà de l'objectif"}</p>
-              {todayMeals.some((meal) => meal.free) && <p className="free-day-note">Cheat day : ce jour sort de tes moyennes et de ton bilan.</p>}
-              <div className="calorie-meta">
-                <span><strong>{consumed.toLocaleString("fr-FR")}</strong> consommées</span>
-                <span><strong>{goal.toLocaleString("fr-FR")}</strong> objectif</span>
-                {showProtein && <span><strong>{proteinToday}/{result.macros.protein} g</strong> protéines</span>}
-                <span><strong>{carbsToday} g</strong> glucides</span>
-              </div>
-            </div>
-            <div className="progress-ring" style={{ "--progress": `${Math.min(progress, 100) * 3.6}deg` } as React.CSSProperties}>
-              <div><strong>{progress}%</strong><span>du jour</span></div>
-            </div>
+        <div className="content home-content">
+          <DayStrip meals={data.meals} goal={goal} today={today} selected={homeDay} onSelect={setHomeDay} />
+
+          <section className="hc">
+            <button type="button" className="hc-g" onClick={() => goTo("Suivi")} aria-label="Voir le détail de la journée">
+              <span className={remaining < 0 ? "kr over" : "kr"}>
+                <svg viewBox="0 0 100 100" aria-hidden="true">
+                  <defs><linearGradient id="kr-gradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="var(--ring-a)" /><stop offset="1" stopColor="var(--ring-b)" /></linearGradient></defs>
+                  <circle className="kr-t" cx="50" cy="50" r="43" />
+                  <circle className="kr-p" cx="50" cy="50" r="43" transform="rotate(-90 50 50)" strokeDasharray={`${Math.min(1, consumed / goal) * RING_LENGTH} ${RING_LENGTH}`} />
+                </svg>
+                <span className="kr-c">
+                  <strong style={{ "--len": Math.abs(remaining).toLocaleString("fr-FR").length + (remaining < 0 ? 1 : 0) } as React.CSSProperties}>{remaining < 0 ? "+" : ""}{Math.abs(remaining).toLocaleString("fr-FR")}</strong>
+                  <small>{remaining >= 0 ? "kcal restantes" : "kcal au-dessus"}</small>
+                </span>
+              </span>
+              <span className="hc-m">
+                {([
+                  { id: "p", name: "Protéines", value: proteinToday, target: result.macros.protein },
+                  { id: "c", name: "Glucides", value: carbsToday, target: result.macros.carbs },
+                  { id: "f", name: "Lipides", value: fatToday, target: result.macros.fat },
+                ]).map((macro) => (
+                  <span className={`ml ml-${macro.id}`} key={macro.id}>
+                    <span className="ml-h"><span>{macro.name}</span><b>{macro.value} g</b></span>
+                    <span className="gg"><i style={{ width: `${Math.min(100, macro.target ? (macro.value / macro.target) * 100 : 0)}%` }} /></span>
+                    <small>sur {macro.target} g</small>
+                  </span>
+                ))}
+              </span>
+            </button>
+            <small className="hc-n"><b>{consumed.toLocaleString("fr-FR")}</b> mangées sur {goal.toLocaleString("fr-FR")} · {progress} % du jour</small>
+            {todayMeals.some((meal) => meal.free) && <p className="free-day-note">Cheat day : ce jour sort de tes moyennes et de ton bilan.</p>}
           </section>
 
-          <GoalCard plan={plan} result={result} currentWeight={latestWeight?.kg ?? profile.weight} height={profile.height} onOpen={() => goToProfile("mon-objectif")} />
-
-          {plan.program === "jeune" && <FastingCard fasts={data.fasts} onStart={startFast} onStop={stopFast} />}
-
-          <section className="tip-card">
-            <span className="metric-icon"><Icon name="apple" /></span>
-            <div><p className="eyebrow">Conseil du jour · {tipThemes[todayTip.theme]}</p><p>{todayTip.text}</p><span className="tip-links"><button type="button" className="text-button" onClick={nextTip}>Un autre conseil</button><button type="button" className="text-button" onClick={() => setModal("tips")}>Tous mes conseils ›</button></span></div>
-            <button type="button" className={`tip-star${favoriteTips.includes(todayTip.id) ? " on" : ""}`} onClick={() => toggleFavoriteTip(todayTip.id)} aria-pressed={favoriteTips.includes(todayTip.id)} aria-label={favoriteTips.includes(todayTip.id) ? "Retirer des favoris" : "Garder ce conseil en favori"}>{favoriteTips.includes(todayTip.id) ? "★" : "☆"}</button>
-          </section>
-
-          <section className="section-block">
-            <div className="section-title">
-              <div>
-                <p className="eyebrow">Aujourd'hui</p>
-                <h2>Votre équilibre</h2>
-              </div>
-              <button className="text-button" onClick={() => goTo("Suivi")}>Voir le détail</button>
-            </div>
-
-            <div className="metric-grid">
-              <button className="metric-card mint metric-button" onClick={() => setModal("steps")}>
-                <span className="metric-icon"><Icon name="shoe" /></span>
-                <p>Pas</p>
-                <strong>{stepsToday ? stepsToday.count.toLocaleString("fr-FR") : "—"}</strong>
-                <small>{stepsToday ? `sur ${data.stepGoal.toLocaleString("fr-FR")}` : "Toucher pour ajouter"}</small>
-                <div className="mini-progress"><span style={{ width: `${Math.min(100, ((stepsToday?.count ?? 0) / data.stepGoal) * 100)}%` }} /></div>
-              </button>
-              <button className="metric-card peach metric-button" onClick={goToWeight}>
-                <span className="metric-icon"><Icon name="scale" /></span>
-                <p>Poids</p>
-                <strong>{latestWeight ? latestWeight.kg.toLocaleString("fr-FR") : "—"} <em>kg</em></strong>
-                <small>{latestWeight ? `pesée du ${new Date(`${latestWeight.date}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}` : "Ajouter une pesée"}</small>
-                <div className="mini-progress"><span style={{ width: "100%" }} /></div>
-              </button>
-            </div>
-          </section>
-
-          <section className="water-card">
-            <div className="water-info">
-              <span className="water-icon"><Icon name="water" /></span>
-              <div>
-                <p>Hydratation</p>
-                <strong>{formatWater(hydration.totalMl)} <span>sur {formatWater(goalWater)}</span></strong>
-                {hydration.mealsMl > 0 && <small className="water-split">Eau pure {formatWater(hydration.pureWaterMl)} · boissons des repas {formatWater(hydration.mealsMl)}</small>}
-                {hydration.sources.length > 0 && <button type="button" className="text-button water-detail-toggle" onClick={() => setWaterDetail((value) => !value)}>{waterDetail ? "Masquer le détail" : "Voir le détail"}</button>}
-              </div>
+          <section className="wc" id="eau">
+            <div className="wc-h">
+              <span className="q-i"><Icon name="water" size={18} /></span>
+              <span className="wc-t">
+                <b>Eau</b>
+                <small>sur {formatWater(goalWater)}</small>
+              </span>
+              <strong>{formatWater(hydration.totalMl)}</strong>
               <button className="round-button soft" onClick={() => addWater(-lastWater)} disabled={water === 0} aria-label={`Retirer ${lastWater} ml`}>
                 <Icon name="minus" size={18} />
               </button>
             </div>
-            <div className="water-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, (hydration.totalMl / goalWater) * 100)}%` }} /></div>
+            <span className="gg w"><i style={{ width: `${Math.min(100, (hydration.totalMl / goalWater) * 100)}%` }} /></span>
+            {hydration.mealsMl > 0 && <small className="water-split">Eau pure {formatWater(hydration.pureWaterMl)} · boissons des repas {formatWater(hydration.mealsMl)}</small>}
+            {hydration.sources.length > 0 && <button type="button" className="text-button water-detail-toggle" onClick={() => setWaterDetail((value) => !value)}>{waterDetail ? "Masquer le détail" : "Voir le détail"}</button>}
             {/* D'où vient chaque apport ; une boisson peut être retirée de l'hydratation. */}
             {waterDetail && (
               <ul className="water-sources">
@@ -775,92 +776,129 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 ))}
               </ul>
             )}
-            <div className="water-amounts">
+            <div className="wc-a">
               {waterAmounts.map((amount) => (
-                <button key={amount.ml} onClick={() => addWater(amount.ml)} aria-label={`Ajouter ${amount.ml} ml d'eau`}>
-                  <strong>+{amount.ml} ml</strong>
-                  <small>{amount.label}</small>
-                </button>
+                <button key={amount.ml} onClick={() => addWater(amount.ml)} aria-label={`Ajouter ${amount.ml} ml d'eau, ${amount.label}`}>+{amount.ml} ml</button>
               ))}
             </div>
-            <form className="water-custom" onSubmit={addCustomWater}>
+            <form className="wc-c" onSubmit={addCustomWater}>
               {data.customWater && !waterAmounts.some((amount) => amount.ml === data.customWater) && (
-                <button type="button" className="water-saved" onClick={() => addWater(data.customWater!)} aria-label={`Ajouter ${data.customWater} ml d'eau`}>
-                  <strong>+{data.customWater} ml</strong><small>mon montant</small>
+                <button type="button" className="wc-s" onClick={() => addWater(data.customWater!)} aria-label={`Ajouter ${data.customWater} ml d'eau`}>
+                  +{data.customWater} ml<small>mon montant</small>
                 </button>
               )}
-              <input value={waterDraft} onChange={(e) => setWaterDraft(e.target.value)} inputMode="numeric" placeholder="Autre : … ml" aria-label="Montant d'eau personnalisé en ml" />
+              <input value={waterDraft} onChange={(e) => setWaterDraft(e.target.value)} inputMode="numeric" placeholder="Personnalisé : … ml" aria-label="Montant d'eau personnalisé en ml" />
               <button type="submit" className="plan-confirm" disabled={!waterDraft.trim()}><Icon name="plus" size={14} /> Ajouter</button>
             </form>
           </section>
 
-          <section className="section-block meals">
-            <div className="section-title">
-              <div>
-                <p className="eyebrow">Journal</p>
-                <h2>Repas du jour</h2>
-              </div>
-              <button className="add-button" onClick={() => openMealForm()}><Icon name="plus" size={17} /> Ajouter</button>
+          <div className="q3">
+            <button className={sessionsToday.length ? "q q-sport yes" : "q q-sport"} onClick={() => goTo("Activité")} aria-label="Sport : ouvrir l'activité">
+              <span className="q-i"><Icon name={sessionsToday.length ? "check" : "flame"} size={18} /></span>
+              <strong>{sessionsToday.length ? "Fait" : "Pas encore"}</strong>
+              <small>{sessionsToday.length ? `${sessionTypes.find((type) => type.id === sessionsToday[0].type)?.label ?? "Séance"}, ${sessionsToday.reduce((sum, session) => sum + session.minutes, 0)} min` : "Aucune séance"}</small>
+            </button>
+            <button className="q q-steps" onClick={() => setModal("steps")} aria-label="Pas : noter mes pas">
+              <span className="q-i"><Icon name="shoe" size={18} /></span>
+              <strong>{stepsToday ? stepsToday.count.toLocaleString("fr-FR") : "—"}</strong>
+              <small>{stepsToday ? `pas sur ${data.stepGoal.toLocaleString("fr-FR")}` : "Toucher pour ajouter"}</small>
+              <span className="gg"><i style={{ width: `${Math.min(100, ((stepsToday?.count ?? 0) / data.stepGoal) * 100)}%` }} /></span>
+            </button>
+            <button className="q q-weight" onClick={goToWeight} aria-label="Poids : ouvrir le suivi">
+              <span className="q-i"><Icon name="scale" size={18} /></span>
+              <strong>{latestWeight ? latestWeight.kg.toLocaleString("fr-FR") : "—"} kg</strong>
+              <small>{latestWeight ? `pesée du ${new Date(`${latestWeight.date}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}` : "Ajouter une pesée"}</small>
+            </button>
+          </div>
+
+          {plan.program === "jeune" && <FastingCard fasts={data.fasts} onStart={startFast} onStop={stopFast} />}
+
+          <section className="dash-s">
+            <div className="sec">
+              <h2>Mes repas</h2>
+              <span className="sec-a">
+                <button className="round-button soft" onClick={() => photoInput.current?.click()} aria-label="Photographier mon repas"><Icon name="camera" size={20} /></button>
+                <button className="round-button soft" onClick={() => galleryInput.current?.click()} aria-label="Choisir une photo dans la galerie"><Icon name="image" size={20} /></button>
+                <button className="add-button" onClick={() => openMealForm(homeDay, homeDay > today)}><Icon name="plus" size={17} /> Ajouter</button>
+              </span>
             </div>
-            <div className="photo-meal-row">
-              <button className="photo-meal-card" onClick={() => photoInput.current?.click()}>
-                <span className="camera-icon"><Icon name="camera" /></span>
-                <span>
-                  <strong>Photographier mon repas</strong>
-                  <small>Reconnaissance du plat sur le téléphone, à vérifier</small>
-                </span>
-              </button>
-              <button className="photo-meal-gallery" onClick={() => galleryInput.current?.click()} aria-label="Choisir une photo dans la galerie">
-                <Icon name="image" />
-                <small>Galerie</small>
-              </button>
+            <div className="m-list">
+              {HOME_MEAL_ORDER.map((category) => {
+                const label = mealCategories.find((item) => item.id === category)?.label;
+                const eaten = todayMeals.filter((meal) => meal.category === category);
+                const planned = plannedToday.filter((meal) => meal.category === category);
+                const glyph = <span className={`meal-icon glyph-${category}`}><Icon name={mealGlyph[category]} /></span>;
+                if (!eaten.length && !planned.length) {
+                  const now = homeDay === today && category === defaultCategory();
+                  return (
+                    <button className={now ? "mr mr-now" : "mr"} key={category} onClick={() => openMealForm(homeDay, homeDay > today, category)}>
+                      {glyph}
+                      <span className="m-t"><b>{label}</b><small>{now ? "Qu'as-tu mangé ?" : homeDay > today ? "Prévoir un repas" : "Rien de noté"}</small></span>
+                      <span className={now ? "mr-go" : "mr-plus"}><Icon name="plus" size={18} /></span>
+                    </button>
+                  );
+                }
+                return (
+                  <Fragment key={category}>
+                    {eaten.map((meal) => (
+                      <div className="mr mr-meal" key={meal.id} onClick={() => editMeal(meal)}>
+                        <span className="mr-top">
+                          {mealImage(meal) ? <span className="thumb"><StoredImage id={mealImage(meal)!} alt="" /></span> : glyph}
+                          <span className="m-t">
+                            <b>{label}</b>
+                            <small>{meal.name}</small>
+                            {meal.with?.length ? <small className="meal-with-line">avec {joinNames(meal.with)}</small> : null}
+                            {meal.acks ? <small className="meal-with-line">{Object.entries(meal.acks).map(([name, part]) => `✓ ${name} : ${part}`).join(" · ")}</small> : null}
+                            {meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}
+                          </span>
+                          <span className="meal-calories">{meal.free ? <><strong>{freeLabel(meal)}</strong><small>{meal.freeEstimate ? "kcal" : "day"}</small></> : <><strong>{meal.calories}</strong><small>kcal</small></>}</span>
+                        </span>
+                        {/* Modifier et supprimer toujours visibles (une erreur se corrige vite) ; partager si le repas a ses aliments. */}
+                        <span className="mr-acts">
+                          <button className="icon-button" onClick={(event) => { event.stopPropagation(); editMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
+                          {meal.items?.length ? <button className="icon-button" onClick={(event) => { event.stopPropagation(); shareMeal(meal); }} aria-label={`Partager ${meal.name}`}><Icon name="share" size={16} /></button> : null}
+                          <button className="icon-button" onClick={(event) => { event.stopPropagation(); deleteMeal(meal); }} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
+                        </span>
+                      </div>
+                    ))}
+                    {/* Prévus aujourd'hui ou oubliés les jours passés : rien n'est compté avant « Mangé ». */}
+                    {planned.map((meal) => (
+                      <div className="mr mr-plan" key={meal.id}>
+                        <span className="mr-top">
+                          {mealImage(meal) ? <span className="thumb"><StoredImage id={mealImage(meal)!} alt="" /></span> : glyph}
+                          <span className="m-t">
+                            <b>{label}</b>
+                            <small>{meal.date === today ? "Prévu aujourd'hui" : meal.date > today ? `Prévu ${dayLabel(meal.date)}` : `Prévu ${dayLabel(meal.date)}, pas encore validé`} : {meal.name}</small>
+                          </span>
+                          <span className="meal-calories"><strong>{meal.calories}</strong><small>kcal</small></span>
+                        </span>
+                        <span className="mr-acts">
+                          {meal.date === today
+                            ? <button type="button" className="plan-confirm" onClick={() => confirmPlanned(meal)}><Icon name="check" size={14} /> Mangé tel quel</button>
+                            : <button type="button" className="plan-confirm" aria-expanded={askingEaten === meal.id} onClick={() => setAskingEaten(askingEaten === meal.id ? null : meal.id)}><Icon name="check" size={14} /> Mangé</button>}
+                          <button type="button" className="icon-button" onClick={() => editMeal(meal)} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={15} /></button>
+                          <button type="button" className="icon-button" onClick={() => deleteMeal(meal)} aria-label={`Annuler ${meal.name}`}><Icon name="close" size={15} /></button>
+                        </span>
+                        {askingEaten === meal.id && <EatenWhen meal={meal} today={today} onConfirm={(date) => confirmPlanned(meal, date)} />}
+                      </div>
+                    ))}
+                  </Fragment>
+                );
+              })}
             </div>
-            <input ref={photoInput} className="hidden-input" type="file" accept="image/*" capture="environment" onChange={takeMealPhoto} />
-            <input ref={galleryInput} className="hidden-input" type="file" accept="image/*" onChange={takeMealPhoto} />
-            {/* Prévus aujourd'hui ou oubliés les jours passés : rien n'est compté avant « Mangé ». */}
-            {plannedToday.length > 0 && (
-              <div className="planned-today">
-                <p className="food-section">À confirmer · repas prévus</p>
-                {plannedToday.map((meal) => (
-                  <div className="plan-meal planned" key={meal.id}>
-                    <span className="plan-meal-text">
-                      <small>{mealCategories.find((item) => item.id === meal.category)?.label} · {meal.date === today ? "Prévu aujourd'hui" : `Prévu ${dayLabel(meal.date)}, pas encore validé`}</small>
-                      <strong>{meal.name}</strong>
-                    </span>
-                    <em>{meal.calories} kcal</em>
-                    <div className="plan-meal-actions">
-                      {meal.date === today
-                        ? <button type="button" className="plan-confirm" onClick={() => confirmPlanned(meal)}><Icon name="check" size={14} /> Mangé tel quel</button>
-                        : <button type="button" className="plan-confirm" aria-expanded={askingEaten === meal.id} onClick={() => setAskingEaten(askingEaten === meal.id ? null : meal.id)}><Icon name="check" size={14} /> Mangé</button>}
-                      <button type="button" className="icon-button" onClick={() => editMeal(meal)} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={15} /></button>
-                      <button type="button" className="icon-button" onClick={() => deleteMeal(meal)} aria-label={`Annuler ${meal.name}`}><Icon name="close" size={15} /></button>
-                    </div>
-                    {askingEaten === meal.id && <EatenWhen meal={meal} today={today} onConfirm={(date) => confirmPlanned(meal, date)} />}
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="meal-list">
-              {todayMeals.length === 0 && (
-                <button className="meal-row empty" onClick={() => openMealForm()}>
-                  <span className="meal-icon dinner"><Icon name="plus" /></span>
-                  <span><strong>Aucun repas pour l'instant</strong><small>Ajoutez votre premier repas de la journée</small></span>
-                  <Icon name="chevron" size={17} />
-                </button>
-              )}
-              {todayMeals.map((meal) => (
-                <div className="meal-row editable" key={meal.id} onClick={() => editMeal(meal)}>
-                  <span className={`meal-icon ${categoryStyle[meal.category]}`}><Icon name={meal.source === "photo" ? "camera" : meal.source === "recipe" ? "book" : "apple"} /></span>
-                  <span><strong>{mealCategories.find((item) => item.id === meal.category)?.label}</strong><small>{meal.name}</small>{meal.with?.length ? <small className="meal-with-line">avec {joinNames(meal.with)}</small> : null}{meal.acks ? <small className="meal-with-line">{Object.entries(meal.acks).map(([name, part]) => `✓ ${name} : ${part}`).join(" · ")}</small> : null}{meal.carbs !== undefined && <small className="meal-carbs">{meal.carbs} g de glucides</small>}</span>
-                  <span className="meal-calories">{meal.free ? <><strong>{freeLabel(meal)}</strong><small>{meal.freeEstimate ? "kcal" : "day"}</small></> : <><strong>{meal.calories}</strong><small>kcal</small></>}</span>
-                  {/* Modifier et supprimer toujours visibles (une erreur se corrige vite) ; partager si le repas a ses aliments. */}
-                  <span className="meal-actions">
-                    <button className="icon-button" onClick={(event) => { event.stopPropagation(); editMeal(meal); }} aria-label={`Modifier ${meal.name}`}><Icon name="edit" size={16} /></button>
-                    {meal.items?.length ? <button className="icon-button" onClick={(event) => { event.stopPropagation(); shareMeal(meal); }} aria-label={`Partager ${meal.name}`}><Icon name="share" size={16} /></button> : null}
-                    <button className="icon-button" onClick={(event) => { event.stopPropagation(); deleteMeal(meal); }} aria-label={`Supprimer ${meal.name}`}><Icon name="trash" size={16} /></button>
-                  </span>
-                </div>
-              ))}
+          </section>
+
+          <section className="dash-s">
+            <div className="sec"><h2>Mon objectif</h2></div>
+            <GoalCard plan={plan} result={result} currentWeight={latestWeight?.kg ?? profile.weight} height={profile.height} onOpen={() => goToProfile("mon-objectif")} />
+          </section>
+
+          <section className="dash-s">
+            <div className="sec"><h2>Conseil du jour</h2></div>
+            <div className="tip-card">
+              <span className="metric-icon"><Icon name="bulb" /></span>
+              <div><p className="eyebrow">{tipThemes[todayTip.theme]}</p><p>{todayTip.text}</p><span className="tip-links"><button type="button" className="text-button" onClick={nextTip}>Un autre conseil</button><button type="button" className="text-button" onClick={() => setModal("tips")}>Tous mes conseils ›</button></span></div>
+              <button type="button" className={`tip-star${favoriteTips.includes(todayTip.id) ? " on" : ""}`} onClick={() => toggleFavoriteTip(todayTip.id)} aria-pressed={favoriteTips.includes(todayTip.id)} aria-label={favoriteTips.includes(todayTip.id) ? "Retirer des favoris" : "Garder ce conseil en favori"}>{favoriteTips.includes(todayTip.id) ? "★" : "☆"}</button>
             </div>
           </section>
         </div>
@@ -892,7 +930,64 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
       )}
 
       {activeTab === "Profil" && (
-        <div className="content page-content">
+        <div className="content page-content settings">
+          {settingsPage === null && (() => {
+            const groups: { page?: SettingsPage; action?: () => void; icon: IconName; tone: string; title: string; sub: string }[][] = [
+              [
+                { page: "objectif", icon: "target", tone: "green", title: "Mon objectif et mes besoins", sub: `${goal.toLocaleString("fr-FR")} kcal, ${result.macros.protein} g de protéines` },
+                { page: "hydratation", icon: "water", tone: "cyan", title: "Hydratation", sub: `${formatWater(goalWater)} par jour, ce qui compte` },
+                { action: () => setModal("steps"), icon: "shoe", tone: "orange", title: "Mes pas", sub: `Objectif ${data.stepGoal.toLocaleString("fr-FR")} pas` },
+              ],
+              [{ page: "tablee", icon: "users", tone: "pink", title: "Ma tablée", sub: (data.tablee ?? []).length ? joinNames(data.tablee ?? []) : "Personne pour l'instant" }],
+              [
+                { page: "apparence", icon: "palette", tone: "violet", title: "Apparence", sub: `Thème : ${themes.find((item) => item.id === theme)?.name ?? ""}` },
+                { page: "rappels", icon: "bell", tone: "orange", title: "Rappels", sub: "Repas, eau, pesée" },
+                { page: "conseils", icon: "bulb", tone: "amber", title: "Conseil du jour", sub: `${favoriteTips.length} en favori${favoriteTips.length > 1 ? "s" : ""}` },
+              ],
+              [
+                { page: "brouillons", icon: "edit", tone: "blue", title: "Repas en cours", sub: "Reprendre un repas commencé" },
+                { action: () => setModal("recap"), icon: "file", tone: "orange", title: "Bilan PDF", sub: "Télécharger un récap" },
+                { page: "donnees", icon: "shield", tone: "slate", title: "Sauvegarde et données", sub: "Sauvegarde, code et mes données" },
+              ],
+            ];
+            const query = settingsQuery.trim().toLocaleLowerCase("fr-FR").normalize("NFD").replace(/[̀-ͯ]/g, "");
+            const visibleGroups = groups.map((group) => group.filter((row) => !query || `${row.title} ${row.sub}`.toLocaleLowerCase("fr-FR").normalize("NFD").replace(/[̀-ͯ]/g, "").includes(query))).filter((group) => group.length);
+            return (
+              <>
+                <div className="set-head">
+                  <button type="button" className="round-button soft" onClick={() => goTo(tabBeforeProfile)} aria-label="Retour"><Icon name="back" size={20} /></button>
+                  <h2 className="set-title">Paramètres</h2>
+                </div>
+                <label className="set-search"><Icon name="search" size={18} /><input value={settingsQuery} onChange={(event) => setSettingsQuery(event.target.value)} placeholder="Rechercher un réglage" aria-label="Rechercher un réglage" /></label>
+                <button type="button" className="set-me" onClick={() => setSettingsPage("compte")}>
+                  <span className="avatar set-avatar">{avatar}</span>
+                  <span className="m-t"><b>{profile.firstName} {profile.lastName}</b><small>@{profile.pseudo}</small></span>
+                  <Icon name="chevron" size={16} />
+                </button>
+                {visibleGroups.map((group) => (
+                  <div className="set-g" key={group[0].title}>
+                    {group.map((row) => (
+                      <button type="button" className="set-r" key={row.title} onClick={row.action ?? (() => setSettingsPage(row.page!))}>
+                        <span className={`set-i tone-${row.tone}`}><Icon name={row.icon} size={20} /></span>
+                        <span className="m-t"><b>{row.title}</b><small>{row.sub}</small></span>
+                        <Icon name="chevron" size={16} />
+                      </button>
+                    ))}
+                  </div>
+                ))}
+                {visibleGroups.length === 0 && <p className="theme-description">Aucun réglage à ce nom.</p>}
+                <p className="app-version">{versionLabel()}</p>
+              </>
+            );
+          })()}
+
+          {settingsPage !== null && (
+            <div className="set-head">
+              <button type="button" className="round-button soft" onClick={() => { setSettingsPage(null); window.scrollTo(0, 0); }} aria-label="Retour aux paramètres"><Icon name="back" size={20} /></button>
+            </div>
+          )}
+
+          {settingsPage === "compte" && (
           <section className="identity-card">
             <button className="identity-avatar" onClick={() => avatarInput.current?.click()} aria-label="Changer ma photo de profil">
               {avatar}
@@ -920,8 +1015,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               </div>
             )}
           </section>
+          )}
 
-
+          {settingsPage === "objectif" && (
           <section className="section-block" id="mon-objectif">
             <div className="section-title"><div><p className="eyebrow">Objectif</p><h2>Mon objectif et mes besoins</h2></div></div>
             <form className="calculator-card" onSubmit={savePlan} noValidate>
@@ -952,30 +1048,30 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             </section>
             <p className="health-note">Ces estimations sont indicatives et ne remplacent pas l'avis d'un professionnel de santé.</p>
           </section>
+          )}
 
-          <section className="theme-settings">
-            <div className="section-title">
-              <div><p className="eyebrow">Apparence</p><h2>Choisir un thème</h2></div>
-              <span className="current-theme">{themes.find((item) => item.id === theme)?.name}</span>
-            </div>
-            <p className="theme-description">Personnalisez les couleurs de l’application. Votre choix est conservé sur cet appareil.</p>
-            <div className="theme-grid">
+          {settingsPage === "apparence" && (
+          <section className="section-block">
+            <h2 className="set-title">Apparence</h2>
+            <p className="theme-description">Ton choix est conservé sur cet appareil.</p>
+            <div className="set-g" role="radiogroup" aria-label="Thème">
               {themes.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  className={`theme-option theme-${item.id} ${theme === item.id ? "selected" : ""}`}
-                  onClick={() => update((current) => ({ ...current, theme: item.id }))}
-                  aria-pressed={theme === item.id}
-                >
-                  <span className="theme-preview"><i /><i /><i /></span>
-                  <span><strong>{item.name}</strong><small>{item.mode}</small></span>
-                  <i className="theme-check">{theme === item.id && <Icon name="check" size={12} />}</i>
+                <button type="button" key={item.id} className="set-r" role="radio" aria-checked={theme === item.id} onClick={() => update((current) => ({ ...current, theme: item.id }))}>
+                  <span className="m-t"><b>{item.name}</b><small>{item.mode}</small></span>
+                  <span className={theme === item.id ? "radio on" : "radio"} />
                 </button>
               ))}
             </div>
+            <p className="food-section">Affichage des recettes</p>
+            <div className="sex-selector recipe-view-switch" role="group" aria-label="Affichage des recettes">
+              {(["grid", "list"] as const).map((mode) => (
+                <button type="button" key={mode} aria-pressed={(data.recipeView ?? "grid") === mode} className={(data.recipeView ?? "grid") === mode ? "selected" : ""} onClick={() => update((current) => ({ ...current, recipeView: mode }))}><Icon name={mode === "grid" ? "grid" : "rows"} size={17} /> {mode === "grid" ? "Grille" : "Liste"}</button>
+              ))}
+            </div>
           </section>
+          )}
 
+          {settingsPage === "hydratation" && (
           <section className="section-block">
             <div className="section-title"><div><p className="eyebrow">Hydratation</p><h2>Ce qui compte</h2></div></div>
             <p className="theme-description">Part du volume d'une boisson comptée comme hydratation. Le volume bu reste affiché en entier ; l'eau ajoutée à la main compte toujours à 100 %.</p>
@@ -992,12 +1088,16 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             </div>
             {data.hydrationCoefficients && <button type="button" className="text-button" onClick={() => update((current) => ({ ...current, hydrationCoefficients: undefined }))}>Revenir aux valeurs conseillées</button>}
           </section>
+          )}
 
+          {settingsPage === "rappels" && (
           <section className="section-block">
             <div className="section-title"><div><p className="eyebrow">Notifications</p><h2>Rappels</h2></div></div>
             <ReminderSettings value={data.reminders} onChange={(reminders) => update((current) => ({ ...current, reminders }))} flash={flash} />
           </section>
+          )}
 
+          {settingsPage === "conseils" && (
           <section className="section-block">
             <div className="section-title"><div><p className="eyebrow">Conseils</p><h2>Conseil du jour</h2></div></div>
             <label className="planned-toggle">
@@ -1016,7 +1116,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               </ul>
             ) : <p className="theme-description">Touche ☆ sur un conseil pour le retrouver ici. {tips.length} conseils, un par jour.</p>}
           </section>
+          )}
 
+          {settingsPage === "brouillons" && (
           <section className="section-block">
             <div className="section-title"><div><p className="eyebrow">Saisie</p><h2>Repas en cours</h2></div></div>
             <p className="theme-description">Un repas commencé puis laissé de côté est gardé, un par moment de la journée (petit-déjeuner, déjeuner, dîner, collation), et proposé à la réouverture pendant :</p>
@@ -1031,7 +1133,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               })}
             </div>
           </section>
+          )}
 
+          {settingsPage === "tablee" && (
           <section className="section-block" id="ma-tablee">
             <div className="section-title"><div><p className="eyebrow">Repas partagés</p><h2>Ma tablée</h2></div></div>
             <p className="theme-description">Les gens avec qui tu manges souvent. Feed Me les propose dans « Mangé avec » et prépare le message pour leur envoyer leur part. Cette liste reste sur ce téléphone.</p>
@@ -1050,7 +1154,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               <button type="submit" className="add-button" aria-label="Ajouter à ma tablée"><Icon name="plus" size={16} /></button>
             </form>
           </section>
+          )}
 
+          {settingsPage === "donnees" && (
           <section className="section-block">
             <div className="section-title"><div><p className="eyebrow">Confidentialité</p><h2>Mes données</h2></div></div>
             <p className="theme-description">Tout est enregistré uniquement sur cet appareil. Désinstaller l'application efface les données : exportez une sauvegarde régulièrement.</p>
@@ -1063,11 +1169,11 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             </div>
             <input ref={backupInput} className="hidden-input" type="file" accept="application/json,.json" onChange={importBackup} />
           </section>
-          <p className="app-version">{versionLabel()}</p>
+          )}
         </div>
       )}
 
-      {activeTab === "Recettes" && <RecipesTab onShare={(payload) => openShare(payload)} recipes={data.recipes} meals={data.meals} prefill={prefillRecipe} onPrefillUsed={() => setPrefillRecipe(null)} update={update} onAddToJournal={addRecipeToJournal} flash={flash} onReceive={openShareImport} focusRecipeId={focusRecipeId} />}
+      {activeTab === "Recettes" && <RecipesTab onShare={(payload) => openShare(payload)} recipes={data.recipes} recipeView={data.recipeView ?? "grid"} meals={data.meals} prefill={prefillRecipe} onPrefillUsed={() => setPrefillRecipe(null)} update={update} onAddToJournal={addRecipeToJournal} flash={flash} onReceive={openShareImport} focusRecipeId={focusRecipeId} />}
 
       {notice && <div className="toast" role="status">{notice}</div>}
 
@@ -1082,7 +1188,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
           <button
             key={item.label}
             className={`${activeTab === item.label ? "active" : ""} ${item.label === "Ajouter" ? "primary-action" : ""}`}
-            onClick={() => (item.label === "Ajouter" ? setModal("add") : setActiveTab(item.label))}
+            onClick={() => (item.label === "Ajouter" ? setModal("add") : goTo(item.label))}
             aria-label={item.label}
             aria-current={activeTab === item.label ? "page" : undefined}
           >
@@ -1122,7 +1228,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   planned={planning}
                   initialItems={mealRecipe ? [toMealItem(recipeResult(mealRecipe))] : undefined}
                   date={mealDate}
-                  category={defaultCategory()}
+                  category={composerCategory ?? defaultCategory()}
                   recipes={data.recipes}
                   customFoods={data.customFoods}
                   meals={data.meals}
@@ -1136,14 +1242,18 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
             {modal === "add" && (
               <>
                 <p className="eyebrow">Nouvelle entrée</p>
-                <h2>Que souhaitez-vous ajouter ?</h2>
-                <div className="choice-list">
-                  <button onClick={() => openMealForm()}><span className="meal-icon breakfast"><Icon name="apple" /></span><span><strong>Un repas</strong><small>Suivre les calories consommées</small></span><Icon name="chevron" /></button>
-                  <button onClick={() => openCheatDay()}><span className="meal-icon lunch"><Icon name="flame" /></span><span><strong>Un cheat day</strong><small>Resto, chez quelqu'un… sans détailler : ce jour ne compte pas</small></span><Icon name="chevron" /></button>
-                  <button onClick={() => setModal("pantry")}><span className="meal-icon lunch"><Icon name="barcode" /></span><span><strong>Mes ingrédients</strong><small>Voir ta liste, scanner un produit sans l'ajouter à un repas</small></span><Icon name="chevron" /></button>
-                  <button onClick={() => setModal("weigh")}><span className="meal-icon dinner"><Icon name="scale" /></span><span><strong>Une pesée</strong><small>Pesée rapide, le dernier poids pré-rempli</small></span><Icon name="chevron" /></button>
-                  <button onClick={() => goTo("Activité")}><span className="meal-icon mint-icon"><Icon name="shoe" /></span><span><strong>Une séance de sport</strong><small>Marche, course, musculation, yoga…</small></span><Icon name="chevron" /></button>
-                  <button onClick={openShareImport}><span className="meal-icon lunch"><Icon name="link" /></span><span><strong>Un partage reçu</strong><small>Repas, recette, ingrédients, semaine, courses ou carnet envoyés par un proche</small></span><Icon name="chevron" /></button>
+                <h2>Noter</h2>
+                <div className="add-tiles">
+                  <button className="add-tile hero" onClick={() => openMealForm()}><Icon name="apple" size={30} /><b>Un repas</b></button>
+                  <button className="add-tile tone-water" onClick={() => { goTo("Accueil", "eau"); }}><Icon name="water" size={24} /><b>De l'eau</b></button>
+                  <button className="add-tile tone-rose" onClick={() => setModal("weigh")}><Icon name="scale" size={24} /><b>Une pesée</b></button>
+                  <button className="add-tile tone-orange" onClick={() => goTo("Activité")}><Icon name="flame" size={24} /><b>Une séance</b></button>
+                  <button className="add-tile tone-lime" onClick={() => setModal("steps")}><Icon name="shoe" size={24} /><b>Mes pas</b></button>
+                  <button className="add-tile tone-amber" onClick={() => openCheatDay()}><Icon name="confetti" size={24} /><b>Un cheat day</b></button>
+                  <button className="add-tile tone-orange" onClick={() => setModal("pantry")}><Icon name="carrot" size={24} /><b>Mes ingrédients</b></button>
+                  <button className="add-tile tone-blue" onClick={() => { setModal(null); photoInput.current?.click(); }}><Icon name="camera" size={24} /><b>Photo du repas</b></button>
+                  <button className="add-tile tone-water" onClick={openShareImport}><Icon name="link" size={24} /><b>Un partage reçu</b></button>
+                  <button className="add-tile tone-green" onClick={() => goTo("Suivi", "semaine")}><Icon name="cart" size={24} /><b>Mes courses</b></button>
                 </div>
               </>
             )}

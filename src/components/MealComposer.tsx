@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import FoodResultRow, { kcalLabel } from "./FoodResultRow";
-import Icon from "./Icon";
+import Icon, { type IconName } from "./Icon";
 import MealLineEditor from "./MealLineEditor";
 import {
   itemCalories,
@@ -484,6 +484,7 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
   const pickTabs = (["Récents", "Mes ingrédients", "Recettes", "Fast-food", "Boissons", "Restes", "Refaire"] as const).filter((name) =>
     (name !== "Restes" || freshLeftovers.length > 0) && (name !== "Refaire" || lastMeals.length > 0) && (name !== "Boissons" || drinks.length > 0));
   const [pickTab, setPickTab] = useState<(typeof pickTabs)[number]>("Récents");
+  const pickTabIcons: Record<(typeof pickTabs)[number], IconName> = { "Récents": "clock", "Mes ingrédients": "carrot", "Recettes": "book", "Fast-food": "burger", "Boissons": "cup", "Restes": "box", "Refaire": "redo" };
   const pickKey = (item: Pick<MealItem, "source" | "ref" | "name">) => `${item.source}:${item.ref ?? normalize(item.name)}`;
   const pickedKeys = new Set(lines.map(pickKey));
   const isPicked = (result: FoodResult) => pickedKeys.has(pickKey(result));
@@ -694,7 +695,7 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
         <>
           <div className="composer-tabs" role="tablist" aria-label="Suggestions">
             {pickTabs.map((name) => (
-              <button type="button" role="tab" aria-selected={pickTab === name} key={name} className={pickTab === name ? "selected" : ""} onClick={() => setPickTab(name)}>{name}</button>
+              <button type="button" role="tab" aria-selected={pickTab === name} key={name} className={pickTab === name ? "selected" : ""} onClick={() => setPickTab(name)}><Icon name={pickTabIcons[name]} size={22} /><span>{name}</span></button>
             ))}
           </div>
           {pickTab === "Récents" && (

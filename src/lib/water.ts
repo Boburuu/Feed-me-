@@ -12,6 +12,7 @@ export const waterAmounts = [
   { ml: 200, label: "verre" },
   { ml: 300, label: "grand verre" },
   { ml: 330, label: "canette" },
+  { ml: 400, label: "gourde" },
   { ml: 500, label: "bouteille" },
 ];
 

@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 // Polices embarquées : l'app fonctionne sans connexion.
+import '@fontsource-variable/geist/index.css'
 import '@fontsource/dm-sans/latin-400.css'
 import '@fontsource/dm-sans/latin-500.css'
 import '@fontsource/dm-sans/latin-600.css'
@@ -19,6 +20,7 @@ import './goals.css'
 import './cooking.css'
 import './themes.css'
 import './meals.css'
+import './refonte.css'
 
 watchKeyboard()
 // Lien de partage ouvert avec l'appli Android : gardé jusqu'au déverrouillage.

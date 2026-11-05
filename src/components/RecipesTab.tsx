@@ -14,6 +14,7 @@ import { carnetPayload, type SharePayload } from "../lib/share";
 import { useCorrections } from "../lib/correctionsContext";
 
 type RecipesTabProps = {
+  recipeView: "grid" | "list";
   recipes: Recipe[];
   /** Repas notés : ceux faits avec une recette modifiée peuvent être mis à jour. */
   meals: Meal[];
@@ -34,7 +35,7 @@ type RecipesTabProps = {
 /** Ignore la casse et les accents : « creme » trouve « Crème ». */
 const normalize = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export default function RecipesTab({ recipes, meals, prefill, onPrefillUsed, update, onAddToJournal, flash, onReceive, onShare, focusRecipeId }: RecipesTabProps) {
+export default function RecipesTab({ recipes, recipeView, meals, prefill, onPrefillUsed, update, onAddToJournal, flash, onReceive, onShare, focusRecipeId }: RecipesTabProps) {
   const pantry = useCorrections()?.pantry ?? [];
   const [filter, setFilter] = useState<RecipeCategory | "toutes">("toutes");
   const [search, setSearch] = useState("");
@@ -170,6 +171,7 @@ export default function RecipesTab({ recipes, meals, prefill, onPrefillUsed, upd
       {view === "ingredients" && <PantryPanel flash={flash} />}
       {view === "recettes" && (<>
 
+      <div className="recipe-tools">
       <button className="create-recipe" onClick={() => setCreating(true)}>
         <span><Icon name="plus" /></span>
         <div><strong>Ajouter une recette</strong><small>Depuis une capture d'écran, un texte ou à la main</small></div>
@@ -189,6 +191,7 @@ export default function RecipesTab({ recipes, meals, prefill, onPrefillUsed, upd
           <Icon name="chevron" size={18} />
         </button>
       )}
+      </div>
 
       <div className="recipe-search">
         <Icon name="book" size={17} />
@@ -219,13 +222,19 @@ export default function RecipesTab({ recipes, meals, prefill, onPrefillUsed, upd
         </div>
       )}
 
+      <div className="sex-selector recipe-view-switch" role="group" aria-label="Affichage des recettes">
+        {(["grid", "list"] as const).map((mode) => (
+          <button type="button" key={mode} aria-pressed={recipeView === mode} className={recipeView === mode ? "selected" : ""} onClick={() => update((current) => ({ ...current, recipeView: mode }))}><Icon name={mode === "grid" ? "grid" : "rows"} size={17} /> {mode === "grid" ? "Grille" : "Liste"}</button>
+        ))}
+      </div>
+
       <section className="recipe-section">
         {visible.length === 0 && (
           <p className="recipe-empty">
             {recipes.length === 0 ? "Aucune recette pour l'instant." : query ? "Aucune recette ne correspond à cette recherche." : `Aucune recette dans « ${categoryLabel(filter as RecipeCategory)} ».`}
           </p>
         )}
-        <div className="recipe-list">
+        <div className={`recipe-list ${recipeView === "list" ? "rows" : "grid"}`}>
           {visible.map((recipe, index) => (
             <article className={`recipe-card${selection?.has(recipe.id) ? " picked" : ""}`} key={recipe.id}>
               {selection === null
@@ -234,17 +243,16 @@ export default function RecipesTab({ recipes, meals, prefill, onPrefillUsed, upd
               {recipe.images?.length ? (
                 <div className="recipe-visual recipe-photo">
                   <StoredImage id={recipe.images[0]} alt="" />
-                  <span>{recipe.calories || "?"}<small>kcal</small></span>
                 </div>
               ) : (
                 <div className={`recipe-visual recipe-${index % 3}`}>
                   <Icon name={recipeCategories.find((item) => item.id === categoryOf(recipe))?.icon ?? "book"} size={28} />
-                  <span>{recipe.calories || "?"}<small>kcal</small></span>
                 </div>
               )}
               <div className="recipe-body">
                 <p className="recipe-category">{categoryLabel(categoryOf(recipe))}</p>
                 <h3>{recipe.name}</h3>
+                <p className="recipe-kcal"><strong>{recipe.calories || "?"}</strong> kcal / pers.</p>
                 <p>{ingredientSummary(recipe)}</p>
                 <div className="recipe-meta">
                   <span><Icon name="clock" size={14} /> {recipe.time} min</span>

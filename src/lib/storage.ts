@@ -10,7 +10,9 @@ export const STORAGE_KEY = "feedme:data";
 export const PIN_LENGTH = 4;
 
 export type Sex = "femme" | "homme";
-export type ThemeName = "sauge" | "nuit" | "ocean" | "lavande" | "eshin" | "sororitas";
+export type ThemeName = "glace-sombre" | "glace-claire" | "sombre" | "clair" | "auto" | "sauge" | "nuit" | "ocean" | "lavande" | "eshin" | "sororitas";
+
+const DESIGN_VERSION = 2;
 
 /** Thèmes remplacés : Terracotta → Adepta Sororitas, Minuit → Clan Eshin. */
 const legacyThemes: Record<string, ThemeName> = { terracotta: "sororitas", minuit: "eshin" };
@@ -257,6 +259,10 @@ export type AppData = {
   profile: Profile;
   pin: PinRecord;
   theme: ThemeName;
+  /** Refonte Glace appliquée une fois : ensuite, le thème choisi est gardé. */
+  designVersion?: number;
+  /** Recettes en grille de photos ou en liste. */
+  recipeView?: "grid" | "list";
   meals: Meal[];
   /** Eau bue par jour (AAAA-MM-JJ), en ml. */
   water: Record<string, number>;
@@ -305,6 +311,11 @@ export type AppData = {
 };
 
 export const themes: { id: ThemeName; name: string; mode: string }[] = [
+  { id: "glace-sombre", name: "Glace sombre", mode: "Cartes translucides sur fond coloré" },
+  { id: "glace-claire", name: "Glace claire", mode: "La même chose, en lumineux" },
+  { id: "sombre", name: "Sombre", mode: "Noir et vert, cartes pleines" },
+  { id: "clair", name: "Clair", mode: "Fond clair, cartes blanches" },
+  { id: "auto", name: "Comme le téléphone", mode: "Sombre ou clair selon ton téléphone" },
   { id: "sauge", name: "Sauge", mode: "Clair" },
   { id: "nuit", name: "Nuit", mode: "Sombre" },
   { id: "ocean", name: "Océan", mode: "Clair" },
@@ -554,7 +565,8 @@ function migrate(data: AppData): AppData {
   const firstWeight = [...(data.weights ?? [])].sort((a, b) => a.date.localeCompare(b.date))[0];
   return {
     ...data,
-    theme: legacyThemes[data.theme] ?? data.theme,
+    theme: data.designVersion === DESIGN_VERSION ? legacyThemes[data.theme] ?? data.theme : "glace-sombre",
+    designVersion: DESIGN_VERSION,
     // L'eau était comptée en verres : 1 verre = 200 ml.
     water: data.waterInMl ? data.water ?? {} : Object.fromEntries(Object.entries(data.water ?? {}).map(([day, glasses]) => [day, glasses * 200])),
     waterInMl: true,
