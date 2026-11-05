@@ -44,6 +44,7 @@ import { drinkCategories, hydrationOf } from "../lib/hydration";
 import { confirmEaten, eatenMeals, isPlanned } from "../lib/planning";
 import EatenWhen, { dayLabel } from "../components/EatenWhen";
 import { sessionTypes } from "../lib/activity";
+import { dismissUpdate, findUpdate, UPDATE_URL, updateDismissed } from "../lib/appUpdate";
 import { formatWater, WATER_MAX, waterAmounts, waterGoal } from "../lib/water";
 import { computePlan, observedMaintenance } from "../lib/nutrition";
 import { bodyErrors, draftFrom, goalErrors, parseDraft } from "../lib/planDraft";
@@ -308,6 +309,14 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   const showProtein = plan.program === "seche" || plan.program === "masse";
   // Repas mangés aujourd'hui ; les repas prévus attendent un « J'ai mangé ».
   const [homeDay, setHomeDay] = useState(today);
+  /** Nouvelle version publiée, cherchée une fois à l'ouverture. */
+  const [updateTag, setUpdateTag] = useState<string | null>(null);
+  const [updateHidden, setUpdateHidden] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    findUpdate().then((tag) => { if (alive && tag) { setUpdateTag(tag); setUpdateHidden(updateDismissed(tag)); } }).catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
   const todayMeals = eatenMeals(data.meals).filter((meal) => meal.date === homeDay);
   // Prévus aujourd'hui, et prévus les jours passés jamais validés (repas préparés à l'avance).
   const plannedToday = data.meals.filter((meal) => (homeDay === today ? meal.date <= today : meal.date === homeDay) && isPlanned(meal)).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
@@ -713,6 +722,16 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
 
       {activeTab === "Accueil" && (
         <div className="content home-content">
+          {updateTag && !updateHidden && (
+            <section className="update-card" role="status">
+              <span className="q-i"><Icon name="download" size={18} /></span>
+              <span className="m-t"><b>Nouvelle version {updateTag}</b><small>Elle s'installe par-dessus, tes données restent.</small></span>
+              <span className="update-actions">
+                <button type="button" className="text-button" onClick={() => { dismissUpdate(updateTag); setUpdateHidden(true); }}>Plus tard</button>
+                <a className="plan-confirm" href={UPDATE_URL} target="_blank" rel="noreferrer">Mettre à jour</a>
+              </span>
+            </section>
+          )}
           <DayStrip meals={data.meals} goal={goal} today={today} selected={homeDay} onSelect={setHomeDay} />
 
           <section className="hc">
@@ -964,6 +983,13 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   <span className="m-t"><b>{profile.firstName} {profile.lastName}</b><small>@{profile.pseudo}</small></span>
                   <Icon name="chevron" size={16} />
                 </button>
+                {updateTag && (
+                  <a className="set-g set-update" href={UPDATE_URL} target="_blank" rel="noreferrer">
+                    <span className="set-i tone-green"><Icon name="download" size={20} /></span>
+                    <span className="m-t"><b>Mise à jour disponible</b><small>Version {updateTag}, tes données restent</small></span>
+                    <Icon name="chevron" size={16} />
+                  </a>
+                )}
                 {visibleGroups.map((group) => (
                   <div className="set-g" key={group[0].title}>
                     {group.map((row) => (
