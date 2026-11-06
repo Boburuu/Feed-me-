@@ -1,6 +1,6 @@
 {
   "v1.13": [
-    "Le chiffre des calories ne déborde plus du cercle, même avec un grand texte."
+    "Le chiffre et le texte des calories tiennent dans le cercle, même avec un grand texte."
   ],
   "v1.12": [
     "Pâtes : les serpentini et bien d'autres formes peuvent être comptées cuites.",

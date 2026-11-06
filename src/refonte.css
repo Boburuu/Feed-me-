@@ -460,3 +460,4 @@ html[data-theme="glace-claire"], html[data-theme="glace-claire"] body { backgrou
 
 /* --- Nouveautés d'une version --------------------------------------------------------- */
 .update-notes { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 420px; margin: 4px 0 0; padding: 12px 14px 12px 30px; border-radius: 16px; color: var(--ink); background: var(--s2); text-align: left; font-size: 15px; line-height: 1.35; }
+.kr-c small { max-width: 86%; text-wrap: balance; }
