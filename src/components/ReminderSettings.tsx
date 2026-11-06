@@ -1,3 +1,4 @@
+import AlarmSettings from "./AlarmSettings";
 import { askReminderPermission, defaultReminders, remindersAvailable, WEEK_DAYS, type ReminderSettings as Settings } from "../lib/reminders";
 
 type ReminderSettingsProps = {
@@ -21,11 +22,23 @@ export default function ReminderSettings({ value, onChange, flash }: ReminderSet
   };
 
   if (!available) {
-    return <p className="theme-description">Les rappels (pesée, bilan, repas prévus) fonctionnent dans l'appli Android. Dans le navigateur, ils ne peuvent pas être programmés.</p>;
+    return <p className="theme-description">Les alarmes et les rappels (pesée, bilan, repas prévus) fonctionnent dans l'appli Android. Dans le navigateur, ils ne peuvent pas être programmés.</p>;
   }
 
   return (
     <div className="reminders">
+      <AlarmSettings
+        alarms={settings.alarms}
+        onSave={async (alarms, turningOn) => {
+          if (turningOn && !(await askReminderPermission())) {
+            flash("Notifications refusées : autorise-les dans les réglages du téléphone (Applications › Feed Me).");
+            return false;
+          }
+          onChange({ ...settings, alarms });
+          return true;
+        }}
+      />
+      <h3 className="reminders-title">Rappels automatiques</h3>
       <label className="planned-toggle">
         <input type="checkbox" checked={settings.weigh.enabled} onChange={(e) => void enable({ ...settings, weigh: { ...settings.weigh, enabled: e.target.checked } }, e.target.checked)} />
         <span>Rappel de pesée</span>

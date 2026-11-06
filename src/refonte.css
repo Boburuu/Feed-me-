@@ -421,3 +421,33 @@ html[data-theme="glace-claire"], html[data-theme="glace-claire"] body { backgrou
 .phone .composer-bar .recipe-bar-actions { justify-content: flex-end; }
 .phone .composer-bar .recipe-bar-actions button { min-height: 44px; }
 .update-box .update-warning { padding: 10px 12px; border-radius: 14px; color: var(--ink); background: color-mix(in srgb, var(--warm) 16%, transparent); font-size: 14px; }
+
+/* --- Alarmes ------------------------------------------------------------------------- */
+.reminders { gap: 12px; }
+.alarms { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.alarms h3, .reminders-title { margin: 0; font-size: 18px; font-weight: 700; }
+.reminders-title { margin-top: 10px; }
+.alarm-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 8px; min-height: 68px; padding: 8px 10px 8px 14px; }
+.alarm-row + .alarm-row { box-shadow: inset 0 1px 0 var(--line); }
+.alarm-main { flex: 1 1 170px; display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 44px; padding: 0; border: 0; color: var(--ink); background: none; text-align: left; cursor: pointer; }
+.alarm-main strong { flex: none; font-size: 21px; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.alarm-main strong.off { color: var(--muted); }
+.alarm-actions { flex: none; display: flex; align-items: center; gap: 4px; }
+.alarm-switch { position: relative; display: grid; place-items: center; width: 56px; height: 44px; cursor: pointer; }
+.alarm-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.alarm-switch i { position: relative; display: block; width: 46px; height: 28px; border-radius: 14px; background: var(--s2); box-shadow: inset 0 0 0 1px var(--line); pointer-events: none; }
+.alarm-switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--muted); transition: transform .15s; }
+.alarm-switch input:checked + i { background: var(--green); }
+.alarm-switch input:checked + i::after { background: var(--on-accent); transform: translateX(18px); }
+.alarm-switch input:focus-visible + i { outline: 2px solid var(--green-text); outline-offset: 2px; }
+.alarm-form { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 14px; border-radius: 22px; background: var(--white); box-shadow: inset 0 0 0 1px var(--edge), var(--card-shadow); }
+.alarm-form label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.alarm-form input { width: 100%; min-width: 0; min-height: 48px; padding: 0 14px; border: 0; border-radius: 14px; outline: 0; color: var(--ink); background: var(--s2); font-size: 16px; }
+.alarm-form input:focus { box-shadow: 0 0 0 2px var(--green-text); }
+.alarm-form .plan-label { margin: 0 0 6px; }
+.alarm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.alarm-chips button { min-width: 44px; min-height: 44px; padding: 4px 10px; border: 0; border-radius: 12px; color: var(--ink); background: var(--s2); font-size: 13px; font-weight: 600; cursor: pointer; }
+.alarm-chips button.selected { color: var(--on-accent); background: var(--green); }
+.alarm-form .form-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 0; }
+.alarm-form .form-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; margin: 0; }
+.alarm-new { align-self: flex-start; min-height: 44px; }

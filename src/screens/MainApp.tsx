@@ -165,7 +165,9 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     const open = (target: ReminderTarget | null) => {
       if (target === "pesee") setModal("weigh");
       else if (target === "bilan") goTo("Suivi", "bilan-semaine");
-      else if (target === "prevu") goTo("Accueil");
+      else if (target === "prevu" || target === "accueil") goTo("Accueil");
+      else if (target === "eau") goTo("Accueil", "eau");
+      else if (target === "repas") openMealForm();
     };
     const onTap = (event: Event) => { takeReminderTarget(); open((event as CustomEvent<ReminderTarget>).detail); };
     open(takeReminderTarget());
@@ -964,7 +966,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               [{ page: "tablee", icon: "users", tone: "pink", title: "Ma tablée", sub: (data.tablee ?? []).length ? joinNames(data.tablee ?? []) : "Personne pour l'instant" }],
               [
                 { page: "apparence", icon: "palette", tone: "violet", title: "Apparence", sub: `Thème : ${themes.find((item) => item.id === theme)?.name ?? ""}` },
-                { page: "rappels", icon: "bell", tone: "orange", title: "Rappels", sub: "Repas, eau, pesée" },
+                { page: "rappels", icon: "bell", tone: "orange", title: "Rappels et alarmes", sub: (data.reminders?.alarms ?? []).length ? `${data.reminders!.alarms!.length} alarme${data.reminders!.alarms!.length > 1 ? "s" : ""}, pesée, bilan` : "Créer une alarme, pesée, bilan" },
                 { page: "conseils", icon: "bulb", tone: "amber", title: "Conseil du jour", sub: `${favoriteTips.length} en favori${favoriteTips.length > 1 ? "s" : ""}` },
               ],
               [
@@ -1135,7 +1137,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
 
           {settingsPage === "rappels" && (
           <section className="section-block">
-            <div className="section-title"><div><p className="eyebrow">Notifications</p><h2>Rappels</h2></div></div>
+            <h2 className="set-title">Rappels et alarmes</h2>
             <ReminderSettings value={data.reminders} onChange={(reminders) => update((current) => ({ ...current, reminders }))} flash={flash} />
           </section>
           )}

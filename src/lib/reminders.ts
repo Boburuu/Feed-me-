@@ -1,14 +1,20 @@
 // Rappels (notifications locales, programmées sur le téléphone, sans serveur) :
 // - pesée : jours et heure choisis (cahier v2 § 2) ;
 // - bilan de la semaine : dimanche soir ou lundi matin (§ 3) ;
-// - repas prévus : à l'heure du moment de repas, pour le confirmer (§ 9).
+// - repas prévus : à l'heure du moment de repas, pour le confirmer (§ 9) ;
+// - alarmes créées dans le profil : nom, heure, jours et écran à ouvrir.
 // Dans le navigateur (version iPhone), les notifications programmées n'existent pas.
 
 import { Capacitor } from "@capacitor/core";
 import { isPlanned } from "./planning";
 import type { AppData, Meal, MealCategory } from "./storage";
 
+export type AlarmOpen = "repas" | "eau" | "pesee" | "accueil";
+
+export type Alarm = { id: number; label: string; time: string; days: number[]; enabled: boolean; open: AlarmOpen };
+
 export type ReminderSettings = {
+  alarms?: Alarm[];
   weigh?: { enabled: boolean; days: number[]; time: string };
   weekly?: { enabled: boolean; when: "dimanche-soir" | "lundi-matin" };
   planned?: { enabled: boolean };
@@ -20,7 +26,21 @@ export const WEEK_DAYS = [
   { day: 5, short: "ven." }, { day: 6, short: "sam." }, { day: 0, short: "dim." },
 ];
 
+export const ALL_DAYS = [1, 2, 3, 4, 5, 6, 0];
+export const MAX_ALARMS = 20;
+export const ALARM_OPENS: { id: AlarmOpen; label: string }[] = [{ id: "repas", label: "Ajouter un repas" }, { id: "eau", label: "L'eau" }, { id: "pesee", label: "La pesée" }, { id: "accueil", label: "L'accueil" }];
+
+/** « Tous les jours », « Du lundi au vendredi », « Le week-end », ou la liste des jours. */
+export function alarmDaysLabel(days: number[]) {
+  const has = (list: number[]) => list.length === days.length && list.every((day) => days.includes(day));
+  if (has(ALL_DAYS)) return "Tous les jours";
+  if (has([1, 2, 3, 4, 5])) return "Du lundi au vendredi";
+  if (has([6, 0])) return "Le week-end";
+  return WEEK_DAYS.filter(({ day }) => days.includes(day)).map(({ short }) => short).join(", ");
+}
+
 export const defaultReminders: Required<ReminderSettings> = {
+  alarms: [],
   weigh: { enabled: false, days: [1], time: "07:30" },
   weekly: { enabled: false, when: "dimanche-soir" },
   planned: { enabled: false },
@@ -31,13 +51,19 @@ const mealTimes: Record<MealCategory, [number, number]> = { "petit-dejeuner": [8
 
 export const remindersAvailable = () => Capacitor.isNativePlatform();
 
-export type ReminderTarget = "pesee" | "bilan" | "prevu";
+export type ReminderTarget = "pesee" | "bilan" | "prevu" | "repas" | "eau" | "accueil";
 type Planned = { id: number; title: string; body: string; at: Date; target: ReminderTarget } | { id: number; title: string; body: string; on: { weekday: number; hour: number; minute: number }; target: ReminderTarget };
 
 /** Notifications à programmer (fonction pure, testée). */
 export function plannedNotifications(data: Pick<AppData, "meals"> & { reminders?: ReminderSettings }, now = new Date()): Planned[] {
   const settings = { ...defaultReminders, ...data.reminders };
   const list: Planned[] = [];
+  settings.alarms.filter((alarm) => alarm.enabled).slice(0, MAX_ALARMS).forEach((alarm, index) => {
+    const [hour, minute] = alarm.time.split(":").map(Number);
+    for (const day of alarm.days) {
+      list.push({ id: 3000 + index * 10 + day, title: alarm.label, body: "C'est l'heure : touche pour ouvrir Feed Me.", on: { weekday: day + 1, hour, minute }, target: alarm.open });
+    }
+  });
   if (settings.weigh.enabled) {
     const [hour, minute] = settings.weigh.time.split(":").map(Number);
     for (const day of settings.weigh.days) {
