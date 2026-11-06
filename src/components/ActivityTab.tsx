@@ -1,4 +1,5 @@
 import { useState } from "react";
+import FitNumber from "./FitNumber";
 import Icon from "./Icon";
 import { sessionCredit as credit, sessionTypes, WEEKLY_ACTIVITY_GOAL as WEEKLY_GOAL } from "../lib/activity";
 import { todayKey, type AppData, type Session, type SessionType } from "../lib/storage";
@@ -77,7 +78,7 @@ export default function ActivityTab({ data, update, flash, onOpenSteps }: Activi
               <circle className="kr-t" cx="50" cy="50" r="43" />
               <circle className="kr-p" cx="50" cy="50" r="43" transform="rotate(-90 50 50)" strokeDasharray={`${Math.min(1, weekTotal / WEEKLY_GOAL) * RING_LENGTH} ${RING_LENGTH}`} />
             </svg>
-            <span className="kr-c"><strong style={{ "--len": String(weekTotal).length } as React.CSSProperties}>{weekTotal}</strong><small>min sur {WEEKLY_GOAL}</small></span>
+            <span className="kr-c"><FitNumber>{String(weekTotal)}</FitNumber><small>min sur {WEEKLY_GOAL}</small></span>
           </span>
           <span className="sv-bars ac-bars" role="img" aria-label="Minutes d'activité de la semaine">
             {week.map((day, index) => (

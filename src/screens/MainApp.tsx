@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import ActivityTab from "../components/ActivityTab";
 import ChangePin from "../components/ChangePin";
 import DayStrip from "../components/DayStrip";
+import FitNumber from "../components/FitNumber";
 import StoredImage from "../components/StoredImage";
 import FastingCard from "../components/FastingCard";
 import MealComposer, { type MealExtras } from "../components/MealComposer";
@@ -754,7 +755,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                   <circle className="kr-p" cx="50" cy="50" r="43" transform="rotate(-90 50 50)" strokeDasharray={`${Math.min(1, consumed / goal) * RING_LENGTH} ${RING_LENGTH}`} />
                 </svg>
                 <span className="kr-c">
-                  <strong style={{ "--len": Math.abs(remaining).toLocaleString("fr-FR").length + (remaining < 0 ? 1 : 0) } as React.CSSProperties}>{remaining < 0 ? "+" : ""}{Math.abs(remaining).toLocaleString("fr-FR")}</strong>
+                  <FitNumber>{`${remaining < 0 ? "+" : ""}${Math.abs(remaining).toLocaleString("fr-FR")}`}</FitNumber>
                   <small>{remaining >= 0 ? "kcal restantes" : "kcal au-dessus"}</small>
                 </span>
               </span>
