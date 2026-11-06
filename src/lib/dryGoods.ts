@@ -13,7 +13,7 @@ const rules: { match: RegExp; factor: number; label: string }[] = [
   { match: /vermicelle.*\bsoja\b/, factor: 344 / 61, label: "vermicelle de soja" },
   { match: /vermicelle.*\briz\b|\briz\b.*vermicelle|nouilles de riz/, factor: 365 / 89, label: "vermicelle de riz" },
   { match: /\briz\b/, factor: 352 / 145, label: "riz" },
-  { match: /\b(pates?|spaghetti|penne|tagliatelle|coquillettes|macaroni|fusilli|farfalle|linguine|rigatoni|torsades|nouilles|lasagnes? seches|udon|soba)\b/, factor: 336 / 126, label: "pâtes" },
+  { match: /\b(pates|pates? (seches?|alimentaires?)|spaghettis?|pennes?|tagliatelles?|coquillettes?|macaronis?|fusillis?|farfalles?|linguines?|rigatonis?|torsades?|nouilles?|lasagnes? seches|udon|soba|serpentinis?|tortis?|tortiglionis?|conchiglies?|orecchiettes?|capellinis?|bucatinis?|pappardelles?|fettuccines?|cavatappis?|strozzapretis?|radiatoris?|gemellis?|orzo|risonis?|ditalinis?|tubetti|mezze maniche|pipe rigate|casarecces?|trofies?|paccheri|vermicelles? de ble)\b/, factor: 336 / 126, label: "pâtes" },
   { match: /\b(semoule|couscous)\b/, factor: 352 / 122, label: "semoule" },
   { match: /\bquinoa\b/, factor: 358 / 149, label: "quinoa" },
   { match: /\bboulgour\b/, factor: 351 / 111, label: "boulgour" },
@@ -26,14 +26,26 @@ const rules: { match: RegExp; factor: number; label: string }[] = [
 /** En dessous, l'aliment est déjà cuit ou en conserve (riz cuit 145 kcal, pois chiches égouttés 122). */
 const DRY_MIN_KCAL = 280;
 
+/** « Pâte à tartiner », « pâtes de fruits », « pâté » : ni des pâtes, ni un féculent à cuire. */
+const NOT_PASTA = /\bpates? (a tartiner|feuilletees?|brisees?|sablees?|d amandes?|de fruits?|a pizza|a tarte|a crepes?|de campagne|de foie|en croute|au chocolat)\b/;
+
+/** Catégorie Open Food Facts d'un féculent sec, quand le nom seul ne le dit pas (« Serpentini n°42 »). */
+export function offDryHint(categories: string[] | undefined) {
+  const tags = categories ?? [];
+  if (tags.some((tag) => /^en:(dry-)?pastas$/.test(tag))) return "pates";
+  if (tags.some((tag) => /^en:rices?$/.test(tag))) return "riz";
+  return undefined;
+}
+
 /**
  * Facteur sec → cuit d'un féculent vendu sec, ou null : ni féculent, ni sec (déjà cuit,
  * précuit pour micro-ondes, en conserve), ou un plat (« riz cantonais » reste un plat).
  */
-export function cookedFactor(name: string, kcal100: number) {
+export function cookedFactor(name: string, kcal100: number, hint?: string) {
   if (kcal100 < DRY_MIN_KCAL) return null;
   const key = normalize(name);
   if (/\b(cuit|cuite|cuits|cuites|precuit|appertise|egoutte|cantonais|sauce|salade|gateau|biscuit|galette|souffle|chips|farine|lait|boisson)\b/.test(key)) return null;
-  const rule = rules.find((item) => item.match.test(key));
+  if (NOT_PASTA.test(key)) return null;
+  const rule = rules.find((item) => item.match.test(key) || (!!hint && item.match.test(hint)));
   return rule ? { factor: Math.round(rule.factor * 100) / 100, label: rule.label } : null;
 }

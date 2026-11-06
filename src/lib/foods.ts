@@ -9,7 +9,7 @@
 
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { commonFoods, type CommonFood } from "./commonFoods";
-import { cookedFactor } from "./dryGoods";
+import { cookedFactor, offDryHint } from "./dryGoods";
 import { energyDrinks, type EnergyDrink } from "./energyDrinks";
 import { countryOf, groupVersions } from "./offVersions";
 import type { CustomFood, MealItem, Recipe } from "./storage";
@@ -21,6 +21,8 @@ export type FoodResult = Omit<MealItem, "quantity" | "unit"> & {
   brand?: string;
   /** Recette : valeurs par portion, sans poids connu. */
   perPortionOnly?: boolean;
+  /** Féculent sec d'après sa catégorie Open Food Facts, quand son nom ne le dit pas. */
+  dryHint?: string;
   /** Énergie pour 100 g du produit préparé (cuit), quand l'emballage la donne. */
   preparedKcal100?: number;
   /** Photo du produit (Open Food Facts), montrée dans la recherche. */
@@ -380,6 +382,7 @@ export async function searchOpenFoodFacts(query: string, signal?: { cancelled: b
         packageGrams,
         ...parsePieces(`${hit.quantity ?? ""} ${name}`, packageGrams),
         ...offDrink(hit.quantity, hit.categories_tags, name, offKcal(hit.nutriments)),
+        dryHint: offDryHint(hit.categories_tags),
         detail: brand ? `${brand} · Open Food Facts` : "Open Food Facts",
         image: hit.image_front_small_url || undefined,
         meta: { ...countryOf(hit.countries_tags), completeness: hit.completeness ?? 0, scans: hit.unique_scans_n ?? 0, quantity: hit.quantity },
@@ -429,6 +432,7 @@ export async function openFoodFactsByBarcode(code: string): Promise<FoodResult |
     portionLabel: grams > 0 ? shortServing(String(product.serving_size ?? ""), grams) : undefined,
     // Boisson : contenance en cl / ml, ou catégorie « boissons » d'Open Food Facts.
     ...offDrink(product.quantity, product.categories_tags, name, kcal),
+    dryHint: offDryHint(product.categories_tags),
     packageGrams,
     ...parsePieces(`${product.quantity ?? ""} ${name}`, packageGrams),
     brand: brand || undefined,
@@ -690,7 +694,7 @@ export function toMealItem(result: FoodResult): MealItem {
   // Riz, pâtes… vendus secs : on retient le rapport cuit / sec pour « pesé cuit ».
   // Riz, pâtes… vendus secs : la conversion de l'emballage (valeurs « préparé ») d'abord, sinon Ciqual.
   const packaging = !result.perPortionOnly && result.preparedKcal100 && kcal100 / result.preparedKcal100 >= 1.5 ? Math.round((kcal100 / result.preparedKcal100) * 100) / 100 : null;
-  const dry = result.perPortionOnly ? null : packaging ? { factor: packaging } : cookedFactor(result.name, kcal100);
+  const dry = result.perPortionOnly ? null : packaging ? { factor: packaging } : cookedFactor(result.name, kcal100, result.dryHint);
   return {
     ...(dry ? { cookedFactor: dry.factor, ...(packaging ? { cookedBy: "emballage" as const } : {}) } : {}),
     // Liquide Ciqual (valeurs pour 100 g) : densité pour passer des ml aux grammes.

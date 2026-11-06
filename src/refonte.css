@@ -72,7 +72,7 @@ html[data-theme="glace-claire"], html[data-theme="glace-claire"] body { backgrou
 .phone[data-theme="eshin"] .bottom-nav button.primary-action > span { box-shadow: 0 0 18px rgba(76, 240, 111, .45); }
 
 /* --- Accueil --------------------------------------------------------------------------- */
-.topbar { padding: 16px 20px 8px; }
+.topbar { padding: calc(16px + env(safe-area-inset-top, 0px)) 20px 8px; }
 .home-content { display: flex; flex-direction: column; gap: 10px; padding-inline: 16px; }
 .day-strip { display: flex; margin-inline: -16px; padding-inline: 8px; overflow-x: auto; scrollbar-width: none; }
 .day-strip::-webkit-scrollbar { display: none; }
@@ -451,3 +451,8 @@ html[data-theme="glace-claire"], html[data-theme="glace-claire"] body { backgrou
 .alarm-form .form-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 0; }
 .alarm-form .form-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; margin: 0; }
 .alarm-new { align-self: flex-start; min-height: 44px; }
+
+/* --- Carte d'aliment : reste dans la fenêtre, quel que soit le texte ------------------ */
+.meal-lines { grid-template-columns: minmax(0, 1fr); }
+.meal-line, .meal-line > * { min-width: 0; }
+.meal-line-amount > * { min-width: 0; }
