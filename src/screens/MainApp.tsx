@@ -44,7 +44,8 @@ import { drinkCategories, hydrationOf } from "../lib/hydration";
 import { confirmEaten, eatenMeals, isPlanned } from "../lib/planning";
 import EatenWhen, { dayLabel } from "../components/EatenWhen";
 import { sessionTypes } from "../lib/activity";
-import { canCheckUpdate, checkUpdate, UPDATE_URL } from "../lib/appUpdate";
+import { canCheckUpdate, checkUpdate, markWhatsNewSeen, pendingWhatsNew, UPDATE_URL } from "../lib/appUpdate";
+import WhatsNew from "../components/WhatsNew";
 import { HOME_MEAL_ORDER, mealGlyph, mealImageId } from "../lib/mealVisual";
 import UpdatePrompt from "../components/UpdatePrompt";
 import { formatWater, WATER_MAX, waterAmounts, waterGoal } from "../lib/water";
@@ -316,12 +317,14 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   /** Nouvelle version publiée, cherchée une fois à l'ouverture. */
   const [updateTag, setUpdateTag] = useState<string | null>(null);
   const [updatePrompt, setUpdatePrompt] = useState(false);
+  const [updateNotes, setUpdateNotes] = useState<string[]>([]);
+  const [newNotes, setNewNotes] = useState(pendingWhatsNew);
   const [updateChecking, setUpdateChecking] = useState(false);
   // Une seule vérification à l'ouverture ; ensuite, à la demande depuis les paramètres.
   useEffect(() => {
     if (!canCheckUpdate()) return;
     let alive = true;
-    checkUpdate().then((check) => { if (alive && check.status === "new") { setUpdateTag(check.tag); setUpdatePrompt(true); } }).catch(() => undefined);
+    checkUpdate().then((check) => { if (alive && check.status === "new") { setUpdateTag(check.tag); setUpdateNotes(check.notes); setUpdatePrompt(true); } }).catch(() => undefined);
     return () => { alive = false; };
   }, []);
   const todayMeals = eatenMeals(data.meals).filter((meal) => meal.date === homeDay);
@@ -391,7 +394,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     setUpdateChecking(true);
     const check = await checkUpdate();
     setUpdateChecking(false);
-    if (check.status === "new") { setUpdateTag(check.tag); setUpdatePrompt(true); }
+    if (check.status === "new") { setUpdateTag(check.tag); setUpdateNotes(check.notes); setUpdatePrompt(true); }
     else if (check.status === "latest") { setUpdateTag(null); flash("Tu as déjà la dernière version"); }
     else flash("Recherche impossible : vérifie ta connexion");
   };
@@ -718,7 +721,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
   return (
     <CorrectionsContext.Provider value={correctionsApi}>
     <TableeContext.Provider value={tableeApi}>
-      {updatePrompt && updateTag && <UpdatePrompt version={updateTag} onClose={() => setUpdatePrompt(false)} />}
+      {updatePrompt && updateTag && <UpdatePrompt version={updateTag} notes={updateNotes} onClose={() => setUpdatePrompt(false)} />}
+      {!updatePrompt && newNotes && <WhatsNew version={__APP_VERSION__.tag} notes={newNotes} onClose={() => { markWhatsNewSeen(); setNewNotes(null); }} />}
       {showSplash && modal === null && (
         <TipSplash tip={todayTip} favorite={favoriteTips.includes(todayTip.id)} onToggleFavorite={() => toggleFavoriteTip(todayTip.id)} onClose={() => setShowSplash(false)} onOpenCorner={() => { setShowSplash(false); setModal("tips"); }} onNext={nextTip} />
       )}

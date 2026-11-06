@@ -59,15 +59,16 @@ jobs:
           ./gradlew assembleRelease --no-daemon
           mv app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/feed-me.apk"
 
+      - name: Notes de version
+        if: github.ref_type == 'tag'
+        run: node scripts/release-notes.mjs "${{ github.ref_name }}" release-notes.md
+
       - name: Publication dans les Releases
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           files: feed-me.apk
-          body: |
-            **Installer sur Android** : téléchargez `feed-me.apk` ci-dessous depuis le téléphone, ouvrez-le,
-            puis autorisez « Installer des applis inconnues » si Android le demande.
-            Une nouvelle version s'installe par-dessus l'ancienne sans perdre les données.
+          body_path: release-notes.md
 
       - name: APK de test (lancement manuel)
         if: github.ref_type != 'tag'
