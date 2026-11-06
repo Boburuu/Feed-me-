@@ -456,3 +456,4 @@ html[data-theme="glace-claire"], html[data-theme="glace-claire"] body { backgrou
 .meal-lines { grid-template-columns: minmax(0, 1fr); }
 .meal-line, .meal-line > * { min-width: 0; }
 .meal-line-amount > * { min-width: 0; }
+.meal-line-detail { overflow: visible; white-space: normal; text-overflow: clip; }
