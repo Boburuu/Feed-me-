@@ -10,6 +10,7 @@
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { commonFoods, type CommonFood } from "./commonFoods";
 import { cookedFactor, offDryHint } from "./dryGoods";
+import { recipeMlPerPart } from "./recipeDrink";
 import { energyDrinks, type EnergyDrink } from "./energyDrinks";
 import { countryOf, groupVersions } from "./offVersions";
 import type { CustomFood, MealItem, Recipe } from "./storage";
@@ -524,7 +525,7 @@ export function recipeResult(recipe: Recipe): FoodResult {
     ...(recipe.pieces ? { recipePieces: recipe.pieces } : {}),
     // Poids du plat : pesé (gardé avec la recette), sinon somme des ingrédients (à corriger si ça a cuit).
     ...(recipe.totalGrams ? { recipeGrams: recipe.totalGrams } : ingredientsGrams(recipe) ? { recipeGrams: ingredientsGrams(recipe)!, recipeGramsEstimated: true } : {}),
-    ...(recipe.volumeMl ? { drinkMlPerPart: recipe.volumeMl / (recipe.portions || 1) } : {}),
+    ...(recipeMlPerPart(recipe) ? { drinkMlPerPart: recipeMlPerPart(recipe) } : {}),
     detail: recipe.calories ? `Ma recette pour ${recipe.portions} pers.` : "Ma recette · calories à calculer",
   };
 }

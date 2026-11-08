@@ -385,7 +385,7 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
         </div>
       )}
       {/* Hydratation : boissons comptées d'office ; soupe, lait… au choix. */}
-      {!hideHydration && !isPreparedDrink(line) && (line.liquid || line.drinkMlPerPart || couldHydrate(line)) && (
+      {!hideHydration && !isPreparedDrink(line) && (line.liquid || line.drinkMlPerPart || (couldHydrate(line) && line.source !== "recette")) && (
         <button type="button" className={`hydrate-toggle${drinkMl(line) > 0 ? " on" : ""}`} aria-pressed={drinkMl(line) > 0}
           onClick={() => onChange({ hydrates: drinkMl(line) > 0 ? false : true })}>
           {drinkMl(line) > 0 ? `💧 ${volume(drinkMl(line))} dans l'hydratation` : "💧 Compter dans l'hydratation"}

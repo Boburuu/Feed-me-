@@ -4,12 +4,13 @@ import Icon from "./Icon";
 import { carbsOf, fatOf, itemCalories, itemGrams, itemProtein, toMealItem, type FoodResult } from "../lib/foods";
 import { matchIngredient } from "../lib/ingredientMatch";
 import { formatIngredient } from "../lib/recipes";
+import { recipeMlPerPart } from "../lib/recipeDrink";
 import { estimateRecipeWeight } from "../lib/recipeWeight";
 import { mealCategories, todayKey, type Meal, type MealCategory, type MealItem, type Recipe } from "../lib/storage";
 
 type Mode = "parts" | "pieces" | "grams";
 /** Un ingrédient de ce repas : l'aliment (ou rien, s'il n'a pas encore de valeurs) et la ligne écrite. */
-type Row = { food: MealItem | null; text: string; guessed?: boolean };
+type Row = { food: MealItem | null; text: string; guessed?: boolean; /** Saisie en cours dans le champ de quantité. */ draft?: string };
 
 type RecipePortionPickerProps = {
   recipe: Recipe;
@@ -73,9 +74,10 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
   const [replacing, setReplacing] = useState<number | "new" | null>(null);
   useEffect(() => {
     if (!showIngredients || matched) return;
-    setMatched(true);
     const todo = written.filter((item) => !item.food);
-    if (!todo.length) return;
+    if (!todo.length) { setMatched(true); return; }
+    // « matched » ne passe à vrai qu'une fois les valeurs reçues : le changer avant relançait
+    // cet effet, qui annulait la recherche en cours (ingrédients restés « sans valeurs »).
     let alive = true;
     setMatching(true);
     Promise.all(todo.map((item) => matchIngredient(item).catch(() => null))).then((found) => {
@@ -83,8 +85,9 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
       const byText = new Map(todo.map((item, index) => [formatIngredient(item), found[index]]));
       setRows((current) => current.map((row) => (row.food || !byText.get(row.text) ? row : { ...row, food: byText.get(row.text)!, guessed: true })));
       setMatching(false);
+      setMatched(true);
     });
-    return () => { alive = false; };
+    return () => { alive = false; setMatching(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showIngredients, matched]);
   const setRow = (index: number, row: Row | null) => {
@@ -179,7 +182,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
         fat100: recipe.fat ?? null,
         portionLabel: "1 part",
         recipePortions: portions,
-        ...(recipe.volumeMl ? { drinkMlPerPart: recipe.volumeMl / portions } : {}),
+        ...(recipeMlPerPart(recipe) ? { drinkMlPerPart: recipeMlPerPart(recipe) } : {}),
       }],
     }, {
       pieces: mode === "pieces" ? toNumber(pieces) || recipe.pieces : recipe.pieces,
@@ -291,7 +294,7 @@ export default function RecipePortionPicker({ recipe, category: initialCategory,
                     {row.guessed && <small className="portion-hint">Valeurs trouvées pour « {row.text} »{row.food.matchedName ? ` : ${row.food.matchedName}` : ""}. Remplace-le si ce n'est pas le bon.</small>}
                     <div className="adapt-line">
                       <span className="adapt-qty">
-                        <input value={row.food.quantity} onChange={(e) => setRow(index, { ...row, food: { ...row.food!, quantity: Math.max(0, toNumber(e.target.value)) } })} inputMode="decimal" aria-label={`Quantité de ${row.food.name}`} />
+                        <input value={row.draft ?? String(row.food.quantity).replace(".", ",")} onChange={(e) => setRow(index, { ...row, draft: e.target.value, food: { ...row.food!, quantity: Math.max(0, toNumber(e.target.value)) } })} inputMode="decimal" aria-label={`Quantité de ${row.food.name}`} />
                         <span>{unitText(row.food)}</span>
                       </span>
                       <span className="adapt-actions">

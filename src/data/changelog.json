@@ -1,5 +1,8 @@
 {
   "v1.13": [
+    "Recette : les quantités des ingrédients se modifient pour un repas (lait, cacao…).",
+    "Une recette de boisson, comme un chocolat chaud, compte dans l'hydratation.",
+    "Le cacao en poudre n'est plus pris pour un chocolat chaud déjà préparé.",
     "Le chiffre et le texte des calories tiennent dans le cercle, même avec un grand texte."
   ],
   "v1.12": [

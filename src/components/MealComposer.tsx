@@ -31,6 +31,7 @@ function draftAge(draft: Stored<MealDraft>) {
   return minutes < 60 ? `il y a ${minutes} min` : `il y a ${Math.round(minutes / 60)} h`;
 }
 import { cookedFactor } from "../lib/dryGoods";
+import { recipeMlPerPart } from "../lib/recipeDrink";
 import { energyBrands, energyDrinks } from "../lib/energyDrinks";
 import { analyzeMealPhoto, photoRecognitionAvailable, type PhotoAnalysis } from "../lib/foodPhoto";
 import BarcodePanel from "./BarcodePanel";
@@ -91,11 +92,16 @@ type Line = MealItem & { key: number };
  * Aliments d'un repas noté. Les repas sans détail (photo, recette ajoutée en un geste,
  * anciennes versions) deviennent une ligne « 1 portion » avec leurs calories.
  */
-function itemsOf(meal: Meal): MealItem[] {
+function itemsOf(meal: Meal, recipes: Recipe[]): MealItem[] {
   // Repas noté avant le choix « sec / cuit » : le choix apparaît, compté sec comme avant tant qu'on n'y touche pas.
   if (meal.items?.length) {
     return meal.items.map((item) => {
-      if (item.cookedFactor || item.source === "recette") return item;
+      if (item.source === "recette") {
+        const recipe = item.drinkMlPerPart ? undefined : recipes.find((entry) => String(entry.id) === item.ref);
+        const perPart = recipe ? recipeMlPerPart(recipe) : undefined;
+        return perPart ? { ...item, drinkMlPerPart: perPart } : item;
+      }
+      if (item.cookedFactor) return item;
       const dry = cookedFactor(item.name, item.kcal100);
       return dry ? { ...item, cookedFactor: dry.factor } : item;
     });
@@ -126,7 +132,7 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
   const toggleWith = (name: string) => setWithNames((current) => (current.some((entry) => sameName(entry, name)) ? current.filter((entry) => !sameName(entry, name)) : [...current, name]));
   const withField = withNames.length ? { with: withNames } : {};
   const corrections = useCorrections();
-  const [lines, setLines] = useState<Line[]>(() => (draft ? draft.lines : editing ? itemsOf(editing) : initialItems ?? []).map((item, index) => ({ ...item, key: index + 1 })));
+  const [lines, setLines] = useState<Line[]>(() => (draft ? draft.lines : editing ? itemsOf(editing, recipes) : initialItems ?? []).map((item, index) => ({ ...item, key: index + 1 })));
   // Recettes du carnet, les plus récentes d'abord.
   // Recettes du carnet : les plus souvent notées d'abord, puis les plus récentes.
   // Recettes mangées ces 30 derniers jours, la plus récente en premier ; les autres sur demande.
