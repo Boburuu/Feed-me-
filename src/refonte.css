@@ -28,7 +28,7 @@
 .phone .eyebrow::first-letter { text-transform: uppercase; }
 
 /* --- Thèmes sombres et clairs ----------------------------------------------------- */
-.phone[data-theme="sombre"], .phone[data-theme="glace-sombre"] {
+.phone[data-theme="sombre"], .phone[data-theme="glace-sombre"], .phone[data-theme="glace-aurore"], .phone[data-theme="glace-abysse"], .phone[data-theme="glace-amethyste"], .phone[data-theme="cacao"], .phone[data-theme="oled"] {
   --ink: #f5f8f6; --muted: #9aa69f; --cream: #070a08; --white: #131815; --on-accent: #04150b; --green: #36d981; --green-deep: #36d981; --green-text: #36d981;
   --mint: #123626; --mint-bright: #36d981; --peach: #3a2a1e; --coral: #ff8f7a; --blue: #12303d; --blue-strong: #6cc4ff; --line: #29312c; --warm: #ffb27a;
   --shadow: 0 20px 70px rgba(0, 0, 0, .5); --sheet: #111512; --bar: #131815;
@@ -36,7 +36,7 @@
   --tone-rose: #ff9cc5; --tone-orange: #ffb98a; --tone-lime: #c0ec8c; --tone-amber: #ffc870; --tone-blue: #a9d4ff;
   color-scheme: dark;
 }
-.phone[data-theme="clair"], .phone[data-theme="glace-claire"] {
+.phone[data-theme="clair"], .phone[data-theme="glace-claire"], .phone[data-theme="agrume"] {
   --ink: #101b15; --muted: #5b6c62; --cream: #f3f7f4; --white: #ffffff; --on-accent: #ffffff; --green: #0a8347; --green-deep: #086a3e; --green-text: #0a8347;
   --mint: #dcf3e6; --mint-bright: #5cc08a; --peach: #fde8d8; --coral: #cf3f25; --blue: #dcebff; --blue-strong: #1874cc; --line: #dfe8e2; --warm: #b86200;
   --sheet: #ffffff; --bar: #ffffff; --card-shadow: 0 1px 2px rgba(16, 40, 26, .05), 0 6px 18px rgba(16, 40, 26, .06);
@@ -252,18 +252,18 @@ html[data-theme="glace-claire"], html[data-theme="glace-claire"] body { backgrou
 .set-update > svg { flex: none; color: var(--muted); }
 
 /* --- Lisibilité : carte de la semaine et barre d'état ------------------------------ */
-.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="sombre"], [data-theme="clair"]) .weekly-card { color: var(--ink); background: var(--white); box-shadow: inset 0 0 0 1px var(--edge), var(--card-shadow); }
-.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="sombre"], [data-theme="clair"]) .weekly-card > div:first-child span,
-.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="sombre"], [data-theme="clair"]) .weekly-card > div:first-child small,
-.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="sombre"], [data-theme="clair"]) .week-bars small { color: var(--muted); }
-.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="sombre"], [data-theme="clair"]) .week-bars i { background: var(--s2); }
-.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="sombre"], [data-theme="clair"]) .week-bars i.bar-ok { background: var(--green-text); }
-.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="sombre"], [data-theme="clair"]) .week-bars i.bar-over { background: var(--coral); }
-.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="sombre"], [data-theme="clair"]) .week-bars i.bar-under { background: var(--sky); }
-.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="sombre"], [data-theme="clair"]) .week-bars i.bar-partial { background: color-mix(in srgb, var(--ink) 35%, transparent); }
-.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="sombre"], [data-theme="clair"]) .week-bars i.bar-free { background: var(--warm); }
-.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="sombre"], [data-theme="clair"]) .week-bars i.today { box-shadow: 0 0 0 2px var(--ink); }
-.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="sombre"], [data-theme="clair"]) :is(.profile-result span, .goal-result p) { color: color-mix(in srgb, var(--on-accent) 80%, transparent); }
+.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="glace-aurore"], [data-theme="glace-abysse"], [data-theme="glace-amethyste"], [data-theme="sombre"], [data-theme="clair"], [data-theme="cacao"], [data-theme="agrume"], [data-theme="oled"]) .weekly-card { color: var(--ink); background: var(--white); box-shadow: inset 0 0 0 1px var(--edge), var(--card-shadow); }
+.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="glace-aurore"], [data-theme="glace-abysse"], [data-theme="glace-amethyste"], [data-theme="sombre"], [data-theme="clair"], [data-theme="cacao"], [data-theme="agrume"], [data-theme="oled"]) .weekly-card > div:first-child span,
+.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="glace-aurore"], [data-theme="glace-abysse"], [data-theme="glace-amethyste"], [data-theme="sombre"], [data-theme="clair"], [data-theme="cacao"], [data-theme="agrume"], [data-theme="oled"]) .weekly-card > div:first-child small,
+.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="glace-aurore"], [data-theme="glace-abysse"], [data-theme="glace-amethyste"], [data-theme="sombre"], [data-theme="clair"], [data-theme="cacao"], [data-theme="agrume"], [data-theme="oled"]) .week-bars small { color: var(--muted); }
+.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="glace-aurore"], [data-theme="glace-abysse"], [data-theme="glace-amethyste"], [data-theme="sombre"], [data-theme="clair"], [data-theme="cacao"], [data-theme="agrume"], [data-theme="oled"]) .week-bars i { background: var(--s2); }
+.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="glace-aurore"], [data-theme="glace-abysse"], [data-theme="glace-amethyste"], [data-theme="sombre"], [data-theme="clair"], [data-theme="cacao"], [data-theme="agrume"], [data-theme="oled"]) .week-bars i.bar-ok { background: var(--green-text); }
+.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="glace-aurore"], [data-theme="glace-abysse"], [data-theme="glace-amethyste"], [data-theme="sombre"], [data-theme="clair"], [data-theme="cacao"], [data-theme="agrume"], [data-theme="oled"]) .week-bars i.bar-over { background: var(--coral); }
+.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="glace-aurore"], [data-theme="glace-abysse"], [data-theme="glace-amethyste"], [data-theme="sombre"], [data-theme="clair"], [data-theme="cacao"], [data-theme="agrume"], [data-theme="oled"]) .week-bars i.bar-under { background: var(--sky); }
+.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="glace-aurore"], [data-theme="glace-abysse"], [data-theme="glace-amethyste"], [data-theme="sombre"], [data-theme="clair"], [data-theme="cacao"], [data-theme="agrume"], [data-theme="oled"]) .week-bars i.bar-partial { background: color-mix(in srgb, var(--ink) 35%, transparent); }
+.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="glace-aurore"], [data-theme="glace-abysse"], [data-theme="glace-amethyste"], [data-theme="sombre"], [data-theme="clair"], [data-theme="cacao"], [data-theme="agrume"], [data-theme="oled"]) .week-bars i.bar-free { background: var(--warm); }
+.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="glace-aurore"], [data-theme="glace-abysse"], [data-theme="glace-amethyste"], [data-theme="sombre"], [data-theme="clair"], [data-theme="cacao"], [data-theme="agrume"], [data-theme="oled"]) .week-bars i.today { box-shadow: 0 0 0 2px var(--ink); }
+.phone:is([data-theme="glace-sombre"], [data-theme="glace-claire"], [data-theme="glace-aurore"], [data-theme="glace-abysse"], [data-theme="glace-amethyste"], [data-theme="sombre"], [data-theme="clair"], [data-theme="cacao"], [data-theme="agrume"], [data-theme="oled"]) :is(.profile-result span, .goal-result p) { color: color-mix(in srgb, var(--on-accent) 80%, transparent); }
 /* Le contenu qui défile ne passe plus sous l'heure et la batterie. */
 .phone::after { content: ""; position: fixed; top: 0; right: 0; left: 0; z-index: 4; height: env(safe-area-inset-top, 0px); background: var(--cream); pointer-events: none; }
 .phone[data-theme="glace-sombre"]::after { background: #06100c; }
@@ -461,3 +461,61 @@ html[data-theme="glace-claire"], html[data-theme="glace-claire"] body { backgrou
 /* --- Nouveautés d'une version --------------------------------------------------------- */
 .update-notes { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 420px; margin: 4px 0 0; padding: 12px 14px 12px 30px; border-radius: 16px; color: var(--ink); background: var(--s2); text-align: left; font-size: 15px; line-height: 1.35; }
 .kr-c small { max-width: 86%; text-wrap: balance; }
+
+/* --- Thèmes Aurore, Abysse, Améthyste (verre), Cacao, Agrume et Noir OLED -------------- */
+.phone[data-theme="glace-aurore"] {
+  --cream: #1a0f18; --white: rgba(255, 255, 255, 0.08); --s2: rgba(255, 255, 255, .11); --line: rgba(255, 255, 255, .11); --edge: rgba(255, 255, 255, .13);
+  --sheet: #241520; --bar: rgba(40, 22, 30, .72); --ink: #fbf3ee; --muted: #c9b2b0; --green: #ffa26b; --green-deep: #ffb084; --green-text: #ffb084; --on-accent: #2a1208;
+  --mint: rgba(255, 162, 107, .18); --mint-bright: #ffa26b; --sky: #8fd3ff; --blue-strong: #8fd3ff; --coral: #ff8f8f; --ring-a: #ffcf6b; --ring-b: #ff7a8a;
+  --mac-p: #8fd3ff; --mac-c: #ffcf6b; --mac-f: #ff9fc3;
+}
+.phone[data-theme="glace-aurore"]::before, .phone[data-theme="glace-aurore"] .update-prompt { background: radial-gradient(70% 34% at 10% 2%, #7a2f3c 0%, transparent 100%), radial-gradient(60% 30% at 100% 25%, #8a4a1c 0%, transparent 100%), radial-gradient(70% 34% at 0% 78%, #4a1f5c 0%, transparent 100%), radial-gradient(60% 30% at 100% 100%, #6b2b2b 0%, transparent 100%), #1a0f18; }
+.phone[data-theme="glace-aurore"]::after { background: #2a1420; }
+html[data-theme="glace-aurore"], html[data-theme="glace-aurore"] body { background: #1a0f18; }
+
+.phone[data-theme="glace-abysse"] {
+  --cream: #06111d; --white: rgba(255, 255, 255, 0.075); --s2: rgba(255, 255, 255, .11); --line: rgba(255, 255, 255, .11); --edge: rgba(255, 255, 255, .13);
+  --sheet: #0e1c2b; --bar: rgba(14, 30, 48, .72); --ink: #eef6fb; --muted: #9fb3c3; --green: #4cc9f0; --green-deep: #6fd6f5; --green-text: #6fd6f5; --on-accent: #04161f;
+  --mint: rgba(76, 201, 240, .18); --mint-bright: #4cc9f0; --sky: #7fe0ff; --blue-strong: #7fe0ff; --coral: #ff9a8a; --ring-a: #5cf0d0; --ring-b: #4c8df0;
+  --mac-p: #7fb2ff; --mac-c: #ffc56b; --mac-f: #9ee58a;
+}
+.phone[data-theme="glace-abysse"]::before, .phone[data-theme="glace-abysse"] .update-prompt { background: radial-gradient(70% 34% at 10% 2%, #0b4a6b 0%, transparent 100%), radial-gradient(60% 30% at 100% 28%, #123a7a 0%, transparent 100%), radial-gradient(70% 34% at 0% 78%, #0a5560 0%, transparent 100%), radial-gradient(60% 30% at 100% 100%, #1a2a6b 0%, transparent 100%), #06111d; }
+.phone[data-theme="glace-abysse"]::after { background: #08223a; }
+html[data-theme="glace-abysse"], html[data-theme="glace-abysse"] body { background: #06111d; }
+
+.phone[data-theme="glace-amethyste"] {
+  --cream: #120c1f; --white: rgba(255, 255, 255, 0.08); --s2: rgba(255, 255, 255, .11); --line: rgba(255, 255, 255, .11); --edge: rgba(255, 255, 255, .13);
+  --sheet: #1d1530; --bar: rgba(30, 20, 48, .72); --ink: #f4f0fb; --muted: #b3a8c8; --green: #b892ff; --green-deep: #c7a9ff; --green-text: #c7a9ff; --on-accent: #1a0d33;
+  --mint: rgba(184, 146, 255, .18); --mint-bright: #b892ff; --sky: #8fd3ff; --blue-strong: #8fd3ff; --coral: #ff9a9a; --ring-a: #e09bff; --ring-b: #7c8dff;
+  --mac-p: #8fb8ff; --mac-c: #ffc56b; --mac-f: #9ee58a;
+}
+.phone[data-theme="glace-amethyste"]::before, .phone[data-theme="glace-amethyste"] .update-prompt { background: radial-gradient(70% 34% at 10% 2%, #4b2a7a 0%, transparent 100%), radial-gradient(60% 30% at 100% 26%, #6a2a6b 0%, transparent 100%), radial-gradient(70% 34% at 0% 78%, #2a2f7a 0%, transparent 100%), radial-gradient(60% 30% at 100% 100%, #4a1f5c 0%, transparent 100%), #120c1f; }
+.phone[data-theme="glace-amethyste"]::after { background: #241536; }
+html[data-theme="glace-amethyste"], html[data-theme="glace-amethyste"] body { background: #120c1f; }
+
+.phone[data-theme="cacao"] {
+  --cream: #17100c; --white: #241913; --s2: rgba(246, 236, 226, .09); --line: #3a2a20; --edge: transparent; --sheet: #241913; --bar: #241913;
+  --ink: #f6ece2; --muted: #bfa996; --green: #e0a361; --green-deep: #eab47a; --green-text: #eab47a; --on-accent: #2a1707;
+  --mint: rgba(224, 163, 97, .16); --mint-bright: #e0a361; --sky: #8cc8e8; --blue-strong: #8cc8e8; --coral: #ff8f7a; --warm: #ffb27a; --ring-a: #eab47a; --ring-b: #eab47a;
+  --mac-p: #8cc8e8; --mac-c: #f2c96b; --mac-f: #b5d67a;
+}
+html[data-theme="cacao"], html[data-theme="cacao"] body { background: #17100c; }
+
+.phone[data-theme="agrume"] {
+  --cream: #fbf6ec; --white: #ffffff; --s2: rgba(60, 40, 10, .07); --line: #efe6d6; --edge: transparent; --sheet: #ffffff; --bar: #ffffff;
+  --ink: #1f1a12; --muted: #6b6253; --green: #b4500c; --green-deep: #8f3f09; --green-text: #a84a0b; --on-accent: #ffffff;
+  --mint: #fdebd6; --mint-bright: #b4500c; --sky: #1667b8; --blue-strong: #1667b8; --coral: #c43a1e; --warm: #b86200; --ring-a: #e0861a; --ring-b: #b4500c;
+  --mac-p: #1f78d1; --mac-c: #d17f0a; --mac-f: #4f8f1e; --card-shadow: 0 1px 2px rgba(60, 40, 10, .05), 0 6px 18px rgba(60, 40, 10, .06);
+}
+html[data-theme="agrume"], html[data-theme="agrume"] body { background: #fbf6ec; }
+
+.phone[data-theme="oled"] {
+  --cream: #000000; --white: #0e0e0e; --s2: rgba(255, 255, 255, .09); --line: #1c1c1c; --edge: transparent; --sheet: #0e0e0e; --bar: #0e0e0e;
+  --ink: #f2f2f2; --muted: #9c9c9c; --green: #3ddc84; --green-deep: #3ddc84; --green-text: #3ddc84; --on-accent: #00170a;
+  --mint: rgba(61, 220, 132, .16); --mint-bright: #3ddc84; --sky: #6cc4ff; --blue-strong: #6cc4ff; --coral: #ff7b6b; --warm: #ffb27a; --ring-a: #3ddc84; --ring-b: #3ddc84;
+  --mac-p: #6cb2ff; --mac-c: #ffb547; --mac-f: #8fd86a;
+}
+html[data-theme="oled"], html[data-theme="oled"] body { background: #000000; }
+.phone[data-theme="agrume"]::after { background: #fbf6ec; }
+.phone[data-theme="cacao"]::after { background: #17100c; }
+.phone[data-theme="oled"]::after { background: #000000; }

@@ -10,7 +10,7 @@ export const STORAGE_KEY = "feedme:data";
 export const PIN_LENGTH = 4;
 
 export type Sex = "femme" | "homme";
-export type ThemeName = "glace-sombre" | "glace-claire" | "sombre" | "clair" | "auto" | "sauge" | "nuit" | "ocean" | "lavande" | "eshin" | "sororitas";
+export type ThemeName = "glace-sombre" | "glace-claire" | "glace-aurore" | "glace-abysse" | "glace-amethyste" | "cacao" | "agrume" | "oled" | "sombre" | "clair" | "auto" | "sauge" | "nuit" | "ocean" | "lavande" | "eshin" | "sororitas";
 
 const DESIGN_VERSION = 2;
 
@@ -313,8 +313,14 @@ export type AppData = {
 export const themes: { id: ThemeName; name: string; mode: string }[] = [
   { id: "glace-sombre", name: "Glace sombre", mode: "Cartes translucides sur fond coloré" },
   { id: "glace-claire", name: "Glace claire", mode: "La même chose, en lumineux" },
+  { id: "glace-aurore", name: "Aurore", mode: "Verre, halos rose et ambre, accent abricot" },
+  { id: "glace-abysse", name: "Abysse", mode: "Verre, bleu nuit et turquoise" },
+  { id: "glace-amethyste", name: "Améthyste", mode: "Verre, violet profond et lilas" },
   { id: "sombre", name: "Sombre", mode: "Noir et vert, cartes pleines" },
   { id: "clair", name: "Clair", mode: "Fond clair, cartes blanches" },
+  { id: "cacao", name: "Cacao", mode: "Brun chocolat et caramel, cartes pleines" },
+  { id: "agrume", name: "Agrume", mode: "Clair, fond crème et orange" },
+  { id: "oled", name: "Noir OLED", mode: "Noir pur, économise la batterie" },
   { id: "auto", name: "Comme le téléphone", mode: "Sombre ou clair selon ton téléphone" },
   { id: "sauge", name: "Sauge", mode: "Clair" },
   { id: "nuit", name: "Nuit", mode: "Sombre" },
