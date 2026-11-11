@@ -42,6 +42,8 @@ const containers = [
 ];
 /** Cuillères (repères courants : 5 ml et 15 ml ; en grammes, ça dépend de l'aliment). */
 const spoons = [{ label: "c. à café", ml: 5 }, { label: "c. à soupe", ml: 15 }];
+/** Ce qu'on compte dans un paquet. */
+const PIECE_NAMES = ["pièce", "tranche", "biscuit", "part"] as const;
 /** Aliments qu'on dose souvent à la cuillère (sucre, huile, cacao, épices…). */
 const spoonFood = /\b(sucre|sel|farine|huile|beurre|creme|miel|confiture|sauce|moutarde|ketchup|mayonnaise|epices?|cannelle|cacao|chocolat en poudre|poudre|levure|vinaigre|graines?|lait en poudre|whey|proteines?|ail|herbes|poivre|curry|paprika|cumin|cafe|the|sirop|pate a tartiner|nutella|cacahuete|goody|ricore|nesquik|maizena|fecule|parmesan|pesto|tahini|houmous|beurre de|compote|yaourt|fromage blanc|skyr|flocons|avoine|muesli|granola)\b/;
 /** Parts d'une boîte ou d'un paquet : on n'utilise pas toujours tout. */
@@ -129,6 +131,20 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
     else onChange({ recipeCount: "pieces", recipePieces: value, quantity: (eaten * servings) / value });
   };
   const [portionDraft, setPortionDraft] = useState("");
+  /** Compter à la pièce : poids du paquet et nombre de pièces dedans. */
+  const [pieceOpen, setPieceOpen] = useState(false);
+  const [packDraft, setPackDraft] = useState(line.packageGrams ? String(line.packageGrams) : "");
+  const [countDraft, setCountDraft] = useState("");
+  const [pieceName, setPieceName] = useState<(typeof PIECE_NAMES)[number]>("pièce");
+  const pieceGramsDraft = (() => { const pack = Number(packDraft.replace(",", ".")); const count = Math.round(Number(countDraft.replace(",", "."))); return pack > 0 && count > 0 && count <= 500 ? pack / count : 0; })();
+  const setPieces = () => {
+    if (!(pieceGramsDraft > 0)) return;
+    const grams = Math.round(pieceGramsDraft * 10) / 10;
+    const label = `1 ${pieceName}`;
+    onChange({ pieceGrams: grams, pieceLabel: label, unit: "portion", portionGrams: grams, portionLabel: label, quantity: 1, packageGrams: Number(packDraft.replace(",", ".")) || line.packageGrams });
+    corrections?.saveCookPref(cookKey(line), { pieceGrams: grams, pieceLabel: label });
+    setPieceOpen(false);
+  };
   /** Poids d'une portion donné à la main : l'aliment se compte ensuite aussi en grammes (retenu pour la prochaine fois). */
   // Pas de <form> ici : cette ligne s'affiche aussi dans le formulaire d'une recette.
   const onEnter = (action: () => void) => (event: React.KeyboardEvent) => { if (event.key === "Enter") { event.preventDefault(); action(); } };
@@ -181,8 +197,8 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
     if (line.packageGrams) {
       options.push({ key: "package", label: `paquet ${amount(line.packageGrams)}`, selected: isPackage, pick: () => useUnit({ label: PACKAGE_LABEL, grams: line.packageGrams! }) });
     }
-    // Cuillère à café / à soupe : ≈ 5 g et ≈ 15 g (repère ; pour l'huile ou la farine, corriger en grammes).
-    if (spoonFood.test(normalize(line.name))) {
+    // Cuillère à café / à soupe : ≈ 5 g et ≈ 15 g, pour tout aliment solide (taboulé, sucre, cacao…).
+    {
       spoons.forEach((spoon) => options.push({ key: spoon.label, label: `${spoon.label} ≈${spoon.ml} g`, selected: line.unit === "portion" && line.portionLabel === `1 ${spoon.label}`, pick: () => useUnit({ label: `1 ${spoon.label}`, grams: spoon.ml }) }));
     }
     options.push({ key: "g", label: "g", selected: line.unit === "g", pick: () => useUnit("g") });
@@ -241,6 +257,23 @@ export default function MealLineEditor({ line, onChange, onRemove, hideHydration
             <button type="button" role="radio" aria-checked={option.selected} key={option.key} className={option.selected ? "selected" : ""} onClick={option.pick}>{option.label}</button>
           ))}
         </div>
+      )}
+
+      {/* Paquet de 20 tranches de pepperoni, de 12 biscuits… : poids d'une pièce = poids du paquet ÷ nombre de pièces. */}
+      {!perPortionOnly && !line.liquid && !servings && (
+        pieceOpen ? (
+          <div className="piece-box">
+            <span className="piece-row">Le paquet de <input value={packDraft} onChange={(e) => setPackDraft(e.target.value)} inputMode="decimal" placeholder="—" aria-label="Poids du paquet en grammes" /> g contient <input value={countDraft} onChange={(e) => setCountDraft(e.target.value)} inputMode="numeric" placeholder="20" aria-label="Nombre de pièces dans le paquet" /></span>
+            <div className="container-chips" role="radiogroup" aria-label="Nom d'une pièce">
+              {PIECE_NAMES.map((name) => <button type="button" role="radio" aria-checked={pieceName === name} key={name} className={pieceName === name ? "selected" : ""} onClick={() => setPieceName(name)}>{name}s</button>)}
+            </div>
+            {pieceGramsDraft > 0 && <small>1 {pieceName} ≈ {n(Math.round(pieceGramsDraft * 10) / 10)} g ≈ {n(Math.round(line.kcal100 * pieceGramsDraft / 100))} kcal</small>}
+            <span className="piece-actions">
+              <button type="button" className="text-button" onClick={() => setPieceOpen(false)}>Annuler</button>
+              <button type="button" className="add-button" onClick={setPieces} disabled={!(pieceGramsDraft > 0)}>Compter en {pieceName}s</button>
+            </span>
+          </div>
+        ) : <button type="button" className="text-button piece-open" onClick={() => setPieceOpen(true)}>Compter à la pièce (tranches, biscuits…)</button>
       )}
 
       {/* Connu seulement par portion (cookie Subway, aliment perso) : avec son poids, on peut compter en grammes. */}

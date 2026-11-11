@@ -75,7 +75,7 @@ export function cookKey(item: Pick<MealItem, "source" | "ref" | "name">) {
 }
 
 /** portionGrams : poids d'une portion indiqué par l'utilisateur (cookie Subway pesé : 45 g). */
-export type CookPref = { weighedCooked?: boolean; variantRef?: string; portionGrams?: number };
+export type CookPref = { weighedCooked?: boolean; variantRef?: string; portionGrams?: number; /** Poids d'une pièce d'après le paquet (20 biscuits pour 1 kg : 50 g). */ pieceGrams?: number; pieceLabel?: string };
 export type CookPrefs = Record<string, CookPref>;
 
 // --- Matière grasse de cuisson ---------------------------------------------------------------

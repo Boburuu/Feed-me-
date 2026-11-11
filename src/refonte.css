@@ -519,3 +519,30 @@ html[data-theme="oled"], html[data-theme="oled"] body { background: #000000; }
 .phone[data-theme="agrume"]::after { background: #fbf6ec; }
 .phone[data-theme="cacao"]::after { background: #17100c; }
 .phone[data-theme="oled"]::after { background: #000000; }
+
+/* --- Effacement sécurisé et corbeille ----------------------------------------------- */
+.erase-box { display: grid; gap: 10px; margin-top: 10px; padding: 14px; border-radius: 18px; background: color-mix(in srgb, var(--coral) 10%, var(--white)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--coral) 45%, transparent); text-align: left; }
+.erase-box strong { display: flex; align-items: center; gap: 8px; color: var(--coral); }
+.erase-box p { margin: 0; color: var(--ink); font-size: 14px; line-height: 1.4; }
+.erase-box label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.erase-box input { width: 100%; min-height: 48px; padding: 0 14px; border: 0; border-radius: 12px; outline: 0; color: var(--ink); background: var(--s2); font-size: 16px; letter-spacing: .04em; }
+.erase-box input:focus { box-shadow: 0 0 0 2px var(--coral); }
+.erase-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.erase-actions button { min-height: 48px; margin: 0; }
+.erase-actions .danger { color: #fff; background: #c43a1e; }
+.erase-actions .danger:disabled { opacity: .45; }
+.auth-screen .erase-box { width: min(100%, 420px); align-self: center; }
+.trash-card { display: grid; gap: 8px; margin-bottom: 12px; padding: 14px; border-radius: 18px; background: var(--white); box-shadow: inset 0 0 0 2px var(--green-text); text-align: left; }
+.trash-card strong { display: flex; align-items: center; gap: 8px; color: var(--green-text); }
+.trash-card p { margin: 0; color: var(--ink); font-size: 14px; }
+.trash-card small { color: var(--muted); }
+.trash-card .submit-button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; margin: 0; }
+.trash-note { margin: 0 0 10px; color: var(--muted); font-size: 13px; text-align: left; }
+
+/* --- Compter à la pièce ------------------------------------------------------------- */
+.piece-open { align-self: flex-start; min-height: 40px; padding: 0; }
+.piece-box { display: grid; gap: 8px; padding: 10px 12px; border-radius: 14px; background: var(--s2); }
+.piece-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px; }
+.piece-row input { width: 72px; min-height: 40px; padding: 0 8px; border: 0; border-radius: 10px; outline: 0; color: var(--ink); background: var(--white); text-align: right; font-size: 15px; }
+.piece-box small { color: var(--muted); font-size: 13px; }
+.piece-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; }

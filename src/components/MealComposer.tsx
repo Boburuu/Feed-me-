@@ -269,7 +269,7 @@ export default function MealComposer({ cheatDay, date: initialDate, category: in
     // Sec ou cuit, cru ou cuit : le choix de la dernière fois pour cet aliment.
     const pref = corrections?.cookPrefs[cookKey(item)];
     // Portion pesée la dernière fois (cookie Subway : 45 g) : comptable en grammes.
-    const weighed = pref?.portionGrams && needsPortionWeight(item) ? withPortionWeight(item, pref.portionGrams) : {};
+    const weighed = { ...(pref?.portionGrams && needsPortionWeight(item) ? withPortionWeight(item, pref.portionGrams) : {}), ...(pref?.pieceGrams && !item.pieceGrams ? { pieceGrams: pref.pieceGrams, pieceLabel: pref.pieceLabel } : {}) };
     // Le dernier aliment ajouté s'affiche en haut, juste sous la recherche : pas besoin de descendre.
     setLines((current) => [{ ...item, ...weighed, ...(item.cookedFactor ? { weighedCooked: pref?.weighedCooked ?? mode === "meal" } : {}), key }, ...current]);
     setQuery("");

@@ -4,6 +4,7 @@ import PinPad from "../components/PinPad";
 import PlanEditor from "../components/PlanEditor";
 import PlanResults from "../components/PlanResults";
 import { restoreImages } from "../lib/images";
+import { trashItems } from "../lib/trash";
 import { computePlan } from "../lib/nutrition";
 import { bodyErrors, draftFrom, goalErrors, parseDraft, withSuggestedTarget } from "../lib/planDraft";
 import {
@@ -19,12 +20,17 @@ import {
 type OnboardingProps = {
   onCreate: (data: AppData) => void;
   onImport: (data: AppData) => void;
+  /** Données effacées depuis moins de 30 jours : on les remet (le code d'origine sera demandé). */
+  onRestoreTrash: (data: AppData, deletedAt: string) => void;
 };
 
 type Step = "welcome" | "identity" | "body" | "goal" | "pin" | "confirm";
 const steps: Step[] = ["identity", "body", "goal", "pin", "confirm"];
 
-export default function Onboarding({ onCreate, onImport }: OnboardingProps) {
+export default function Onboarding({ onCreate, onImport, onRestoreTrash }: OnboardingProps) {
+  const [trash] = useState(trashItems);
+  const restorable = trash.filter((item) => item.data);
+  const unreadable = trash.some((item) => item.unreadable);
   const [step, setStep] = useState<Step>("welcome");
   const [identity, setIdentity] = useState({ firstName: "", lastName: "", pseudo: "" });
   const [photo, setPhoto] = useState<string | null>(null);
@@ -129,6 +135,16 @@ export default function Onboarding({ onCreate, onImport }: OnboardingProps) {
             <li><Icon name="target" size={17} /> Estimations indicatives, sans jugement</li>
           </ul>
           {errors.length > 0 && <p className="form-error" role="alert">{errors[0]}</p>}
+          {restorable.map((item) => (
+            <section className="trash-card" key={item.deletedAt}>
+              <strong><Icon name="redo" size={18} /> Tes données effacées sont encore là</strong>
+              <p>{item.data!.profile.firstName} · {item.data!.meals.length} repas · {item.data!.recipes.length} recettes, effacées le {new Date(item.deletedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}. Gardées 30 jours.</p>
+              <button type="button" className="submit-button" onClick={() => onRestoreTrash(item.data!, item.deletedAt)}><Icon name="check" /> Restaurer ces données</button>
+              <small>Ton code d'origine te sera demandé.</small>
+            </section>
+          ))}
+          {unreadable && <p className="trash-note">Des données que l'app n'arrive plus à lire ont été mises de côté sur ce téléphone, sans être effacées.</p>}
+          {restorable.length > 0 && <p className="trash-note">Créer un nouveau compte ne supprime pas ces données : elles restent récupérables ici pendant 30 jours.</p>}
           <div className="welcome-choices">
             <button className="welcome-choice primary" onClick={() => setStep("identity")}>
               <Icon name="user" size={22} />

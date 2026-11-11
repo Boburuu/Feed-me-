@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import ActivityTab from "../components/ActivityTab";
 import ChangePin from "../components/ChangePin";
+import EraseConfirm from "../components/EraseConfirm";
 import DayStrip from "../components/DayStrip";
 import FitNumber from "../components/FitNumber";
 import StoredImage from "../components/StoredImage";
@@ -679,11 +680,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
     }
   };
 
-  const reset = () => {
-    if (window.confirm("Effacer définitivement toutes les données de Feed Me sur cet appareil ?\n\nPensez à exporter une sauvegarde avant.")) {
-      onReset();
-    }
-  };
+  /** Effacer tout : panneau dans la page (EFFACER + code), plus de simple confirmation. */
+  const [erasing, setErasing] = useState(false);
 
   const [trackingView, setTrackingView] = useState<TrackingView>("jour");
   /** Page ouverte dans le profil (null : la liste des réglages). */
@@ -1215,9 +1213,10 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               <button onClick={() => backupInput.current?.click()}><Icon name="upload" /><span><strong>Importer une sauvegarde</strong><small>Remplace les données actuelles</small></span><Icon name="chevron" size={17} /></button>
               <button onClick={() => setModal("pin")}><Icon name="edit" /><span><strong>Changer mon code</strong><small>Nouveau code à 4 chiffres</small></span><Icon name="chevron" size={17} /></button>
               <button onClick={onLock}><Icon name="lock" /><span><strong>Verrouiller maintenant</strong><small>Le code sera demandé</small></span><Icon name="chevron" size={17} /></button>
-              <button className="danger" onClick={reset}><Icon name="trash" /><span><strong>Effacer toutes les données</strong><small>Action définitive</small></span><Icon name="chevron" size={17} /></button>
+              <button className="danger" onClick={() => setErasing(true)}><Icon name="trash" /><span><strong>Effacer toutes les données</strong><small>Gardées 30 jours dans la corbeille</small></span><Icon name="chevron" size={17} /></button>
             </div>
             <input ref={backupInput} className="hidden-input" type="file" accept="application/json,.json" onChange={importBackup} />
+            {erasing && <EraseConfirm pin={data.pin} onErase={onReset} onCancel={() => setErasing(false)} />}
           </section>
           )}
         </div>

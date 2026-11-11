@@ -1,4 +1,10 @@
 {
+  "v1.14": [
+    "Effacer ses données demande maintenant de taper EFFACER, et ton code depuis les paramètres.",
+    "Données effacées par erreur : récupérables pendant 30 jours, avant de créer un nouveau compte.",
+    "Cuillères à café et à soupe pour tous les aliments (taboulé, purée…).",
+    "Compter à la pièce : le paquet de 20 tranches ou de 12 biscuits, l'app calcule une pièce."
+  ],
   "v1.13": [
     "Six nouveaux thèmes : Aurore, Abysse, Améthyste, Cacao, Agrume et Noir OLED (Paramètres › Apparence).",
     "Recette : les quantités des ingrédients se modifient pour un repas (lait, cacao…).",

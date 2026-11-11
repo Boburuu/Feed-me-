@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { versionLabel } from "../lib/version";
+import EraseConfirm from "../components/EraseConfirm";
 import PinPad from "../components/PinPad";
 import { checkPin, initials, pinLength, type AppData } from "../lib/storage";
 
@@ -43,12 +44,7 @@ export default function LockScreen({ data, onUnlock, onReset }: LockScreenProps)
     }
   };
 
-  const forgot = () => {
-    const confirmed = window.confirm(
-      "Sans serveur, le code ne peut pas être récupéré.\n\nRéinitialiser efface toutes les données de Feed Me sur cet appareil (profil, repas, poids, recettes). Vous pourrez ensuite importer une sauvegarde.\n\nContinuer ?",
-    );
-    if (confirmed) onReset();
-  };
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   return (
     <div className="auth-screen">
@@ -66,7 +62,9 @@ export default function LockScreen({ data, onUnlock, onReset }: LockScreenProps)
         length={pinLength(data.pin)}
         onComplete={submit}
       />
-      <button type="button" className="text-button forgot-button" onClick={forgot}>Code oublié ?</button>
+      {forgotOpen
+        ? <EraseConfirm onErase={onReset} onCancel={() => setForgotOpen(false)} />
+        : <button type="button" className="text-button forgot-button" onClick={() => setForgotOpen(true)}>Code oublié ?</button>}
       <small className="lock-version">{versionLabel()}</small>
     </div>
   );

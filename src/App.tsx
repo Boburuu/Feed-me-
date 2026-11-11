@@ -2,14 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import LockScreen from "./screens/LockScreen";
 import MainApp from "./screens/MainApp";
 import Onboarding from "./screens/Onboarding";
-import { clearImages } from "./lib/images";
-import { clearData, loadData, saveData, type AppData } from "./lib/storage";
+import { saveSafetyCopy } from "./lib/backup";
+import { loadData, saveData, type AppData } from "./lib/storage";
+import { moveDataToTrash, removeFromTrash, unreadableDataPresent } from "./lib/trash";
 
 // Au-delà de ce délai en arrière-plan, le code est redemandé au retour.
 const AUTO_LOCK_MS = 60_000;
 
 export default function App() {
-  const [data, setData] = useState<AppData | null>(() => loadData());
+  const [data, setData] = useState<AppData | null>(() => {
+    const loaded = loadData();
+    // Données présentes mais illisibles : mises de côté, jamais écrasées par un nouveau compte.
+    if (!loaded && unreadableDataPresent()) moveDataToTrash(true);
+    return loaded;
+  });
+  const [eraseError, setEraseError] = useState(false);
   const [locked, setLocked] = useState(true);
   // Après le premier déverrouillage, l'appli reste ouverte sous l'écran du code : au retour,
   // on retrouve la page, la recherche ou la fenêtre où l'on était.
@@ -48,13 +55,19 @@ export default function App() {
   const update = (change: (current: AppData) => AppData) =>
     setData((current) => (current ? change(current) : current));
 
-  const reset = () => {
-    clearData();
-    clearImages();
+  /** Effacer : copie de sécurité, puis corbeille (30 jours). Les photos des recettes restent pour la restauration. */
+  const reset = async () => {
+    if (data) await saveSafetyCopy(data);
+    if (!moveDataToTrash()) { setEraseError(true); return; }
     setData(null);
     setLocked(true);
     setOpened(false);
     setSession((value) => value + 1);
+  };
+
+  const restoreTrash = (backup: AppData, deletedAt: string) => {
+    importData(backup);
+    removeFromTrash(deletedAt);
   };
 
   const importData = (backup: AppData) => {
@@ -66,11 +79,13 @@ export default function App() {
 
   return (
     <main className="app-shell">
+      {eraseError && <p className="storage-error" role="alert">Rien n'a été effacé : le téléphone n'a plus assez de place pour garder une copie. Libère de l'espace puis réessaie.</p>}
       <section className="phone" data-theme={theme}>
         {!data && (
           <Onboarding
             onCreate={(created) => { setData(created); setLocked(false); setOpened(true); }}
             onImport={importData}
+            onRestoreTrash={restoreTrash}
           />
         )}
         {data && opened && (

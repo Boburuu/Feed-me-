@@ -32,3 +32,24 @@ export async function exportBackup(data: AppData) {
   link.click();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Copie de sécurité écrite sans rien demander, juste avant d'effacer : Documents › Feed Me
+ * sur le téléphone. Un échec n'empêche rien (la corbeille garde aussi les données).
+ */
+export async function saveSafetyCopy(data: AppData) {
+  if (!Capacitor.isNativePlatform()) return false;
+  try {
+    const images = await allImages().catch(() => ({}));
+    await Filesystem.writeFile({
+      path: `Feed Me/feedme-avant-effacement-${todayKey()}-${Date.now()}.json`,
+      data: JSON.stringify({ ...data, images }),
+      directory: Directory.Documents,
+      encoding: Encoding.UTF8,
+      recursive: true,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
