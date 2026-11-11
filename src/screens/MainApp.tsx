@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import ActivityTab from "../components/ActivityTab";
 import ChangePin from "../components/ChangePin";
+import ShareAppPanel from "../components/ShareAppPanel";
 import EraseConfirm from "../components/EraseConfirm";
 import DayStrip from "../components/DayStrip";
 import FitNumber from "../components/FitNumber";
@@ -76,7 +77,7 @@ type MainAppProps = {
 };
 
 type Tab = "Accueil" | "Suivi" | "Activité" | "Recettes" | "Profil";
-type SettingsPage = "compte" | "objectif" | "apparence" | "hydratation" | "rappels" | "conseils" | "brouillons" | "tablee" | "donnees";
+type SettingsPage = "compte" | "objectif" | "apparence" | "hydratation" | "rappels" | "conseils" | "brouillons" | "tablee" | "donnees" | "partager";
 type ModalType = "meal" | "portion" | "add" | "pin" | "steps" | "share" | "share-out" | "weigh" | "tips" | "recap" | "pantry" | null;
 
 function defaultCategory(date = new Date()): MealCategory {
@@ -966,6 +967,7 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
                 { page: "hydratation", icon: "water", tone: "cyan", title: "Hydratation", sub: `${formatWater(goalWater)} par jour, ce qui compte` },
                 { action: () => setModal("steps"), icon: "shoe", tone: "orange", title: "Mes pas", sub: `Objectif ${data.stepGoal.toLocaleString("fr-FR")} pas` },
               ],
+              [{ page: "partager", icon: "share", tone: "green", title: "Faire découvrir Feed Me", sub: "QR code ou envoi de l'application" }],
               [{ page: "tablee", icon: "users", tone: "pink", title: "Ma tablée", sub: (data.tablee ?? []).length ? joinNames(data.tablee ?? []) : "Personne pour l'instant" }],
               [
                 { page: "apparence", icon: "palette", tone: "violet", title: "Apparence", sub: `Thème : ${themes.find((item) => item.id === theme)?.name ?? ""}` },
@@ -1097,6 +1099,8 @@ export default function MainApp({ data, update, onLock, onReset, onImport }: Mai
               </form>
             );
           })()}
+
+          {settingsPage === "partager" && <ShareAppPanel flash={flash} />}
 
           {settingsPage === "apparence" && (
           <section className="section-block">

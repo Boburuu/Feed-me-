@@ -546,3 +546,9 @@ html[data-theme="oled"], html[data-theme="oled"] body { background: #000000; }
 .piece-row input { width: 72px; min-height: 40px; padding: 0 8px; border: 0; border-radius: 10px; outline: 0; color: var(--ink); background: var(--white); text-align: right; font-size: 15px; }
 .piece-box small { color: var(--muted); font-size: 13px; }
 .piece-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; }
+
+/* --- Faire découvrir Feed Me : QR code ---------------------------------------------- */
+.share-app { display: flex; flex-direction: column; gap: 10px; }
+.qr-box { align-self: center; width: min(100%, 260px); aspect-ratio: 1; padding: 6px; border-radius: 18px; background: #ffffff; }
+.qr-box svg { display: block; width: 100%; height: 100%; }
+.share-app .submit-button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; margin: 0; }

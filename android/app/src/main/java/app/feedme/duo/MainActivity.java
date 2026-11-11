@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
         // Module propre à l'app : doit être enregistré avant le démarrage du pont Capacitor.
         registerPlugin(StepCounterPlugin.class);
         registerPlugin(FoodClassifierPlugin.class);
+        registerPlugin(AppSharePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
