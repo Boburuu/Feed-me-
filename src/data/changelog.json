@@ -1,5 +1,6 @@
 {
   "v1.14": [
+    "Recette : « Ajouter une étape » marche du premier coup clavier ouvert ; plusieurs lignes collées deviennent plusieurs étapes.",
     "Paramètres › Faire découvrir Feed Me : un QR code à scanner, ou l'app envoyée directement par Quick Share.",
     "Effacer ses données demande maintenant de taper EFFACER, et ton code depuis les paramètres.",
     "Données effacées par erreur : récupérables pendant 30 jours, avant de créer un nouveau compte.",

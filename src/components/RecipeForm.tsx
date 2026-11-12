@@ -274,6 +274,20 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
     set({ steps: draft.steps.map((group, i) => (i === index ? { ...group, ...change } : group)) });
   const setStep = (groupIndex: number, stepIndex: number, change: Partial<RecipeStep>) =>
     setStepGroup(groupIndex, { steps: draft.steps[groupIndex].steps.map((step, i) => (i === stepIndex ? { ...step, ...change } : step)) });
+  /** Nouvelle étape, prête à écrire (le clavier reste ouvert). */
+  const addStep = (groupIndex: number) => {
+    const index = draft.steps[groupIndex].steps.length;
+    setStepGroup(groupIndex, { steps: [...draft.steps[groupIndex].steps, emptyStep()] });
+    window.setTimeout(() => document.getElementById(`etape-${groupIndex}-${index}`)?.focus(), 0);
+  };
+  /** Texte collé sur plusieurs lignes dans une étape vide : une étape par ligne. */
+  const pasteSteps = (event: React.ClipboardEvent<HTMLTextAreaElement>, groupIndex: number, stepIndex: number) => {
+    const lines = event.clipboardData.getData("text").split(/\r?\n/).map((line) => line.replace(/^\s*(\d+[.)]|[-•*])\s*/, "").trim()).filter(Boolean);
+    const current = draft.steps[groupIndex].steps;
+    if (lines.length < 2 || current[stepIndex].text.trim()) return;
+    event.preventDefault();
+    setStepGroup(groupIndex, { steps: [...current.slice(0, stepIndex), ...lines.map((text) => ({ title: "", text })), ...current.slice(stepIndex + 1)] });
+  };
   /** Nouvelle partie d'étapes : reprend le nom d'une partie d'ingrédients pas encore utilisée. */
   const addStepGroup = () => {
     const used = new Set(draft.steps.map((group) => group.title));
@@ -506,10 +520,11 @@ export default function RecipeForm({ initial, onSave, onCancel, flash, draft: sa
                   <input value={step.title} onChange={(e) => setStep(groupIndex, stepIndex, { title: e.target.value })} placeholder={`Titre de l'étape ${stepIndex + 1} (facultatif)`} aria-label={`Titre de l'étape ${stepIndex + 1}`} />
                   <button type="button" className="icon-button" onClick={() => setStepGroup(groupIndex, { steps: group.steps.filter((_, i) => i !== stepIndex) })} aria-label={`Retirer l'étape ${stepIndex + 1}`}><Icon name="close" size={15} /></button>
                 </div>
-                <textarea value={step.text} onChange={(e) => setStep(groupIndex, stepIndex, { text: e.target.value })} placeholder="Instructions…" aria-label={`Instructions de l'étape ${stepIndex + 1}`} />
+                <textarea id={`etape-${groupIndex}-${stepIndex}`} value={step.text} onChange={(e) => setStep(groupIndex, stepIndex, { text: e.target.value })} onPaste={(e) => pasteSteps(e, groupIndex, stepIndex)} placeholder={stepIndex === 0 ? "Instructions… (plusieurs lignes collées : une étape par ligne)" : "Instructions…"} aria-label={`Instructions de l'étape ${stepIndex + 1}`} />
               </div>
             ))}
-            <button type="button" className="add-line" onClick={() => setStepGroup(groupIndex, { steps: [...group.steps, emptyStep()] })}><Icon name="plus" size={15} /> Ajouter une étape</button>
+            {/* Appui gardé même clavier ouvert : sans preventDefault, le premier appui ne fait que fermer le clavier. */}
+            <button type="button" className="add-line" onMouseDown={(e) => e.preventDefault()} onClick={() => addStep(groupIndex)}><Icon name="plus" size={15} /> Ajouter une étape</button>
           </div>
         ))}
         <button type="button" className="add-part" onClick={addStepGroup}><Icon name="plus" size={15} /> Ajouter une partie (ex. Garniture)</button>
